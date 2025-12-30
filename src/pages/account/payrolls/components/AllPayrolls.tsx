@@ -142,7 +142,7 @@ export const AllPayrolls: React.FC = () => {
   // Calcular Décimo Tercer Mes por período (4 meses)
   // Retorna: { period: string, grossAmount: number, sss: number, isr: number, netAmount: number }
   const calculateThirteenthMonthByPeriod = useCallback(
-    (totalIncome: number, month: number): { period: string; grossAmount: number; sss: number; isr: number; netAmount: number } => {
+    (totalIncome: number, month: number): { period: string; grossAmount: number; sss: number; isr: number; netAmount: number; startMonth: number; endMonth:number } => {
       let period = ""
       let startMonth = 0
       let endMonth = 0
@@ -180,7 +180,7 @@ export const AllPayrolls: React.FC = () => {
 
       const netAmount = Number((grossAmount - sss - isr).toFixed(2))
 
-      return { period, grossAmount, sss, isr, netAmount }
+      return { period, grossAmount, sss, isr, netAmount, startMonth, endMonth }
     },
     [calculateISR]
   )
