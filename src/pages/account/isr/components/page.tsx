@@ -140,7 +140,7 @@ export const AllISR: React.FC = () => {
   ============================ */
 
   return (
-    <div className="bg-[#0f172a] text-white min-h-screen p-8">
+    <div className="bg-[#0f172a] text-white">
       <PagesHeader
         title={pageName}
         description="Impuesto sobre la Renta - Proyección Anual"

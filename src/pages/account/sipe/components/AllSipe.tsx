@@ -232,7 +232,7 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
 
   return (
-    <div className="bg-[#0f172a] text-white min-h-screen p-8">
+    <div className="bg-[#0f172a] text-white">
       <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
 
       {/* Banner de Pago del Mes Anterior */}

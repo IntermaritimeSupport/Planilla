@@ -208,7 +208,7 @@ export const AllDecimo: React.FC = () => {
   }
 
   return (
-    <div className="bg-[#0f172a] text-white min-h-screen p-8">
+    <div className="bg-[#0f172a] text-white">
       <PagesHeader title={`${pageName} - Décimo Tercer Mes`} description="Cálculo dinámico basado en parámetros legales de la base de datos" onExport={() => { }} />
 
       {/* Selector de Partida */}
