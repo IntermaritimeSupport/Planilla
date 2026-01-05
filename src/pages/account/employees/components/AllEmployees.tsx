@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react"
 import useSWR, { mutate } from "swr"
-import { Upload } from "lucide-react"
 import Loader from "../../../../components/loaders/loader"
 import { useCompany } from "../../../../context/routerContext"
 import { usePageName } from "../../../../hook/usePageName"
@@ -74,7 +73,7 @@ export const AllEmployees: React.FC = () => {
     
     const { pageName } = usePageName()
     const { search } = useSearch()
-    const [statusFilter, setStatusFilter] = useState("Todos")
+    const [statusFilter,] = useState("Todos")
     const [notification, setNotification] = useState<{ type: "success" | "error", message: string, show: boolean }>({ type: "success", message: "", show: false })
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, employee: Employee | null, isDeleting: boolean }>({ show: false, employee: null, isDeleting: false })
     const [importModalOpen, setImportModalOpen] = useState(false)
@@ -175,6 +174,9 @@ export const AllEmployees: React.FC = () => {
                 title={pageName}
                 description={`${pageName} en ${selectedCompany?.name || '...'}`}
                 showCreate
+                onImportCsv={
+                    () => setImportModalOpen(true)
+                }
             />
 
             {/* KPI Cards */}
@@ -190,7 +192,7 @@ export const AllEmployees: React.FC = () => {
             </div>
 
             {/* Controles */}
-            <div className="mb-6 flex gap-3 flex-wrap">
+            {/* <div className="mb-6 flex gap-3 flex-wrap">
                 <select
                     className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white outline-none"
                     value={statusFilter}
@@ -201,14 +203,7 @@ export const AllEmployees: React.FC = () => {
                     <option value="Inactivos">Inactivos</option>
                 </select>
                 
-                <button
-                    onClick={() => setImportModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition"
-                >
-                    <Upload size={18} />
-                    Importar Empleados
-                </button>
-            </div>
+            </div> */}
 
             <Tabla
                 datos={filteredEmployees}
