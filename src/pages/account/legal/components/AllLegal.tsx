@@ -219,9 +219,9 @@ export const AllLegalParameters: React.FC = () => {
 
   // Get unique categories from all parameters
   const categories = ["social_security", "educational_insurance", "isr", "other"]
-  const availableCategories = categories.filter((cat) =>
-    parameters.some((p) => p.category === cat)
-  )
+  // const availableCategories = categories.filter((cat) =>
+  //   parameters.some((p) => p.category === cat)
+  // )
 
   if (isLoading) {
     return (
