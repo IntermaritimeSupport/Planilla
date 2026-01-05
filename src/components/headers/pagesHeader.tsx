@@ -23,6 +23,7 @@ interface PagesHeaderProps {
   /** Botones especiales */
   onDownloadTemplate?: () => void;
   onImportCsv?: () => void;
+  onModal?: () => void;
   importingCsv?: boolean;
 }
 
@@ -41,6 +42,7 @@ const PagesHeader: React.FC<PagesHeaderProps> = ({
 
   onDownloadTemplate,
   onImportCsv,
+  onModal,
   importingCsv = false,
 }) => {
   return (
@@ -75,6 +77,17 @@ const PagesHeader: React.FC<PagesHeaderProps> = ({
             >
               <Download className="w-4 h-4" />
               <span>Exportar</span>
+            </button>
+          )}
+
+          {/* Modal */}
+          {onModal && (
+            <button
+              onClick={onModal}
+              className={`${BUTTON_BASE} bg-gray-700 hover:bg-gray-600 text-white`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear</span>
             </button>
           )}
 

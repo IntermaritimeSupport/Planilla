@@ -58,6 +58,7 @@ import { AllSipe } from "../pages/account/sipe/components/AllSipe";
 import IsrPage from "../pages/account/isr/page";
 import { AllISR } from "../pages/account/isr/components/page";
 import { AllDecimo } from "../pages/account/decimo/components/AllDecimo";
+import { UpdateDepartment } from "../pages/account/settings/components/updateDepartment";
 
 // Tipado de usuario
 export interface User {
@@ -738,6 +739,8 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         <Route path="all" element={<AllSettingsPage />} />
         <Route path="create" element={<UpdateCompany />} />
         <Route path="edit/:id" element={<UpdateCompany />} />
+        <Route path="departments/edit" element={<UpdateDepartment />} />
+        <Route path="departments/create" element={<UpdateDepartment />} />
       </Route>
 
       <Route

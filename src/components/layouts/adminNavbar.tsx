@@ -34,7 +34,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
   const userRoles = profile?.roles ? getUserRoles(profile) : ["user"];
   const { setSearch } = useSearch()
   const location = useLocation()
-
+  const AppName = import.meta.env.VITE_APP_NAME || "Planilla";
   useEffect(() => {
     setSearch("")
   }, [location.pathname])
@@ -147,7 +147,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
                   darkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                Sistema de IT
+                {AppName}
               </span>
             </div>
           </div>
@@ -210,7 +210,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
                 darkMode ? "text-white" : "text-gray-900"
               }`}
             >
-              Sistema de IT
+              {AppName}
             </span>
           </div>
 
@@ -317,7 +317,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
                 darkMode ? "text-white" : "text-gray-900"
               }`}
             >
-              Sistema de IT
+              {AppName}
             </span>
           </div>
           <button

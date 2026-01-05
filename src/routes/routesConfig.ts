@@ -1,10 +1,10 @@
 
 // import { TicketIcon } from "lucide-react";
+import { Banknote, HandCoins, LucideBookUser, PercentCircle, ReceiptText, Scale } from "lucide-react";
 import { SettingsIcon, UsersIcon } from "../components/icons/icons";
 // import { DashboardIcon, DevicesIcon, InventoryIcon, MaintenanceIcon, NetworkIcon, ReportsIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
 import { authRoles } from "../diccionary/constants";
-import { FaMoneyBill } from "react-icons/fa";
 
 const routesConfig = [
   // {
@@ -73,7 +73,7 @@ const routesConfig = [
   },
   {
     disable:false,
-    icon: UsersIcon,
+    icon: LucideBookUser,
     name: "Employees",
     href: "/employees/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
@@ -113,20 +113,9 @@ const routesConfig = [
   //     { name: "Expense Detail", href: "/expenses/edit" },
   //   ]
   // },
-  {
-    disable:false,
-    icon: SettingsIcon,
-    name: "Settings",
-    href: "/settings/all",
-    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-    subroutes: [
-      { name: "My Settings", href: "/settings/all" },
-
-    ]
-  },
     {
     disable:false,
-    icon: FaMoneyBill,
+    icon: ReceiptText,
     name: "Payrolls",
     href: "/payrolls/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
@@ -137,7 +126,7 @@ const routesConfig = [
   },
   {
     disable:false,
-    icon: FaMoneyBill,
+    icon: Banknote,
     name: "Sipe",
     href: "/sipe/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
@@ -148,7 +137,7 @@ const routesConfig = [
   },
   {
     disable:false,
-    icon: FaMoneyBill,
+    icon: PercentCircle,
     name: "ISR",
     href: "/isr/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
@@ -159,7 +148,7 @@ const routesConfig = [
   },
   {
     disable:false,
-    icon: FaMoneyBill,
+    icon: HandCoins,
     name: "Decimo",
     href: "/decimo/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
@@ -170,12 +159,23 @@ const routesConfig = [
   },
   {
     disable:false,
-    icon: FaMoneyBill,
+    icon: Scale,
     name: "Legal",
     href: "/legal/all",
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Legal", href: "/legal/all" },
+
+    ]
+  },
+    {
+    disable:false,
+    icon: SettingsIcon,
+    name: "Settings",
+    href: "/settings/all",
+    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
+    subroutes: [
+      { name: "My Settings", href: "/settings/all" },
 
     ]
   },

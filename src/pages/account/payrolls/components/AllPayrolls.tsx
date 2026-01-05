@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import useSWR, { mutate } from "swr"
 import { Company, useCompany } from "../../../../context/routerContext"
 import { Calendar, DollarSign, Users, AlertCircle } from "lucide-react"
@@ -64,6 +64,14 @@ interface Notification {
   show: boolean
 }
 
+type PayrollOverrides = Record<
+  string,
+  Partial<Pick<
+    PayrollCalculation,
+    'hoursExtra' | 'bonifications' | 'otherIncome' | 'otherDeductions' | 'baseSalary'
+  >>
+>
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("es-PA", {
     style: "currency",
@@ -83,7 +91,7 @@ export const AllPayrolls: React.FC = () => {
 
   // Fetch legal parameters from new API
   const { data: legalParams = [] } = useSWR<LegalParameter[]>(
-    `${import.meta.env.VITE_API_URL}/api/system/legal-parameters`,
+    `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany?.id}`,
     fetcher,
     { revalidateOnFocus: false }
   )
@@ -94,10 +102,7 @@ export const AllPayrolls: React.FC = () => {
   const [payrollType, setPayrollType] = useState("Quincenal (cada 15 días)")
   const [payrollDate, setPayrollDate] = useState(new Date().toISOString().split("T")[0])
   const [quincenal, setQuincenal] = useState("Primera Quincena (1-15)")
-
-  // Datos de cálculo
-  const [employeeCalculations, setEmployeeCalculations] = useState<PayrollCalculation[]>([])
-
+  const [, setOverrides] = useState<PayrollOverrides>({})
   // Extraer tasas de parámetros legales del API
   const getSSSRate = useCallback(() => {
     if (!legalParams || legalParams.length === 0) return 2.87 // default employee rate
@@ -200,85 +205,70 @@ export const AllPayrolls: React.FC = () => {
     [calculateISR]
   )
 
-  // Recalcular cuando cambian employees o parámetros
-  useEffect(() => {
-    if (employees && employees.length > 0) {
-      const sssRate = getSSSRate()
-      const payrollMonth = new Date(payrollDate).getMonth()
-      const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
+const employeeCalculations = useMemo<PayrollCalculation[]>(() => {
+  if (!employees || employees.length === 0) return []
 
-      const calcs = employees.map((emp) => {
-        const baseSalary = Number(emp.salary) || 0
-        const hoursExtra = 0
-        const bonifications = 0
-        const otherIncome = 0
+  const sssRate = getSSSRate()
+  const payrollMonth = new Date(payrollDate).getMonth()
+  const isPeriodThirteenthMonth =
+    payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
 
-        const grossSalary = baseSalary + hoursExtra + bonifications + otherIncome
-        const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
-        const taxableIncome = grossSalary - sss
-        const isr = calculateISR(taxableIncome)
-        const otherDeductions = 0
-        const totalDeductions = sss + isr + otherDeductions
-        const netSalary = grossSalary - totalDeductions
+  return employees.map((emp) => {
+    const baseSalary = Number(emp.salary) || 0
+    const hoursExtra = 0
+    const bonifications = 0
+    const otherIncome = 0
 
-        const calc: PayrollCalculation = {
-          employeeId: emp.id,
-          employee: emp,
-          baseSalary,
-          hoursExtra,
-          bonifications,
-          otherIncome,
-          grossSalary,
-          sss,
-          isr,
-          otherDeductions,
-          totalDeductions,
-          netSalary,
-        }
+    const grossSalary = baseSalary + hoursExtra + bonifications + otherIncome
+    const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
+    const taxableIncome = grossSalary - sss
+    const isr = calculateISR(taxableIncome)
+    const otherDeductions = 0
+    const totalDeductions = sss + isr + otherDeductions
+    const netSalary = grossSalary - totalDeductions
 
-        if (isPeriodThirteenthMonth) {
-          const fourMonthsSalary = baseSalary * 4
-          const thirteenthData = calculateThirteenthMonthByPeriod(fourMonthsSalary, payrollMonth)
-          calc.thirteenthMonth = thirteenthData.netAmount
-        }
-
-        return calc
-      })
-
-      setEmployeeCalculations(calcs)
+    const calc: PayrollCalculation = {
+      employeeId: emp.id,
+      employee: emp,
+      baseSalary,
+      hoursExtra,
+      bonifications,
+      otherIncome,
+      grossSalary,
+      sss,
+      isr,
+      otherDeductions,
+      totalDeductions,
+      netSalary,
     }
-  }, [employees, getSSSRate, calculateISR, calculateThirteenthMonthByPeriod, payrollDate])
 
-  const updateEmployeeCalc = useCallback(
-    (employeeId: string, field: string, value: number) => {
-      setEmployeeCalculations((prev) =>
-        prev.map((calc) => {
-          if (calc.employeeId !== employeeId) return calc
-
-          const updated = { ...calc, [field]: Number(value) || 0 }
-
-          // Recalcular valores derivados
-          const sssRate = getSSSRate()
-          updated.grossSalary = updated.baseSalary + updated.hoursExtra + updated.bonifications + updated.otherIncome
-          updated.sss = Number((updated.grossSalary * (sssRate / 100)).toFixed(2))
-          updated.isr = calculateISR(updated.grossSalary - updated.sss)
-          updated.totalDeductions = updated.sss + updated.isr + updated.otherDeductions
-          updated.netSalary = updated.grossSalary - updated.totalDeductions
-
-          const payrollMonth = new Date(payrollDate).getMonth()
-          const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
-          if (isPeriodThirteenthMonth) {
-            const fourMonthsSalary = updated.baseSalary * 4
-            const thirteenthData = calculateThirteenthMonthByPeriod(fourMonthsSalary, payrollMonth)
-            updated.thirteenthMonth = thirteenthData.netAmount
-          }
-
-          return updated
-        })
+    if (isPeriodThirteenthMonth) {
+      const fourMonthsSalary = baseSalary * 4
+      const thirteenthData = calculateThirteenthMonthByPeriod(
+        fourMonthsSalary,
+        payrollMonth
       )
-    },
-    [getSSSRate, calculateISR, calculateThirteenthMonthByPeriod, payrollDate]
-  )
+      calc.thirteenthMonth = thirteenthData.netAmount
+    }
+
+    return calc
+  })
+}, [employees, payrollDate, getSSSRate, calculateISR, calculateThirteenthMonthByPeriod])
+
+
+const updateEmployeeCalc = useCallback(
+  (employeeId: string, field: keyof PayrollOverrides[string], value: number) => {
+    setOverrides((prev) => ({
+      ...prev,
+      [employeeId]: {
+        ...prev[employeeId],
+        [field]: Number(value) || 0,
+      },
+    }))
+  },
+  []
+)
+
 
   const showNotification = (type: NotificationType, message: string) => {
     setNotification({ type, message, show: true })
