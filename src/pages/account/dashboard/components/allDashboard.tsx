@@ -9,6 +9,7 @@ import ReportPreviewModal from "../../../../components/modals/ReportPreviewModal
 import PagesHeader from "../../../../components/headers/pagesHeader";
 import { CurrentPathname } from "../../../../components/layouts/main";
 import { usePageName } from "../../../../hook/usePageName";
+import DashboardEmptyState from "./DashboardEmpty";
 
 const { VITE_API_URL } = import.meta.env;
 
@@ -158,12 +159,15 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
   // ------------ Render ----------
   if (isLoading || isValidating) return <Loader />;
 
-  if (error)
+  if (error) {
     return (
-      <div className="flex-1 p-6 text-center text-red-500">
-        Error al cargar el dashboard: {error.message}
-      </div>
+      <DashboardEmptyState
+        title="Dashboard no disponible"
+        description={error.message}
+        isError
+      />
     );
+  }
 
   if (!dashboardData)
     return (

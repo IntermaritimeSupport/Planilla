@@ -1,22 +1,22 @@
 
 // import { TicketIcon } from "lucide-react";
 import { Banknote, HandCoins, LucideBookUser, PercentCircle, ReceiptText, Scale } from "lucide-react";
-import { SettingsIcon, UsersIcon } from "../components/icons/icons";
+import { DashboardIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 // import { DashboardIcon, DevicesIcon, InventoryIcon, MaintenanceIcon, NetworkIcon, ReportsIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
 import { authRoles } from "../diccionary/constants";
 
 const routesConfig = [
-  // {
-  //   disable:true,
-  //   icon: DashboardIcon,
-  //   name: "Dashboard",
-  //   href: "/dashboard/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator, authRoles.user],
-  //   subroutes: [
-  //     { name: "Dashboard", href: "/dashboard/all" },
-  //   ]
-  // },
+  {
+    disable:true,
+    icon: DashboardIcon,
+    name: "Dashboard",
+    href: "/dashboard/all",
+    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator, authRoles.user],
+    subroutes: [
+      { name: "Dashboard", href: "/dashboard/all" },
+    ]
+  },
   // {
   //   disable:false,
   //   icon: InventoryIcon,
