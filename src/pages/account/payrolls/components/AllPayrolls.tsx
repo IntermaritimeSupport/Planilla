@@ -20,17 +20,24 @@ interface Employee {
 }
 
 interface LegalParameter {
-  id?: string
+  id: string
   key: string
-  value: {
-    name: string
-    type: "employee" | "employer"
-    percentage: number
-    effectiveDate: string
-    status: "active" | "inactive"
-    category: string
-    range?: { min: number; max: number }
-  }
+  name: string
+  type: "employee" | "employer" | "fixed"
+  category: "social_security" | "educational_insurance" | "isr" | "other"
+  percentage: number
+  minRange?: number
+  maxRange?: number
+  status: "active" | "inactive"
+  effectiveDate: string
+  description?: string
+}
+
+interface ISRTramo {
+  name: string
+  percentage: number
+  minRange: number
+  maxRange: number
 }
 
 interface PayrollCalculation {
@@ -67,15 +74,16 @@ const formatCurrency = (amount: number) => {
 export const AllPayrolls: React.FC = () => {
   const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
   const { pageName } = usePageName()
+
   // Fetch employees
   const { data: employees, isLoading: empLoading } = useSWR<Employee[]>(
     selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
     fetcher
   )
 
-  // Fetch legal parameters
-  const { data: legalParams } = useSWR<LegalParameter[]>(
-    `${import.meta.env.VITE_API_URL}/api/system/config?category=legal_parameters`,
+  // Fetch legal parameters from new API
+  const { data: legalParams = [] } = useSWR<LegalParameter[]>(
+    `${import.meta.env.VITE_API_URL}/api/system/legal-parameters`,
     fetcher,
     { revalidateOnFocus: false }
   )
@@ -90,85 +98,92 @@ export const AllPayrolls: React.FC = () => {
   // Datos de cálculo
   const [employeeCalculations, setEmployeeCalculations] = useState<PayrollCalculation[]>([])
 
-  // Extraer tasas de parámetros legales
+  // Extraer tasas de parámetros legales del API
   const getSSSRate = useCallback(() => {
-    if (!legalParams) return 8.75
-    const sssParam = legalParams.find((p) => p.key === "legal_parameters_sss_employee")
-    return parseFloat(String(sssParam?.value?.percentage || 8.75))
+    if (!legalParams || legalParams.length === 0) return 2.87 // default employee rate
+    const sssParam = legalParams.find(
+      (p) => p.category === "social_security" && p.type === "employee" && p.status === "active"
+    )
+    return sssParam?.percentage || 2.87
   }, [legalParams])
 
-  // Obtener tramos de ISR desde la API
-  const getISRTramos = useCallback(() => {
-    if (!legalParams) return []
+  const getISRRates = useCallback((): ISRTramo[] => {
+    if (!legalParams || legalParams.length === 0) return []
+    
     return legalParams
-      .filter((p) => p.value?.category === "isr")
+      .filter((p) => p.category === "isr" && p.status === "active")
       .map((p) => ({
-        name: p.value?.name || "",
-        percentage: parseFloat(String(p.value?.percentage || 0)),
-        range: p.value?.range || { min: 0, max: 0 },
+        name: p.name,
+        percentage: p.percentage,
+        minRange: p.minRange || 0,
+        maxRange: p.maxRange || 999999999,
       }))
-      .sort((a, b) => a.range.min - b.range.min)
+      .sort((a, b) => a.minRange - b.minRange)
   }, [legalParams])
 
-  // Calcular ISR usando parámetros legales desde la API
+  // Calcular ISR usando tramos del API
   const calculateISR = useCallback(
-    (income: number): number => {
-      const annualIncome = Number(income) * 12
-      const tramos = getISRTramos()
+    (monthlyIncome: number): number => {
+      const annualIncome = monthlyIncome * 12
+      const tramos = getISRRates()
 
       if (tramos.length === 0) return 0
 
       let tax = 0
-      let previousMax = 0
 
       for (const tramo of tramos) {
-        if (annualIncome <= tramo.range.min) {
+        // Si el ingreso es menor al mínimo del tramo, no aplica
+        if (annualIncome <= tramo.minRange) {
           break
         }
 
-        const taxableInThisTramo = Math.min(annualIncome, tramo.range.max) - Math.max(previousMax, tramo.range.min)
+        // Calcular el ingreso gravable en este tramo
+        const taxableStart = Math.max(annualIncome, tramo.minRange)
+        const taxableEnd = Math.min(annualIncome, tramo.maxRange)
+        const taxableInThisTramo = taxableEnd - taxableStart
+
         if (taxableInThisTramo > 0) {
           tax += (taxableInThisTramo * tramo.percentage) / 100
         }
-
-        previousMax = tramo.range.max
       }
 
       return Number((tax / 12).toFixed(2))
     },
-    [getISRTramos]
+    [getISRRates]
   )
 
-  // Calcular Décimo Tercer Mes por período (4 meses)
-  // Retorna: { period: string, grossAmount: number, sss: number, isr: number, netAmount: number }
+  // Calcular Décimo Tercer Mes
   const calculateThirteenthMonthByPeriod = useCallback(
-    (totalIncome: number, month: number): { period: string; grossAmount: number; sss: number; isr: number; netAmount: number; startMonth: number; endMonth:number } => {
+    (totalIncome: number, month: number): { 
+      period: string
+      grossAmount: number
+      sss: number
+      isr: number
+      netAmount: number
+      startMonth: number
+      endMonth: number 
+    } => {
       let period = ""
       let startMonth = 0
       let endMonth = 0
 
-      // Determinar período según el mes actual
       if (month >= 3 && month <= 6) {
-        // Abril (mes 3): período 16 dic - 15 abril
         period = "Primera Partida (16 dic - 15 abr)"
-        startMonth = 11 // Diciembre del año anterior
-        endMonth = 3 // Abril
+        startMonth = 11
+        endMonth = 3
       } else if (month >= 7 && month <= 9) {
-        // Agosto (mes 7): período 16 abr - 15 agosto
         period = "Segunda Partida (16 abr - 15 ago)"
-        startMonth = 3 // Abril
-        endMonth = 7 // Agosto
+        startMonth = 3
+        endMonth = 7
       } else if (month === 11) {
-        // Diciembre (mes 11): período 16 ago - 15 diciembre
         period = "Tercera Partida (16 ago - 15 dic)"
-        startMonth = 7 // Agosto
-        endMonth = 11 // Diciembre
+        startMonth = 7
+        endMonth = 11
       }
 
-      // Cálculo: Suma de salarios / 12
       const grossAmount = Number((totalIncome / 12).toFixed(2))
 
-      // SSS: 7.25% (diferente al 8.75% mensual)
+      // SSS del 13° mes: 7.25% (diferente al mensual)
       const sss = Number((grossAmount * 0.0725).toFixed(2))
 
       // ISR: Solo si ingresos anuales > 11,000
@@ -190,7 +205,7 @@ export const AllPayrolls: React.FC = () => {
     if (employees && employees.length > 0) {
       const sssRate = getSSSRate()
       const payrollMonth = new Date(payrollDate).getMonth()
-      const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11 // Abril, Agosto, Diciembre
+      const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
 
       const calcs = employees.map((emp) => {
         const baseSalary = Number(emp.salary) || 0
@@ -198,13 +213,13 @@ export const AllPayrolls: React.FC = () => {
         const bonifications = 0
         const otherIncome = 0
 
-        const grossSalary = Number(baseSalary) + Number(hoursExtra) + Number(bonifications) + Number(otherIncome)
+        const grossSalary = baseSalary + hoursExtra + bonifications + otherIncome
         const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
-        const taxableIncome = Number(grossSalary) - Number(sss)
+        const taxableIncome = grossSalary - sss
         const isr = calculateISR(taxableIncome)
         const otherDeductions = 0
-        const totalDeductions = Number(sss) + Number(isr) + Number(otherDeductions)
-        const netSalary = Number(grossSalary) - Number(totalDeductions)
+        const totalDeductions = sss + isr + otherDeductions
+        const netSalary = grossSalary - totalDeductions
 
         const calc: PayrollCalculation = {
           employeeId: emp.id,
@@ -221,10 +236,7 @@ export const AllPayrolls: React.FC = () => {
           netSalary,
         }
 
-        // Si es período de pago del 13° mes (16 dic-15 abr, 16 abr-15 ago, 16 ago-15 dic)
         if (isPeriodThirteenthMonth) {
-          // Para propósitos de demostración, usamos el salario base multiplicado por 4 meses
-          // En producción, esto vendría de un historial de 4 meses
           const fourMonthsSalary = baseSalary * 4
           const thirteenthData = calculateThirteenthMonthByPeriod(fourMonthsSalary, payrollMonth)
           calc.thirteenthMonth = thirteenthData.netAmount
@@ -247,13 +259,12 @@ export const AllPayrolls: React.FC = () => {
 
           // Recalcular valores derivados
           const sssRate = getSSSRate()
-          updated.grossSalary = Number(updated.baseSalary) + Number(updated.hoursExtra) + Number(updated.bonifications) + Number(updated.otherIncome)
+          updated.grossSalary = updated.baseSalary + updated.hoursExtra + updated.bonifications + updated.otherIncome
           updated.sss = Number((updated.grossSalary * (sssRate / 100)).toFixed(2))
           updated.isr = calculateISR(updated.grossSalary - updated.sss)
-          updated.totalDeductions = Number(updated.sss) + Number(updated.isr) + Number(updated.otherDeductions)
-          updated.netSalary = Number(updated.grossSalary) - Number(updated.totalDeductions)
+          updated.totalDeductions = updated.sss + updated.isr + updated.otherDeductions
+          updated.netSalary = updated.grossSalary - updated.totalDeductions
 
-          // Recalcular décimo tercer mes si es período de pago
           const payrollMonth = new Date(payrollDate).getMonth()
           const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
           if (isPeriodThirteenthMonth) {
@@ -306,42 +317,42 @@ export const AllPayrolls: React.FC = () => {
                 },
                 ...(calc.isr > 0
                   ? [
-                    {
-                      type: "ISR",
-                      description: "Impuesto sobre la Renta",
-                      amount: calc.isr,
-                      isFixed: false,
-                    },
-                  ]
+                      {
+                        type: "ISR",
+                        description: "Impuesto sobre la Renta",
+                        amount: calc.isr,
+                        isFixed: false,
+                      },
+                    ]
                   : []),
               ],
               allowances: [
                 ...(calc.hoursExtra > 0
                   ? [
-                    {
-                      type: "OVERTIME",
-                      description: "Horas Extra",
-                      amount: calc.hoursExtra,
-                    },
-                  ]
+                      {
+                        type: "OVERTIME",
+                        description: "Horas Extra",
+                        amount: calc.hoursExtra,
+                      },
+                    ]
                   : []),
                 ...(calc.bonifications > 0
                   ? [
-                    {
-                      type: "BONUS",
-                      description: "Bonificación",
-                      amount: calc.bonifications,
-                    },
-                  ]
+                      {
+                        type: "BONUS",
+                        description: "Bonificación",
+                        amount: calc.bonifications,
+                      },
+                    ]
                   : []),
                 ...(calc.otherIncome > 0
                   ? [
-                    {
-                      type: "OTHER",
-                      description: "Otros Ingresos",
-                      amount: calc.otherIncome,
-                    },
-                  ]
+                      {
+                        type: "OTHER",
+                        description: "Otros Ingresos",
+                        amount: calc.otherIncome,
+                      },
+                    ]
                   : []),
               ],
             }),
@@ -382,10 +393,11 @@ export const AllPayrolls: React.FC = () => {
       payrollDate,
       payrollType,
       quincenal,
-      isPeriodThirteenthMonth,
+      isPeriodThirteenthMonth: new Date(payrollDate).getMonth() === 3 || 
+                                new Date(payrollDate).getMonth() === 7 || 
+                                new Date(payrollDate).getMonth() === 11,
     })
   }
-
 
   if (empLoading)
     return (
@@ -399,19 +411,31 @@ export const AllPayrolls: React.FC = () => {
   const isAugust = new Date(payrollDate).getMonth() === 7
   const isPeriodThirteenthMonth = isDecember || isApril || isAugust
 
-  const thirteenthMonthPeriod = isApril ? "Primera Partida (16 dic - 15 abr)" : isAugust ? "Segunda Partida (16 abr - 15 ago)" : isDecember ? "Tercera Partida (16 ago - 15 dic)" : ""
+  const thirteenthMonthPeriod = isApril
+    ? "Primera Partida (16 dic - 15 abr)"
+    : isAugust
+    ? "Segunda Partida (16 abr - 15 ago)"
+    : isDecember
+    ? "Tercera Partida (16 ago - 15 dic)"
+    : ""
 
-  const totalGrossSalary = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.grossSalary), 0).toFixed(2))
+  const totalGrossSalary = Number(
+    employeeCalculations.reduce((sum, c) => sum + Number(c.grossSalary), 0).toFixed(2)
+  )
   const totalSss = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.sss), 0).toFixed(2))
   const totalIsr = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.isr), 0).toFixed(2))
-  const totalDeductions = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.totalDeductions), 0).toFixed(2))
-  const totalNetSalary = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.netSalary), 0).toFixed(2))
+  const totalDeductions = Number(
+    employeeCalculations.reduce((sum, c) => sum + Number(c.totalDeductions), 0).toFixed(2)
+  )
+  const totalNetSalary = Number(
+    employeeCalculations.reduce((sum, c) => sum + Number(c.netSalary), 0).toFixed(2)
+  )
   const totalThirteenthMonth = isPeriodThirteenthMonth
     ? Number(employeeCalculations.reduce((sum, c) => sum + Number(c.thirteenthMonth || 0), 0).toFixed(2))
     : 0
 
-  const isrTramos = getISRTramos()
-
+  const isrTramos = getISRRates()
+  // const sssRate = getSSSRate()
   return (
     <div className="relative bg-gray-900 text-white min-h-screen">
       <PagesHeader
@@ -648,8 +672,8 @@ export const AllPayrolls: React.FC = () => {
                   <ul className="ml-6 mt-1 space-y-1">
                     {isrTramos.map((tramo, idx) => (
                       <li key={idx} className="text-xs">
-                        {tramo.name}: {tramo.percentage}% (${tramo.range.min.toLocaleString()} - $
-                        {tramo.range.max.toLocaleString()})
+                        {tramo.name}: {tramo.percentage}% (${tramo.minRange.toLocaleString()} - $
+                        {tramo.maxRange.toLocaleString()})
                       </li>
                     ))}
                   </ul>
