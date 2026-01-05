@@ -29,7 +29,7 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <h2 className="text-gray-300 text-2xl font-semibold leading-tight max-w-sm">
-            IT System
+            Planilla
           </h2>
         </div>
 
