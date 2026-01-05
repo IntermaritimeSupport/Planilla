@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react"
 import useSWR, { mutate } from "swr"
+import { Upload } from "lucide-react"
 import Loader from "../../../../components/loaders/loader"
 import { useCompany } from "../../../../context/routerContext"
 import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { useSearch } from "../../../../context/searchContext"
 import Tabla from "../../../../components/tables/Table"
+import EmployeeImportModal from "./EmployeeImportModal"
 
-// --- Interfaces actualizadas según tu Controlador y Prisma ---
 export type UserRole = 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPER_ADMIN';
 export type SalaryType = 'MONTHLY' | 'BIWEEKLY';
 export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
@@ -48,7 +49,6 @@ export interface Employee {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-// --- Helpers ---
 const getAvatarColor = (nombre: string) => {
     const colors = ["bg-blue-600", "bg-green-600", "bg-purple-600", "bg-orange-600", "bg-pink-600", "bg-indigo-600", "bg-teal-600", "bg-red-600"]
     const index = (nombre?.length || 0) % colors.length
@@ -77,6 +77,7 @@ export const AllEmployees: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState("Todos")
     const [notification, setNotification] = useState<{ type: "success" | "error", message: string, show: boolean }>({ type: "success", message: "", show: false })
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, employee: Employee | null, isDeleting: boolean }>({ show: false, employee: null, isDeleting: false })
+    const [importModalOpen, setImportModalOpen] = useState(false)
 
     const showNotification = (type: "success" | "error", message: string) => {
         setNotification({ type, message, show: true })
@@ -160,6 +161,11 @@ export const AllEmployees: React.FC = () => {
         ),
     }
 
+    const handleImportSuccess = () => {
+        mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
+        showNotification("success", "Empleados importados exitosamente")
+    }
+
     if (isLoading) return <Loader />
     if (error) return <div className="text-center p-8 text-red-500">Error al cargar empleados</div>
 
@@ -183,7 +189,8 @@ export const AllEmployees: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mb-6">
+            {/* Controles */}
+            <div className="mb-6 flex gap-3 flex-wrap">
                 <select
                     className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white outline-none"
                     value={statusFilter}
@@ -193,6 +200,14 @@ export const AllEmployees: React.FC = () => {
                     <option value="Activos">Activos</option>
                     <option value="Inactivos">Inactivos</option>
                 </select>
+                
+                <button
+                    onClick={() => setImportModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition"
+                >
+                    <Upload size={18} />
+                    Importar Empleados
+                </button>
             </div>
 
             <Tabla
@@ -230,6 +245,14 @@ export const AllEmployees: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Importación */}
+            <EmployeeImportModal
+                isOpen={importModalOpen}
+                onClose={() => setImportModalOpen(false)}
+                companyId={selectedCompany?.id}
+                onImportSuccess={handleImportSuccess}
+            />
 
             {/* Notificación Flotante */}
             {notification.show && (
