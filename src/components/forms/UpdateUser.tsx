@@ -191,7 +191,9 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
 
     try {
       const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-
+      if (!selectedCompanies || selectedCompanies.length === 0) {
+        throw new Error("Debe seleccionar al menos una compañía");
+      }
       // ✅ Preparar payload con companyIds como array
       const payload: any = {
         username: formData.username,
@@ -205,8 +207,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
         position: formData.position,
         status: formData.status,
         isActive: formData.isActive,
-        companyIds: selectedCompanies.map(c => c.value), // ✅ Array de IDs
-        userCode: formData.userCode || undefined, // ✅ Incluir userCode
+        companyIds: selectedCompanies.map(c => c.value),
+        ...(formData.userCode && { userCode: formData.userCode }),
       };
 
       if (formData.password) {
@@ -231,7 +233,7 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
         }
       } else {
         // ✅ MODO CREACIÓN: Una sola llamada POST con companyIds
-        const response = await fetch(`${VITE_API_URL}/api/users`, {
+        const response = await fetch(`${VITE_API_URL}/api/users/create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -351,9 +353,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.username ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.username ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="usuario123"
             />
             {errors.username && <p className="text-red-400 text-sm mt-1">{errors.username}</p>}
@@ -366,9 +367,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.email ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.email ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="usuario@ejemplo.com"
             />
             {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email}</p>}
@@ -383,9 +383,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.password ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.password ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder={isEditMode ? "Dejar vacío para mantener la actual" : "••••••••"}
             />
             {errors.password && <p className="text-red-400 text-sm mt-1">{errors.password}</p>}
@@ -400,9 +399,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.confirmPassword ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.confirmPassword ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="••••••••"
             />
             {errors.confirmPassword && (
@@ -450,9 +448,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.firstName ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.firstName ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="Juan"
             />
             {errors.firstName && <p className="text-red-400 text-sm mt-1">{errors.firstName}</p>}
@@ -465,9 +462,8 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
-              className={`w-full bg-gray-700 border ${
-                errors.lastName ? "border-red-500" : "border-gray-600"
-              } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full bg-gray-700 border ${errors.lastName ? "border-red-500" : "border-gray-600"
+                } rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="Pérez"
             />
             {errors.lastName && <p className="text-red-400 text-sm mt-1">{errors.lastName}</p>}
