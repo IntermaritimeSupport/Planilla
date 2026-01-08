@@ -17,7 +17,7 @@ interface Notification {
   show: boolean
 }
 
-interface LegalParameter {
+interface LegalDecimoParameter {
   id: string
   key: string
   name: string
@@ -34,7 +34,7 @@ interface LegalParameter {
 
 interface ModalState {
   show: boolean
-  parameter: Partial<LegalParameter> | null
+  parameter: Partial<LegalDecimoParameter> | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
@@ -42,12 +42,12 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
 /* ============================ 
    COMPONENT 
 ============================ */
-export const AllLegalParameters: React.FC = () => {
+export const AllLegalDecimoParameters: React.FC = () => {
   const { pageName } = usePageName()
   const { selectedCompany } = useCompany()
 
   const [activeTab, setActiveTab] = useState<ParameterCategory>("social_security")
-  const [parameters, setParameters] = useState<LegalParameter[]>([])
+  const [parameters, setParameters] = useState<LegalDecimoParameter[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [availableKeys, setAvailableKeys] = useState<{ value: string; label: string; category: string }[] >([])
   const [notification, setNotification] = useState<Notification>({ type: "success", message: "", show: false })
@@ -56,7 +56,7 @@ export const AllLegalParameters: React.FC = () => {
 
   // Fetch de llaves disponibles
   useEffect(() => {
-    fetch(`${API_URL}/api/system/legal-parameters/keys`)
+    fetch(`${API_URL}/api/system/legal-decimo-parameters/keys`)
       .then(res => res.json())
       .then(data => {
         const mapped = data.map((k: any) => ({
@@ -72,7 +72,7 @@ export const AllLegalParameters: React.FC = () => {
     if (!selectedCompany?.id) return
     try {
       setIsLoading(true)
-      const url = `${API_URL}/api/system/legal-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
+      const url = `${API_URL}/api/system/legal-decimo-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
       const response = await fetch(url)
       if (!response.ok) throw new Error("Error al cargar parámetros")
       const data = await response.json()
@@ -93,7 +93,7 @@ export const AllLegalParameters: React.FC = () => {
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000)
   }
 
-  const openModal = (param?: LegalParameter) => {
+  const openModal = (param?: LegalDecimoParameter) => {
     setModal({
       show: true,
       parameter: param || {
@@ -137,8 +137,8 @@ export const AllLegalParameters: React.FC = () => {
 
     try {
       const url = isEditing
-        ? `${API_URL}/api/system/legal-parameters/${modal.parameter?.id}`
-        : `${API_URL}/api/system/legal-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
+        ? `${API_URL}/api/system/legal-decimo-parameters/${modal.parameter?.id}`
+        : `${API_URL}/api/system/legal-decimo-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
       
       const response = await fetch(url, {
         method: isEditing ? "PUT" : "POST",
@@ -160,7 +160,7 @@ export const AllLegalParameters: React.FC = () => {
   const deleteParameter = async (id: string) => {
     if (!confirm("¿Eliminar este parámetro?")) return
     try {
-      const response = await fetch(`${API_URL}/api/system/legal-parameters/${id}`, { method: "DELETE" })
+      const response = await fetch(`${API_URL}/api/system/legal-decimo-parameters/${id}`, { method: "DELETE" })
       if (!response.ok) throw new Error("Error al eliminar")
       setParameters(prev => prev.filter(p => p.id !== id))
       showNotification("success", "Parámetro eliminado")

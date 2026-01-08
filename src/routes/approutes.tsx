@@ -59,6 +59,8 @@ import IsrPage from "../pages/account/isr/page";
 import { AllISR } from "../pages/account/isr/components/page";
 import { AllDecimo } from "../pages/account/decimo/components/AllDecimo";
 import { UpdateDepartment } from "../pages/account/settings/components/updateDepartment";
+import LegalDecimoPage from "../pages/account/legaldecimo/page";
+import { AllLegalDecimoParameters } from "../pages/account/legaldecimo/components/AllLegalDecimo";
 
 // Tipado de usuario
 export interface User {
@@ -516,6 +518,43 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       >
         <Route path="all" element={<AllLegalParameters />} />
+        {/* <Route path="create" element={<UpdateExpensePage/>} />
+        <Route path="edit/:id" element={<ExpenseDetailPage/>} /> */}
+      </Route>
+
+      <Route
+        path={`/:${code}/legaldecimo/*`}
+        element={
+          <ProtectedRoute
+            isLogged={isLogged}
+            auth={user}
+            allowedRoles={[
+              authRoles.user,
+              authRoles.admin,
+              authRoles.moderator,
+              authRoles.super_admin,
+            ]}
+          >
+            <EnvolveLayout
+              title="Legal Decimo"
+              description="Legal Decimo Page"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <LegalDecimoPage
+                subroutes={
+                  routesConfig.find((route) => route.name === "LegalDecimo")
+                    ?.subroutes || []
+                }
+              />
+            </EnvolveLayout>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="all" element={<AllLegalDecimoParameters />} />
         {/* <Route path="create" element={<UpdateExpensePage/>} />
         <Route path="edit/:id" element={<ExpenseDetailPage/>} /> */}
       </Route>

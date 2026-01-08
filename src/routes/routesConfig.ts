@@ -170,6 +170,17 @@ const routesConfig = [
   },
     {
     disable:false,
+    icon: Scale,
+    name: "LegalDecimo",
+    href: "/legaldecimo/all",
+    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
+    subroutes: [
+      { name: "Legal", href: "/legaldecimo/all" },
+
+    ]
+  },
+    {
+    disable:false,
     icon: SettingsIcon,
     name: "Settings",
     href: "/settings/all",

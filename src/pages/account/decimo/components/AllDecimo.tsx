@@ -87,7 +87,7 @@ export const AllDecimo: React.FC = () => {
   const { data: legalParams, isLoading: loadingParams } =
     useSWR<LegalParameter[]>(
       selectedCompany
-        ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany.id}`
+        ? `${import.meta.env.VITE_API_URL}/api/system/legal-decimo-parameters?companyId=${selectedCompany.id}`
         : null,
       fetcher
     )
