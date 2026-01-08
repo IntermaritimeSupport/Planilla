@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import useSWR, { mutate } from "swr"
 import { Company, useCompany } from "../../../../context/routerContext"
-import { Calendar, DollarSign, Users, AlertCircle } from "lucide-react"
+import { Calendar, DollarSign, Users, AlertCircle, Calculator } from "lucide-react"
 import { exportToExcel } from "./ExportToExcel"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
@@ -430,7 +430,7 @@ const updateEmployeeCalc = useCallback(
     <div className="relative bg-gray-900 text-white min-h-screen">
       <PagesHeader
         title={pageName}
-        description={pageName ? `${pageName} in ${selectedCompany?.name}` : "Cargando compañía..."}
+        description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
         onExport={handleExport}
       />
 
@@ -490,6 +490,24 @@ const updateEmployeeCalc = useCallback(
           <div className="text-sm text-gray-300">15 días</div>
         </div>
 
+
+      </div>
+
+      {/* Active Employees Section */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
+
+        <div className=" border-gray-800 flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <span className="text-white">Período:</span>
+            <span className="font-medium text-blue-400">
+              {quincenal === "Primera Quincena (1-15)"
+              ? `1 - 15 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
+              : `16 - 31 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`}
+            </span>
+            <span className="text-gray-500">(15 días)</span>
+          </div>
+        </div>
+
         {isPeriodThirteenthMonth && (
           <div className="bg-green-900 bg-opacity-30 border border-green-600 rounded-lg p-4 mt-4">
             <div className="text-sm text-green-100 mb-2">⚠️ Período de Pago del Décimo Tercer Mes</div>
@@ -506,22 +524,21 @@ const updateEmployeeCalc = useCallback(
           </div>
         )}
 
-        <button
-          onClick={generatePayrolls}
-          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-          disabled={employeeCalculations.length === 0}
-        >
-          <DollarSign size={20} />
-          Calcular Planilla para {employeeCalculations.length} Empleado{employeeCalculations.length !== 1 ? "s" : ""}
-        </button>
-      </div>
-
-      {/* Active Employees Section */}
-      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Users size={20} />
-          <h3 className="text-lg font-semibold">Empleados Activos ({employeeCalculations.length})</h3>
+        <div className="flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Users size={20} />
+            <h3 className="text-lg font-semibold">Empleados Activos ({employeeCalculations.length})</h3>
+          </div>
+          <button
+            onClick={generatePayrolls}
+            className="px-4 mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            disabled={employeeCalculations.length === 0}
+          >
+            <Calculator size={20} />
+            Calcular Planilla
+          </button>
         </div>
+        
         <p className="text-gray-400 text-sm mb-6">
           Edite el salario base, horas extras, bonificaciones y otras retenciones. Los cálculos se actualizan automáticamente.
         </p>
