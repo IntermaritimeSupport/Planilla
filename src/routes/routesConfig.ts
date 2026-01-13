@@ -65,7 +65,7 @@ const routesConfig = [
     icon: UsersIcon,
     name: "Users",
     href: "/users/all",
-    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
+    roles: [authRoles.super_admin, authRoles.admin, ],
     subroutes: [
       { name: "Create User", href: "/users/create" },
       { name: "Edit User", href: "/users/edit" },
@@ -184,7 +184,7 @@ const routesConfig = [
     icon: SettingsIcon,
     name: "Settings",
     href: "/settings/all",
-    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
+    roles: [authRoles.super_admin, authRoles.admin,],
     subroutes: [
       { name: "My Settings", href: "/settings/all" },
 
