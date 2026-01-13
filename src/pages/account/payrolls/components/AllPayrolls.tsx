@@ -13,6 +13,14 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 // ==================== TYPES ====================
 type SalaryType = "MONTHLY" | "BIWEEKLY"
 
+interface RecurringDeduction {
+  id: string
+  name: string
+  amount: string | number // Viene como string del JSON
+  frequency: "ALWAYS" | "FIRST_QUINCENA" | "SECOND_QUINCENA"
+  isActive: boolean
+}
+
 interface Employee {
   id: string
   cedula: string
@@ -20,6 +28,7 @@ interface Employee {
   lastName: string
   salary: number
   salaryType: SalaryType // NUEVO: tipo de salario
+    recurringDeductions?: RecurringDeduction[]
 }
 
 const REQUIRED_LEGAL_KEYS = [
@@ -71,6 +80,7 @@ interface PayrollCalculation {
   netSalaryMonthly: number // NUEVO: desglose mensual
   netSalaryBiweekly: number // NUEVO: desglose quincenal
   thirteenthMonth?: number
+  recurringAmount: number
 }
 
 type NotificationType = "success" | "error"
@@ -106,101 +116,79 @@ const DetailsModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b border-gray-700 sticky top-0 bg-gray-800">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex justify-between items-center p-6 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
           <h2 className="text-xl font-semibold text-white">
             Desglose - {calculation.employee.firstName} {calculation.employee.lastName}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <X size={24} />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Información del empleado */}
-          <div className="bg-gray-700 rounded p-4">
-            <p className="text-sm text-gray-300">Cédula: {calculation.employee.cedula}</p>
-            <p className="text-sm text-gray-300">Tipo de Salario: <span className="font-semibold text-blue-400">{calculation.employee.salaryType === 'MONTHLY' ? 'Mensual' : 'Quincenal'}</span></p>
+        <div className="p-6 space-y-6">
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+            <p className="text-xs text-gray-500 uppercase font-bold mb-1">Información General</p>
+            <p className="text-sm text-gray-300">Cédula: <span className="text-white">{calculation.employee.cedula}</span></p>
+            <p className="text-sm text-gray-300">Salario: <span className="text-blue-400 font-bold">{formatCurrency(Number(calculation.employee.salary))} ({calculation.employee.salaryType})</span></p>
           </div>
 
-          {/* Ingresos */}
-          <div className="bg-gray-700 rounded p-4">
-            <h3 className="font-semibold text-green-400 mb-3">INGRESOS</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Salario Base:</span>
-                <span>{formatCurrency(calculation.baseSalary)}</span>
-              </div>
-              {calculation.hoursExtra > 0 && (
-                <div className="flex justify-between">
-                  <span>Horas Extras:</span>
-                  <span>{formatCurrency(calculation.hoursExtra)}</span>
-                </div>
-              )}
-              {calculation.bonifications > 0 && (
-                <div className="flex justify-between">
-                  <span>Bonificaciones:</span>
-                  <span>{formatCurrency(calculation.bonifications)}</span>
-                </div>
-              )}
-              {calculation.otherIncome > 0 && (
-                <div className="flex justify-between">
-                  <span>Otros Ingresos:</span>
-                  <span>{formatCurrency(calculation.otherIncome)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-semibold text-green-300 border-t border-gray-600 pt-2 mt-2">
-                <span>Salario Bruto:</span>
-                <span>{formatCurrency(calculation.grossSalary)}</span>
-              </div>
+          {/* Sección de Ingresos */}
+          <div className="space-y-3">
+            <h3 className="text-green-400 font-bold text-xs uppercase tracking-widest border-b border-gray-700 pb-1">Ingresos del Período</h3>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Salario Base Bruto</span>
+              <span className="text-white font-medium">{formatCurrency(calculation.baseSalary)}</span>
             </div>
           </div>
 
-          {/* Deducciones */}
-          <div className="bg-gray-700 rounded p-4">
-            <h3 className="font-semibold text-red-400 mb-3">DEDUCCIONES</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>SSS (Seguro Social):</span>
-                <span>{formatCurrency(calculation.sss)}</span>
+          {/* Sección de Deducciones */}
+          <div className="space-y-3">
+            <h3 className="text-red-400 font-bold text-xs uppercase tracking-widest border-b border-gray-700 pb-1">Deducciones y Retenciones</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Seguro Social (SSS)</span>
+                <span className="text-white">{formatCurrency(calculation.sss)}</span>
               </div>
               {calculation.isr > 0 && (
-                <div className="flex justify-between">
-                  <span>ISR (Impuesto sobre la Renta):</span>
-                  <span>{formatCurrency(calculation.isr)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Impuesto Renta (ISR)</span>
+                  <span className="text-white">{formatCurrency(calculation.isr)}</span>
                 </div>
               )}
-              {calculation.otherDeductions > 0 && (
-                <div className="flex justify-between">
-                  <span>Otras Retenciones:</span>
-                  <span>{formatCurrency(calculation.otherDeductions)}</span>
+
+              {/* LISTADO DE DESCUENTOS FIJOS (HIPOTECAS, PRÉSTAMOS, ETC) */}
+              {calculation.employee.recurringDeductions && calculation.employee.recurringDeductions.length > 0 && (
+                <div className="pt-2 mt-2 border-t border-gray-700/50 space-y-2">
+                  <p className="text-[10px] text-orange-500 font-bold uppercase mb-2 italic">Descuentos Recurrentes Aplicados:</p>
+                  {calculation.employee.recurringDeductions.filter(d => d.isActive).map((d, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-orange-200/70">{d.name} <span className="text-[10px] text-gray-500">({d.frequency})</span></span>
+                      <span className="text-orange-300">-{formatCurrency(Number(d.amount))}</span>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="flex justify-between font-semibold text-red-300 border-t border-gray-600 pt-2 mt-2">
-                <span>Total Deducciones:</span>
-                <span>{formatCurrency(calculation.totalDeductions)}</span>
-              </div>
+            </div>
+
+            <div className="flex justify-between font-bold text-sm text-red-400 pt-3 border-t border-gray-700">
+              <span>Total Deducciones</span>
+              <span>{formatCurrency(calculation.totalDeductions)}</span>
             </div>
           </div>
 
-          {/* Neto por período */}
-          <div className="bg-blue-900 bg-opacity-30 border border-blue-600 rounded p-4">
-            <h3 className="font-semibold text-blue-300 mb-3">SALARIO NETO</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Mensual:</span>
-                <span className="font-semibold text-blue-300">{formatCurrency(calculation.netSalaryMonthly)}</span>
+          {/* Resultado Neto */}
+          <div className="bg-blue-600/10 border border-blue-500/50 rounded-lg p-5">
+            <h3 className="text-blue-400 font-bold text-xs uppercase tracking-widest mb-3 text-center">Salario Neto Estimado</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-[10px] text-gray-400 uppercase">Mensual</p>
+                <p className="text-lg font-bold text-white">{formatCurrency(calculation.netSalaryMonthly)}</p>
               </div>
-              <div className="flex justify-between">
-                <span>Quincenal:</span>
-                <span className="font-semibold text-blue-300">{formatCurrency(calculation.netSalaryBiweekly)}</span>
+              <div className="text-center border-l border-gray-700">
+                <p className="text-[10px] text-gray-400 uppercase">A pagar esta Quincena</p>
+                <p className="text-lg font-bold text-green-400">{formatCurrency(calculation.netSalaryBiweekly)}</p>
               </div>
-              {calculation.thirteenthMonth !== undefined && calculation.thirteenthMonth > 0 && (
-                <div className="flex justify-between text-green-300 border-t border-blue-600 pt-2 mt-2">
-                  <span>13° Mes (Neto):</span>
-                  <span className="font-semibold">{formatCurrency(calculation.thirteenthMonth)}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -221,6 +209,7 @@ export const AllPayrolls: React.FC = () => {
     selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
     fetcher
   )
+  console.log("Employees:", employees)
 
   // Fetch legal parameters
 const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
@@ -376,6 +365,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
     if (!employees || employees.length === 0) return []
 
     const sssRate = getSSSRate()
+    const isFirstQuincena = quincenal === "Primera Quincena (1-15)"
     const payrollMonth = new Date(payrollDate).getMonth()
     const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
 
@@ -390,8 +380,19 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
       const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
       const taxableIncome = grossSalary - sss
       const isr = calculateISR(taxableIncome)
+      // CÁLCULO DE DESCUENTOS RECURRENTES (Aquí es donde se suma la hipoteca de Luis)
+      const recurringAmount = (emp.recurringDeductions || []).reduce((acc, d) => {
+        if (!d.isActive) return acc
+        const amount = Number(d.amount) || 0
+        
+        // Aplicar según frecuencia
+        if (d.frequency === "ALWAYS") return acc + amount
+        if (isFirstQuincena && d.frequency === "FIRST_QUINCENA") return acc + amount
+        if (!isFirstQuincena && d.frequency === "SECOND_QUINCENA") return acc + amount
+        return acc
+      }, 0)
       const otherDeductions = 0
-      const totalDeductions = sss + isr + otherDeductions
+      const totalDeductions = sss + isr + otherDeductions + recurringAmount
       const netSalary = grossSalary - totalDeductions
 
       const netSalaryMonthly = netSalary
@@ -412,6 +413,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
         netSalary,
         netSalaryMonthly,
         netSalaryBiweekly,
+        recurringAmount,
       }
 
       if (isPeriodThirteenthMonth) {
@@ -460,6 +462,10 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
 
       for (const calc of employeeCalculations) {
         try {
+          const extraDeductions = (calc.employee.recurringDeductions || [])
+          .filter(d => d.isActive)
+          .map(d => ({ type: "OTHER", description: d.name, amount: Number(d.amount), isFixed: true }))
+
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payroll/payrolls/generate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -489,6 +495,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
                       },
                     ]
                   : []),
+                  ...extraDeductions
               ],
               allowances: [
                 ...(calc.hoursExtra > 0
@@ -751,6 +758,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
                   <th className="text-left px-2 py-2 font-medium">Bruto</th>
                   <th className="text-left px-2 py-2 font-medium">SSS</th>
                   <th className="text-left px-2 py-2 font-medium">ISR</th>
+                  <th className="text-right py-3 px-2 text-orange-400">Dctos. Fijos</th>
                   <th className="text-left px-2 py-2 font-medium">Otras Ret.</th>
                   <th className="text-left px-2 py-2 font-medium">Total Desc.</th>
                   <th className="text-left px-2 py-2 font-medium">Mensual Neto</th>
@@ -831,6 +839,9 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
                     <td className="px-4 py-3 font-medium text-sm">{formatCurrency(calc.grossSalary)}</td>
                     <td className="px-4 py-3 text-sm">{formatCurrency(calc.sss)}</td>
                     <td className="px-4 py-3 text-sm">{formatCurrency(calc.isr)}</td>
+                    <td className="py-3 px-2 text-right text-orange-400 font-medium">
+                      {calc.recurringAmount > 0 ? `-${formatCurrency(calc.recurringAmount)}` : '$0.00'}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <input
                         type="number"
@@ -869,6 +880,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
                   <td className="px-4 py-3">{formatCurrency(totalGrossSalary)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalSss)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalIsr)}</td>
+                  <td className="px-4 py-3">-</td>
                   <td className="px-4 py-3">-</td>
                   <td className="px-4 py-3">{formatCurrency(totalDeductions)}</td>
                   <td className="px-4 py-3 text-green-400">{formatCurrency(totalNetSalaryMonthly)}</td>

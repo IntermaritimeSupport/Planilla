@@ -29,7 +29,7 @@ const ManageEmployeePage: React.FC = () => {
         employeeId ? `${VITE_API_URL}/api/payroll/employees/${employeeId}` : null,
         fetcher
     );
-
+    console.log("Employee Data:", employeeData);
     // Traemos departamentos para el select
     const { data: departments, isLoading: loadingDepts } = useSWR(
         selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null,
@@ -39,7 +39,7 @@ const ManageEmployeePage: React.FC = () => {
     if (loadingEmp || loadingDepts) return <div className="p-10 text-center text-blue-500">Cargando...</div>;
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6">
+        <div className="min-h-screen bg-gray-900 text-white">
             <div className="max-w-5xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
