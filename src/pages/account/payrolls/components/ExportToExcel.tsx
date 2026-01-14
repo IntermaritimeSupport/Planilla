@@ -1,11 +1,23 @@
 import * as XLSX from "xlsx"
 
+type SalaryType = "MONTHLY" | "BIWEEKLY"
+
+interface RecurringDeduction {
+  id: string
+  name: string
+  amount: string | number // Viene como string del JSON
+  frequency: "ALWAYS" | "FIRST_QUINCENA" | "SECOND_QUINCENA"
+  isActive: boolean
+}
+
 interface Employee {
   id: string
   cedula: string
   firstName: string
   lastName: string
   salary: number
+  salaryType: SalaryType // NUEVO: tipo de salario
+    recurringDeductions?: RecurringDeduction[]
 }
 
 interface PayrollCalculation {
@@ -22,6 +34,7 @@ interface PayrollCalculation {
   totalDeductions: number
   netSalary: number
   thirteenthMonth?: number
+  recurringAmount: number
 }
 
 interface ExportParams {
@@ -60,6 +73,7 @@ export const exportToExcel = (params: ExportParams) => {
     "Salario Bruto": calc.grossSalary,
     "SSS (8.75%)": calc.sss,
     "ISR": calc.isr,
+    "Descuentos fijos":calc.recurringAmount,
     "Otras Retenciones": calc.otherDeductions,
     "Total Retenciones": calc.totalDeductions,
     "Salario Neto": calc.netSalary,
@@ -74,6 +88,7 @@ export const exportToExcel = (params: ExportParams) => {
   const totalGrossSalary = payrollData.reduce((sum, row) => sum + (row["Salario Bruto"] || 0), 0)
   const totalSss = payrollData.reduce((sum, row) => sum + (row["SSS (8.75%)"] || 0), 0)
   const totalIsr = payrollData.reduce((sum, row) => sum + (row["ISR"] || 0), 0)
+  const totalDescuentos = payrollData.reduce((sum, row) => sum + (row["Descuentos fijos"] || 0), 0)
   const totalOtherDeductions = payrollData.reduce((sum, row) => sum + (row["Otras Retenciones"] || 0), 0)
   const totalDeductions = payrollData.reduce((sum, row) => sum + (row["Total Retenciones"] || 0), 0)
   const totalNetSalary = payrollData.reduce((sum, row) => sum + (row["Salario Neto"] || 0), 0)
@@ -92,6 +107,7 @@ export const exportToExcel = (params: ExportParams) => {
     "Salario Bruto": totalGrossSalary,
     "SSS (8.75%)": totalSss,
     "ISR": totalIsr,
+    "Total Descuentos": totalDescuentos,
     "Otras Retenciones": totalOtherDeductions,
     "Total Retenciones": totalDeductions,
     "Salario Neto": totalNetSalary,
@@ -112,6 +128,7 @@ export const exportToExcel = (params: ExportParams) => {
     { wch: 13 }, // Salario Bruto
     { wch: 12 }, // SSS
     { wch: 12 }, // ISR
+    { wch: 15 }, // Descuentos fijos
     { wch: 14 }, // Otras Retenciones
     { wch: 14 }, // Total Retenciones
     { wch: 13 }, // Salario Neto
@@ -145,6 +162,7 @@ export const exportToExcel = (params: ExportParams) => {
     ["DEDUCCIONES"],
     ["Total SSS (8.75%)", totalSss],
     ["Total ISR", totalIsr],
+    ["Total Descuentos fijos", totalDescuentos],
     ["Total Otras Retenciones", totalOtherDeductions],
     ["Total Deducciones", totalDeductions],
     [],
