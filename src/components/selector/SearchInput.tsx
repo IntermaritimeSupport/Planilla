@@ -3,10 +3,8 @@ import { useLocation } from "react-router-dom"
 import { useEffect } from "react"
 import { usePageName } from "../../hook/usePageName"
 import { useSearch } from "../../context/searchContext"
+import { useTheme } from "../../context/themeContext"
 
-interface Props {
-  isDarkMode?: boolean
-}
 
 const DISABLED_ROUTES = [
   "/dashboard/all",
@@ -14,7 +12,8 @@ const DISABLED_ROUTES = [
   "/profile/1"
 ]
 
-const SearchInput: React.FC<Props> = ({ isDarkMode = true }) => {
+const SearchInput: React.FC = () => {
+  const { isDarkMode } = useTheme() // Usar el contexto
   const { pageName } = usePageName()
   const { search, setSearch } = useSearch()
   const location = useLocation()
@@ -35,7 +34,7 @@ const SearchInput: React.FC<Props> = ({ isDarkMode = true }) => {
 
   return (
     <div
-      className={`hidden xl:flex items-center rounded-full px-4 py-2 w-64 ${
+      className={`hidden xl:flex items-center rounded-full px-4 py-2 w-64 transition-colors duration-300 ${
         isDarkMode
           ? "bg-slate-800 border border-slate-700"
           : "bg-gray-100 border border-gray-200"

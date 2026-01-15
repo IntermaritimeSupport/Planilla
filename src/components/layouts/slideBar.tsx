@@ -7,6 +7,7 @@ import { LogOut } from "lucide-react";
 import { InventoryIcon } from "../icons/icons";
 import { useCompany } from "../../context/routerContext";
 import { Link, useLocation } from "react-router-dom";
+import { useTheme } from "../../context/themeContext";
 
 export interface Company {
   id: string;
@@ -38,15 +39,14 @@ type DashboardProps = {
   isLogged: boolean;
   profile: UserProfile | null;
   companies?: Company[];
-  isDarkMode?: boolean;
 };
 
 const SlideBar: React.FC<DashboardProps> = ({
   profile,
-  isDarkMode = true,
 }) => {
   const { logout } = useUser();
   const { selectedCompany } = useCompany();
+  const { isDarkMode } = useTheme(); // Usar el contexto
   const location = useLocation();
   const currentPathSegments = location.pathname.split("/").filter(Boolean);
   const baseRoute = currentPathSegments.length > 1 ? currentPathSegments[1] : "";

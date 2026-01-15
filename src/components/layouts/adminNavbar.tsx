@@ -9,6 +9,7 @@ import { useCompany } from "../../context/routerContext";
 import SearchInput from "../selector/SearchInput";
 import { useSearch } from "../../context/searchContext";
 import { useLocation } from "react-router-dom";
+import { useTheme } from "../../context/themeContext";
 
 interface CurrentPathname {
   name: string;
@@ -18,23 +19,20 @@ interface AdminNavbarProps {
   currentPathname?: CurrentPathname;
   isLogged: boolean;
   profile: UserProfile | null;
-  isDarkMode?: boolean;
-  onThemeChange?: (isDark: boolean) => void;
 }
 
 const AdminNavbar: React.FC<AdminNavbarProps> = ({
   profile,
-  isDarkMode = true,
-  onThemeChange,
 }) => {
   const { logout } = useUser();
   const { selectedCompany } = useCompany();
+  const { isDarkMode, toggleTheme } = useTheme(); // Usar el contexto
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(isDarkMode);
   const userRoles = profile?.roles ? getUserRoles(profile) : ["user"];
   const { setSearch } = useSearch()
   const location = useLocation()
   const AppName = import.meta.env.VITE_APP_NAME || "Planilla";
+  
   useEffect(() => {
     setSearch("")
   }, [location.pathname])
@@ -112,19 +110,11 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
     setIsMenuOpen(false);
   };
 
-  const handleThemeToggle = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    if (onThemeChange) {
-      onThemeChange(newDarkMode);
-    }
-  };
-
   return (
     <nav
       id="navbar"
       className={`w-full z-20 top-0 transition-all duration-300 ${
-        darkMode
+        isDarkMode
           ? "bg-slate-900 border-b border-slate-800"
           : "bg-white border-b border-gray-200"
       }`}
@@ -144,7 +134,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
               />
               <span
                 className={`text-lg font-bold tracking-wider ${
-                  darkMode ? "text-white" : "text-gray-900"
+                  isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
                 {AppName}
@@ -159,13 +149,13 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
 
             {/* Company Selector */}
             <div className="flex items-center gap-2 w-56">
-              <CompanySelectorComponent isDarkMode={darkMode} />
+              <CompanySelectorComponent isDarkMode={isDarkMode} />
             </div>
 
             {/* Notifications */}
             <button
               className={`relative p-2 transition-colors duration-300 ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -176,15 +166,15 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
 
             {/* Theme Toggle */}
             <button
-              onClick={handleThemeToggle}
+              onClick={toggleTheme}
               className={`p-2 rounded-lg transition-colors duration-300 ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white hover:bg-slate-800"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
               aria-label="Toggle theme"
             >
-              {darkMode ? (
+              {isDarkMode ? (
                 <Sun className="w-5 h-5" />
               ) : (
                 <Moon className="w-5 h-5" />
@@ -207,7 +197,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
             />
             <span
               className={`text-base font-bold truncate ${
-                darkMode ? "text-white" : "text-gray-900"
+                isDarkMode ? "text-white" : "text-gray-900"
               }`}
             >
               {AppName}
@@ -219,7 +209,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
             {/* Search Icon */}
             <button
               className={`p-2 transition-colors ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -230,7 +220,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
             {/* Notifications */}
             <button
               className={`relative p-2 transition-colors ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -241,15 +231,15 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
 
             {/* Theme Toggle */}
             <button
-              onClick={handleThemeToggle}
+              onClick={toggleTheme}
               className={`p-2 rounded-lg transition-colors ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white hover:bg-slate-800"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
               aria-label="Toggle theme"
             >
-              {darkMode ? (
+              {isDarkMode ? (
                 <Sun className="w-5 h-5" />
               ) : (
                 <Moon className="w-5 h-5" />
@@ -261,7 +251,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
               id="open-menu"
               onClick={toggleMenu}
               className={`inline-flex items-center justify-center p-2 rounded-md transition-colors ${
-                darkMode
+                isDarkMode
                   ? "text-slate-400 hover:text-white hover:bg-slate-800"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
@@ -284,7 +274,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
       <div
         className={`fixed inset-0 h-screen z-40 transition-opacity duration-300 ${
           isMenuOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        } ${darkMode ? "bg-black/50" : "bg-black/30"}`}
+        } ${isDarkMode ? "bg-black/50" : "bg-black/30"}`}
         onClick={closeMenu}
         aria-hidden={!isMenuOpen}
       ></div>
@@ -293,7 +283,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
       <div
         className={`fixed top-0 right-0 h-screen w-full sm:w-80 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
           isMenuOpen ? "translate-x-0" : "translate-x-full"
-        } ${darkMode ? "bg-slate-900" : "bg-white"}`}
+        } ${isDarkMode ? "bg-slate-900" : "bg-white"}`}
         role="dialog"
         aria-modal="true"
         aria-label="Menú principal"
@@ -301,7 +291,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
         {/* Mobile Menu Header */}
         <div
           className={`flex justify-between items-center p-4 h-16 ${
-            darkMode ? "border-b border-slate-800" : "border-b border-gray-200"
+            isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
           }`}
         >
           <div className="flex items-center gap-2">
@@ -314,7 +304,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
             />
             <span
               className={`font-bold tracking-wider ${
-                darkMode ? "text-white" : "text-gray-900"
+                isDarkMode ? "text-white" : "text-gray-900"
               }`}
             >
               {AppName}
@@ -323,7 +313,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <button
             onClick={closeMenu}
             className={`p-2 rounded-md transition-colors ${
-              darkMode
+              isDarkMode
                 ? "text-slate-400 hover:text-white hover:bg-slate-800"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -338,35 +328,35 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
           {/* Company Selector Mobile */}
           <div
             className={`p-4 ${
-              darkMode ? "border-b border-slate-800" : "border-b border-gray-200"
+              isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
             }`}
           >
-            <CompanySelectorComponent isDarkMode={darkMode} />
+            <CompanySelectorComponent isDarkMode={isDarkMode} />
           </div>
 
           {/* Search Bar Mobile */}
           <div
             className={`p-4 ${
-              darkMode ? "border-b border-slate-800" : "border-b border-gray-200"
+              isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
             }`}
           >
             <div
               className={`flex items-center rounded-full px-4 py-2 ${
-                darkMode
+                isDarkMode
                   ? "bg-slate-800 border border-slate-700"
                   : "bg-gray-100 border border-gray-200"
               }`}
             >
               <Search
                 className={`w-4 h-4 ${
-                  darkMode ? "text-slate-400" : "text-gray-400"
+                  isDarkMode ? "text-slate-400" : "text-gray-400"
                 }`}
               />
               <input
                 type="text"
                 placeholder="Search"
                 className={`bg-transparent ml-2 outline-none text-sm w-full ${
-                  darkMode
+                  isDarkMode
                     ? "text-white placeholder-slate-400"
                     : "text-gray-700 placeholder-gray-500"
                 }`}
@@ -383,13 +373,13 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
                   href={`/${selectedCompany?.code || 'code'}${link?.href}`}
                   onClick={closeMenu}
                   className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                    darkMode
+                    isDarkMode
                       ? "text-slate-300 hover:bg-slate-800"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
                   {link.icon && (
-                    <span className={darkMode ? "text-slate-400" : "text-gray-600"}>
+                    <span className={isDarkMode ? "text-slate-400" : "text-gray-600"}>
                       {link.icon}
                     </span>
                   )}
@@ -399,7 +389,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
             ) : (
               <span
                 className={`text-sm px-4 py-2 ${
-                  darkMode ? "text-slate-400" : "text-gray-500"
+                  isDarkMode ? "text-slate-400" : "text-gray-500"
                 }`}
               >
                 No tienes acceso a ninguna ruta
@@ -409,7 +399,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
 
           {/* Divider */}
           <hr
-            className={`my-2 ${darkMode ? "border-slate-800" : "border-gray-200"}`}
+            className={`my-2 ${isDarkMode ? "border-slate-800" : "border-gray-200"}`}
           />
 
           {/* Mobile Profile Section */}
@@ -425,14 +415,14 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
               <div>
                 <p
                   className={`text-sm font-medium ${
-                    darkMode ? "text-white" : "text-gray-900"
+                    isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
                   {profile?.username || "user"}
                 </p>
                 <p
                   className={`text-xs ${
-                    darkMode ? "text-slate-400" : "text-gray-500"
+                    isDarkMode ? "text-slate-400" : "text-gray-500"
                   }`}
                 >
                   {profile?.roles || "user"}
@@ -447,7 +437,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({
                   closeMenu();
                 }}
                 className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors duration-300 ${
-                  darkMode
+                  isDarkMode
                     ? "text-red-400 hover:bg-red-900/30"
                     : "text-red-600 hover:bg-red-50"
                 }`}

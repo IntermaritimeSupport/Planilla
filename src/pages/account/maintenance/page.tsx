@@ -16,7 +16,7 @@ interface SubRoutesProps {
 const MaintenancePage:React.FC<SubRoutesProps> = () => {
 
   return (
-    <div className="h-[90vh] bg-gray-900 text-white p-6 flex flex-col">
+    <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col">
       <Outlet/>
     </div>
   )

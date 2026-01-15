@@ -8,6 +8,7 @@ import { initReactI18next } from "react-i18next";
 import 'flag-icon-css/css/flag-icons.min.css';
 import en from "./diccionary/en";
 import es from "./diccionary/es.tsx";
+import { ThemeProvider } from "./context/themeContext.tsx";
 
 const savedLanguage = localStorage.getItem("i18nextLng") || "en";
 
@@ -27,9 +28,11 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
 root.render(
+  <ThemeProvider>
   <UserContextProvider>
     <UserProfileProvider>
         <App />
     </UserProfileProvider>
   </UserContextProvider>
+  </ThemeProvider>
 );

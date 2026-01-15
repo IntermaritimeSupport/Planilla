@@ -25,10 +25,12 @@ export interface RecurringDeduction {
   isActive: boolean
 }
 
-interface Employee {
+export interface Employee {
   id: string
   cedula: string
   firstName: string
+  department?:string
+  position?:string
   lastName: string
   salary: number
   salaryType: SalaryType // NUEVO: tipo de salario
@@ -71,6 +73,7 @@ interface ISRTramo {
 export interface PayrollCalculation {
   employeeId: string
   employee: Employee
+  department?:string
   baseSalary: number
   hoursExtra: number
   bonifications: number
@@ -85,6 +88,7 @@ export interface PayrollCalculation {
   netSalaryBiweekly: number // NUEVO: desglose quincenal
   thirteenthMonth?: number
   recurringAmount: number
+  company?: Company
 }
 
 type NotificationType = "success" | "error"
@@ -140,7 +144,6 @@ const showNotification = (type: NotificationType, message: string, title?: strin
     selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
     fetcher
   )
-  console.log("Employees:", employees)
 
   // Fetch legal parameters
 const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
@@ -547,7 +550,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
   const isrTramos = getISRRates()
 
   return (
-    <div className="relative bg-gray-900 text-white min-h-screen">
+    <div className=" relative bg-gray-900 text-white">
 
       <LoadingPayrollModal
         isOpen={isGeneratingPayrolls}
@@ -559,6 +562,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
         title={pageName}
         description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
         onExport={handleExport}
+        
       />
       {/* Configuration Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
@@ -676,7 +680,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-700">
-                  <th className="text-left px-2 py-2 font-medium">Acciones</th>
+                  <th className="text-left px-2 py-2 font-medium">Desglose</th>
                   <th className="text-left px-2 py-2 font-medium">Empleado</th>
                   <th className="text-left px-2 py-2 font-medium">Tipo</th>
                   <th className="text-left px-2 py-2 font-medium">Salario Base</th>
