@@ -3,17 +3,21 @@
 import { useState, useCallback, useMemo } from "react"
 import useSWR, { mutate } from "swr"
 import { Company, useCompany } from "../../../../context/routerContext"
-import { Calendar, Users, AlertCircle, Calculator, Eye, X } from "lucide-react"
+import { Calendar, Users, AlertCircle, Calculator, Eye} from "lucide-react"
 import { exportToExcel } from "./ExportToExcel"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
+import LoadingPayrollModal from "./LoadingPayroolModal"
+import DetailsModal from "./DetailsModal"
+import { PayrollInfo } from "./PayrollInfo"
+import { NotificationComponent } from "./Notification"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 // ==================== TYPES ====================
 type SalaryType = "MONTHLY" | "BIWEEKLY"
 
-interface RecurringDeduction {
+export interface RecurringDeduction {
   id: string
   name: string
   amount: string | number // Viene como string del JSON
@@ -64,7 +68,7 @@ interface ISRTramo {
   maxRange: number
 }
 
-interface PayrollCalculation {
+export interface PayrollCalculation {
   employeeId: string
   employee: Employee
   baseSalary: number
@@ -89,6 +93,7 @@ interface Notification {
   type: NotificationType
   message: string
   show: boolean
+  title?: string  // Agrega esta línea
 }
 
 type PayrollOverrides = Record<
@@ -99,7 +104,7 @@ type PayrollOverrides = Record<
   >>
 >
 
-const formatCurrency = (amount: number) => {
+export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("es-PA", {
     style: "currency",
     currency: "USD",
@@ -107,103 +112,29 @@ const formatCurrency = (amount: number) => {
 }
 
 // NUEVO: Modal para desglose individual
-const DetailsModal: React.FC<{
-  calculation: PayrollCalculation
-  isOpen: boolean
-  onClose: () => void
-}> = ({ calculation, isOpen, onClose }) => {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex justify-between items-center p-6 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-          <h2 className="text-xl font-semibold text-white">
-            Desglose - {calculation.employee.firstName} {calculation.employee.lastName}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-            <p className="text-xs text-gray-500 uppercase font-bold mb-1">Información General</p>
-            <p className="text-sm text-gray-300">Cédula: <span className="text-white">{calculation.employee.cedula}</span></p>
-            <p className="text-sm text-gray-300">Salario: <span className="text-blue-400 font-bold">{formatCurrency(Number(calculation.employee.salary))} ({calculation.employee.salaryType})</span></p>
-          </div>
-
-          {/* Sección de Ingresos */}
-          <div className="space-y-3">
-            <h3 className="text-green-400 font-bold text-xs uppercase tracking-widest border-b border-gray-700 pb-1">Ingresos del Período</h3>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Salario Base Bruto</span>
-              <span className="text-white font-medium">{formatCurrency(calculation.baseSalary)}</span>
-            </div>
-          </div>
-
-          {/* Sección de Deducciones */}
-          <div className="space-y-3">
-            <h3 className="text-red-400 font-bold text-xs uppercase tracking-widest border-b border-gray-700 pb-1">Deducciones y Retenciones</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Seguro Social (SSS)</span>
-                <span className="text-white">{formatCurrency(calculation.sss)}</span>
-              </div>
-              {calculation.isr > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Impuesto Renta (ISR)</span>
-                  <span className="text-white">{formatCurrency(calculation.isr)}</span>
-                </div>
-              )}
-
-              {/* LISTADO DE DESCUENTOS FIJOS (HIPOTECAS, PRÉSTAMOS, ETC) */}
-              {calculation.employee.recurringDeductions && calculation.employee.recurringDeductions.length > 0 && (
-                <div className="pt-2 mt-2 border-t border-gray-700/50 space-y-2">
-                  <p className="text-[10px] text-orange-500 font-bold uppercase mb-2 italic">Descuentos Recurrentes Aplicados:</p>
-                  {calculation.employee.recurringDeductions.filter(d => d.isActive).map((d, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-orange-200/70">{d.name} <span className="text-[10px] text-gray-500">({d.frequency})</span></span>
-                      <span className="text-orange-300">-{formatCurrency(Number(d.amount))}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-between font-bold text-sm text-red-400 pt-3 border-t border-gray-700">
-              <span>Total Deducciones</span>
-              <span>{formatCurrency(calculation.totalDeductions)}</span>
-            </div>
-          </div>
-
-          {/* Resultado Neto */}
-          <div className="bg-blue-600/10 border border-blue-500/50 rounded-lg p-5">
-            <h3 className="text-blue-400 font-bold text-xs uppercase tracking-widest mb-3 text-center">Salario Neto Estimado</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <p className="text-[10px] text-gray-400 uppercase">Mensual</p>
-                <p className="text-lg font-bold text-white">{formatCurrency(calculation.netSalaryMonthly)}</p>
-              </div>
-              <div className="text-center border-l border-gray-700">
-                <p className="text-[10px] text-gray-400 uppercase">A pagar esta Quincena</p>
-                <p className="text-lg font-bold text-green-400">{formatCurrency(calculation.netSalaryBiweekly)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export const AllPayrolls: React.FC = () => {
   const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
   const { pageName } = usePageName()
-
+  const [isGeneratingPayrolls, setIsGeneratingPayrolls] = useState(false)
+  const [payrollProgress, setPayrollProgress] = useState({ success: 0, error: 0 })
   // Estado para el modal
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<string | null>(null)
+  const [notification, setNotification] = useState<Notification>({ 
+    type: "success", 
+    message: "", 
+    show: false 
+  })
 
+const showNotification = (type: NotificationType, message: string, title?: string) => {
+  setNotification({ 
+    type, 
+    message, 
+    show: true, 
+    title: title || undefined  // Ahora esto funcionará correctamente
+  })
+  setTimeout(() => setNotification((prev) => ({ ...prev, show: false })), 5000)
+}
   // Fetch employees
   const { data: employees, isLoading: empLoading } = useSWR<Employee[]>(
     selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
@@ -233,8 +164,6 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
     missing: missing
   };
 }, [legalParams, isLoading]);
-
-  const [notification, setNotification] = useState<Notification>({ type: "success", message: "", show: false })
 
   // Configuración del período
   const [payrollType, setPayrollType] = useState("Quincenal (cada 15 días)")
@@ -439,11 +368,6 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
     []
   )
 
-  const showNotification = (type: NotificationType, message: string) => {
-    setNotification({ type, message, show: true })
-    setTimeout(() => setNotification((prev) => ({ ...prev, show: false })), 5000)
-  }
-
   const generatePayrolls = async () => {
     if (!selectedCompany) {
       showNotification("error", "Selecciona una compañía primero")
@@ -455,6 +379,9 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
       showNotification("error", "No se pueden generar nóminas sin parámetros legales configurados")
       return
     }
+
+    setIsGeneratingPayrolls(true)
+    setPayrollProgress({ success: 0, error: 0 })
 
     try {
       let successCount = 0
@@ -536,9 +463,11 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
           } else {
             successCount++
           }
+          setPayrollProgress({ success: successCount, error: errorCount })
         } catch (error) {
           console.error("Error:", error)
           errorCount++
+          setPayrollProgress({ success: successCount, error: errorCount })
         }
       }
 
@@ -555,6 +484,10 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
       }
     } catch (error: any) {
       showNotification("error", error.message || "Error al generar nóminas")
+    } finally {
+      setTimeout(() => {
+        setIsGeneratingPayrolls(false)
+      }, 500)
     }
   }
 
@@ -576,8 +509,6 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     )
-
-
 
   const isDecember = new Date(payrollDate).getMonth() === 11
   const isApril = new Date(payrollDate).getMonth() === 3
@@ -617,12 +548,18 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
 
   return (
     <div className="relative bg-gray-900 text-white min-h-screen">
+
+      <LoadingPayrollModal
+        isOpen={isGeneratingPayrolls}
+        successCount={payrollProgress.success}
+        errorCount={payrollProgress.error}
+        totalCount={employeeCalculations.length}
+      />
       <PagesHeader
         title={pageName}
         description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
         onExport={handleExport}
       />
-
       {/* Configuration Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
         <div className="flex items-center gap-2 mb-4">
@@ -669,21 +606,12 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
           )}
         </div>
 
-        <div className="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mt-6">
-          <div className="text-sm text-blue-100 mb-2">Período a Pagar</div>
-          <div className="text-2xl font-bold text-blue-300 mb-2">
-            {quincenal === "Primera Quincena (1-15)"
-              ? `1 - 15 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
-              : `16 - 31 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`}
-          </div>
-          <div className="text-sm text-gray-300">15 días</div>
-        </div>
       </div>
 
       {/* Active Employees Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
-        <div className="border-gray-800 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2 text-lg font-semibold">
+        <div className="border-gray-800 flex items-center justify-between text-sm bg-white bg-opacity-30 border rounded-lg py-2">
+          <div className="flex w-full justify-center items-center gap-2 text-lg font-semibold text-center">
             <span className="text-white">Período:</span>
             <span className="font-medium text-blue-400">
               {quincenal === "Primera Quincena (1-15)"
@@ -715,7 +643,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
             disabled={employeeCalculations.length === 0}
           >
             <Calculator size={20} />
-            Calcular Planilla
+            Guardar Nóminas
           </button>
         </div>
 
@@ -779,9 +707,12 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
                       </button>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium">
-                        {calc.employee.firstName} {calc.employee.lastName}
-                      </div>
+                      <a
+                        className="font-medium cursor-pointer hover:underline"
+                        href={`/${selectedCompany?.code}/employees/edit/${calc.employee?.id}`}
+                      >
+                        {calc.employee?.firstName} {calc.employee?.lastName}
+                      </a>
                       <div className="text-xs text-gray-400">{calc.employee.cedula}</div>
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -895,46 +826,6 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
         )}
       </div>
 
-      {/* Info Section */}
-      <div className="bg-blue-900 bg-opacity-20 border border-blue-600 rounded-lg p-6 mb-8">
-        <div className="flex gap-3">
-          <AlertCircle className="flex-shrink-0 text-blue-400" size={24} />
-          <div>
-            <h4 className="font-semibold text-blue-300 mb-2">Información sobre Cálculos Panameños</h4>
-            <ul className="text-sm text-blue-100 space-y-2">
-              <li>
-                • <strong>Tipos de Salario:</strong> Se soportan salarios MONTHLY (Mensual) y BIWEEKLY (Quincenal). Los cálculos se normalizan a mensual internamente.
-              </li>
-              <li>
-                • <strong>Normalización BIWEEKLY:</strong> Salario Quincenal × 26 semanas ÷ 12 meses = Equivalente Mensual
-              </li>
-              <li>
-                • <strong>SSS (Seguro Social):</strong> {(getSSSRate() || 2.87).toFixed(2)}% del salario bruto
-              </li>
-              <li>
-                • <strong>ISR (Impuesto sobre la Renta):</strong> Escala fiscal dinámica desde parámetros
-                {isrTramos.length > 0 && (
-                  <ul className="ml-6 mt-1 space-y-1">
-                    {isrTramos.map((tramo, idx) => (
-                      <li key={idx} className="text-xs">
-                        {tramo.name}: {tramo.percentage}% (${tramo.minRange.toLocaleString()} - $
-                        {tramo.maxRange.toLocaleString()})
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-              <li>
-                • <strong>Décimo Tercer Mes:</strong> Se calcula como (Salario Total Anual) / 12. Se paga en abril, agosto y diciembre.
-              </li>
-              <li>
-                • <strong>Desglose por Período:</strong> El salario neto mensual se divide automáticamente en quincenal (÷ 2) para facilitar el pago.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {/* Modal de Detalles */}
       {selectedEmployeeForDetails && (
         <DetailsModal
@@ -943,6 +834,17 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
           onClose={() => setSelectedEmployeeForDetails(null)}
         />
       )}
+
+      <PayrollInfo  
+        sssRate={getSSSRate() || 2.87}
+        isrTramos={isrTramos}
+        defaultOpen={false}
+      />
+
+      <NotificationComponent 
+        notification={notification} 
+        onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+      />
 
       {/* Alerta: Parámetros Legales No Configurados */}
       {(!validation.isValid && !isLoading) && (
@@ -965,18 +867,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
       </div>
       )}
 
-      {/* Notification */}
-      {notification.show && (
-        <div
-          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 rounded-lg p-4 shadow-lg border ${
-            notification.type === "success"
-              ? "bg-green-800 border-green-600 text-green-100"
-              : "bg-red-800 border-red-600 text-red-100"
-          }`}
-        >
-          <p className="text-sm font-medium">{notification.message}</p>
-        </div>
-      )}
+      
     </div>
   )
 }
