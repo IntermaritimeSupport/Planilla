@@ -77,14 +77,10 @@ const mapApiDataToDashboard = (
   // KPIs desde el API de estadísticas
   const totalEmployees = statsData?.totalEmployees || 0;
   const activeEmployees = statsData?.activeEmployees || 0;
-  const totalPayrolls = statsData?.totalPayrolls || 0;
 
   // Contar attendances para pendientes
   const attendanceSummary = attendanceData?.attendance || [];
-  const totalRecords = attendanceSummary.reduce(
-    (sum: number, record: any) => sum + (record._count?.id || 0),
-    0
-  );
+
   const absentCount = attendanceSummary.find(
     (r: any) => r.status === "ABSENT"
   )?._count?.id || 0;
