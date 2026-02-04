@@ -150,7 +150,7 @@ export const AllUsers: React.FC = () => {
     }, [data, search, statusFilter])
 
     const columnConfig = {
-        "fullName": (item: UsuarioFull) => (
+        "Nombre Completo": (item: UsuarioFull) => (
             <div className="flex items-center space-x-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${getAvatarColor(item?.person?.fullName)}`}>
                     {item?.person?.fullName?.charAt(0)?.toUpperCase()}
@@ -161,7 +161,7 @@ export const AllUsers: React.FC = () => {
                 </div>
             </div>
         ),
-        "email": (item: UsuarioFull) => (
+        "Email": (item: UsuarioFull) => (
             <div className="text-sm">
                 <div className="flex items-center space-x-1 mb-1">
                     <span>{item.email}</span>
@@ -171,13 +171,13 @@ export const AllUsers: React.FC = () => {
                 </div>
             </div>
         ),
-        "department": (item: UsuarioFull) => (
+        "Departamento": (item: UsuarioFull) => (
             <div>
                 <div className="font-medium text-sm">{item?.person?.department?.name || "Sin departamento"}</div>
                 <div className="text-xs text-gray-400">{item?.person?.position}</div>
             </div>
         ),
-        "isActive": (item: UsuarioFull) => (
+        "Estado": (item: UsuarioFull) => (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(item)}`}>
                 {item.isActive ? "Activo" : "Inactivo"}
             </span>

@@ -130,7 +130,7 @@ export const AllEmployees: React.FC = () => {
     }, [data, search, statusFilter])
 
     const columnConfig = {
-        "fullName": (item: Employee) => (
+        "Nombre Completo": (item: Employee) => (
             <div className="flex items-center space-x-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${getAvatarColor(item.firstName)}`}>
                     {item.firstName[0]}{item.lastName[0]}
@@ -141,19 +141,19 @@ export const AllEmployees: React.FC = () => {
                 </div>
             </div>
         ),
-        "email": (item: Employee) => (
+        "Email": (item: Employee) => (
             <div className="text-sm">
                 <div className="text-gray-200">{item.email}</div>
                 <div className="text-xs text-gray-400">{item.phoneNumber || "Sin teléfono"}</div>
             </div>
         ),
-        "department": (item: Employee) => (
+        "Departamento": (item: Employee) => (
             <div>
                 <div className="font-medium text-sm text-white">{item.department || "Sin área"}</div>
                 <div className="text-xs text-gray-400">{item.position}</div>
             </div>
         ),
-        "status": (item: Employee) => (
+        "Estado": (item: Employee) => (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(item.status)}`}>
                 {item.status}
             </span>
