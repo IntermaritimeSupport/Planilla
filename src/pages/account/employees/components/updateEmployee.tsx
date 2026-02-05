@@ -39,7 +39,7 @@ const ManageEmployeePage: React.FC = () => {
     if (loadingEmp || loadingDepts) return <div className="p-10 text-center text-blue-500">Cargando...</div>;
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white">
+        <div className="min-h-screen">
             <div className="max-w-5xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
@@ -48,13 +48,13 @@ const ManageEmployeePage: React.FC = () => {
                     </div>
                     <button
                         onClick={() => navigate(-1)}
-                        className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
+                        className=" hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
                     >
                         Volver
                     </button>
                 </div>
 
-                <div className="bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-xl">
+                <div className=" border border-gray-700 rounded-xl p-8 shadow-xl">
                     <EmployeeForm 
                         initialData={employeeData} 
                         departments={departments || []}

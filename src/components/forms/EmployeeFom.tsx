@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/themeContext";
 
 interface EmployeeFormProps {
     initialData?: any;
@@ -11,6 +12,7 @@ interface EmployeeFormProps {
 
 const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, companyId }) => {
     const navigate = useNavigate();
+    const { isDarkMode } = useTheme();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         cedula: initialData?.cedula || "",
@@ -26,7 +28,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
         bankAccount: initialData?.bankAccount || "",
         bankName: initialData?.bankName || "",
         userId: initialData?.userId || "", 
-        // Inicializamos los descuentos mapeando las fechas para el input date
         recurringDeductions: initialData?.recurringDeductions?.map((d: any) => ({
             ...d,
             startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -34,7 +35,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
         })) || [],
     });
 
-    // Funciones para gestionar descuentos
     const addDeduction = () => {
         setFormData({
             ...formData,
@@ -45,7 +45,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                     amount: 0, 
                     frequency: "ALWAYS", 
                     isActive: true,
-                    startDate: new Date().toISOString().split('T')[0], // Hoy por defecto
+                    startDate: new Date().toISOString().split('T')[0],
                     endDate: "" 
                 }
             ]
@@ -101,9 +101,35 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
         }
     };
 
-    const inputClass = "w-full bg-gray-900 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm";
-    const labelClass = "block text-sm font-medium text-gray-400 mb-1";
-    const smallLabel = "text-[10px] text-gray-500 uppercase font-bold mb-1 block";
+    const inputClass = `w-full rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm ${
+      isDarkMode
+        ? 'bg-gray-900 border border-gray-600 text-white'
+        : 'bg-white border border-gray-300 text-gray-900'
+    }`;
+    
+    const labelClass = `block text-sm font-medium mb-1 ${
+      isDarkMode
+        ? 'text-gray-400'
+        : 'text-gray-700'
+    }`;
+    
+    const smallLabel = `text-[10px] uppercase font-bold mb-1 block ${
+      isDarkMode
+        ? 'text-gray-500'
+        : 'text-gray-600'
+    }`;
+
+    const sectionHeaderColor = (color: string) => {
+      const colors: Record<string, string> = {
+        blue: isDarkMode ? 'text-blue-400' : 'text-blue-600',
+        green: isDarkMode ? 'text-green-400' : 'text-green-600',
+        red: isDarkMode ? 'text-red-400' : 'text-red-600',
+        gray: isDarkMode ? 'text-gray-500' : 'text-gray-700',
+      };
+      return colors[color] || colors.blue;
+    };
+
+    const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -111,7 +137,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                 
                 {/* SECCIÓN 1: DATOS PERSONALES */}
                 <section className="space-y-4">
-                    <h2 className="text-blue-400 font-bold border-b border-gray-700 pb-2 uppercase text-xs tracking-wider">Información Personal</h2>
+                    <h2 className={`font-bold border-b pb-2 uppercase text-xs tracking-wider ${sectionHeaderColor('blue')} ${borderColor}`}>
+                      Información Personal
+                    </h2>
                     
                     <div>
                         <label className={labelClass}>Cédula / ID</label>
@@ -143,7 +171,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
 
                 {/* SECCIÓN 2: DATOS LABORALES */}
                 <section className="space-y-4">
-                    <h2 className="text-blue-400 font-bold border-b border-gray-700 pb-2 uppercase text-xs tracking-wider">Puesto y Contrato</h2>
+                    <h2 className={`font-bold border-b pb-2 uppercase text-xs tracking-wider ${sectionHeaderColor('blue')} ${borderColor}`}>
+                      Puesto y Contrato
+                    </h2>
                     
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -187,7 +217,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
 
                 {/* SECCIÓN 3: DATOS BANCARIOS */}
                 <section className="space-y-4">
-                    <h2 className="text-green-400 font-bold border-b border-gray-700 pb-2 uppercase text-xs tracking-wider">Información de Pago</h2>
+                    <h2 className={`font-bold border-b pb-2 uppercase text-xs tracking-wider ${sectionHeaderColor('green')} ${borderColor}`}>
+                      Información de Pago
+                    </h2>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className={labelClass}>Banco</label>
@@ -199,9 +231,12 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                         </div>
                     </div>
                 </section>
-                {/* SECCIÓN 3: SISTEMA */}
+
+                {/* SECCIÓN 4: SISTEMA */}
                 <section className="space-y-4">
-                    <h2 className="text-gray-500 font-bold border-b border-gray-700 pb-2 uppercase text-xs tracking-wider">Ajustes de Sistema</h2>
+                    <h2 className={`font-bold border-b pb-2 uppercase text-xs tracking-wider ${sectionHeaderColor('gray')} ${borderColor}`}>
+                      Ajustes de Sistema
+                    </h2>
                     <div>
                         <label className={labelClass}>ID de Usuario vinculado (Opcional)</label>
                         <input 
@@ -210,28 +245,46 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                             value={formData.userId} 
                             onChange={(e) => setFormData({...formData, userId: e.target.value})} 
                         />
-                        <p className="text-[10px] text-gray-500 mt-1 italic">Vincule un ID de la tabla de usuarios si este empleado tendrá acceso al portal.</p>
+                        <p className={`text-[10px] mt-1 italic ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                          Vincule un ID de la tabla de usuarios si este empleado tendrá acceso al portal.
+                        </p>
                     </div>
                 </section>
-                {/* SECCIÓN: DESCUENTOS RECURRENTES (ACTUALIZADA) */}
+
+                {/* SECCIÓN: DESCUENTOS RECURRENTES */}
                 <section className="space-y-4 col-span-1 md:col-span-2">
-                    <div className="flex justify-between items-center border-b border-gray-700 pb-2">
-                        <h2 className="text-red-400 font-bold uppercase text-xs tracking-wider">Descuentos Recurrentes</h2>
+                    <div className={`flex justify-between items-center border-b pb-2 ${borderColor}`}>
+                        <h2 className={`font-bold uppercase text-xs tracking-wider ${sectionHeaderColor('red')}`}>
+                          Descuentos Recurrentes
+                        </h2>
                         <button 
                             type="button" 
                             onClick={addDeduction}
-                            className="text-[10px] bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-800 hover:bg-red-800 hover:text-white transition-all"
+                            className={`text-[10px] px-2 py-1 rounded border transition-all ${
+                              isDarkMode
+                                ? 'bg-red-900/30 text-red-400 border-red-800 hover:bg-red-800 hover:text-white'
+                                : 'bg-red-100 text-red-600 border-red-300 hover:bg-red-200 hover:text-red-800'
+                            }`}
                         >
                             + AGREGAR
                         </button>
                     </div>
                     
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className={`space-y-3 max-h-[400px] overflow-y-auto pr-2 ${isDarkMode ? 'custom-scrollbar' : ''}`}>
                         {formData.recurringDeductions.length === 0 && (
-                            <p className="text-gray-600 text-xs italic">No hay descuentos configurados.</p>
+                            <p className={`text-xs italic ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>
+                              No hay descuentos configurados.
+                            </p>
                         )}
                         {formData.recurringDeductions.map((deduction: any, index: number) => (
-                            <div key={index} className="p-4 bg-gray-800/40 rounded-lg border border-gray-700 space-y-4 relative">
+                            <div 
+                              key={index} 
+                              className={`p-4 rounded-lg border space-y-4 relative transition-colors ${
+                                isDarkMode
+                                  ? 'bg-gray-800/40 border-gray-700'
+                                  : 'bg-gray-100 border-gray-300'
+                              }`}
+                            >
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1">
                                         <label className={smallLabel}>Concepto del Descuento</label>
@@ -245,7 +298,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                                     <button 
                                         type="button" 
                                         onClick={() => removeDeduction(index)}
-                                        className="ml-4 text-gray-500 hover:text-red-500 transition-colors"
+                                        className={`ml-4 transition-colors ${
+                                          isDarkMode
+                                            ? 'text-gray-500 hover:text-red-500'
+                                            : 'text-gray-400 hover:text-red-600'
+                                        }`}
                                     >
                                         ✕
                                     </button>
@@ -301,33 +358,56 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
                                     <input 
                                         type="checkbox" 
                                         id={`active-${index}`}
-                                        className="w-4 h-4 bg-gray-900 border-gray-600 rounded text-blue-600 focus:ring-blue-500"
+                                        className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer ${
+                                          isDarkMode
+                                            ? 'bg-gray-900 border-gray-600'
+                                            : 'bg-white border-gray-300'
+                                        }`}
                                         checked={deduction.isActive}
                                         onChange={(e) => updateDeduction(index, 'isActive', e.target.checked)}
                                     />
-                                    <label htmlFor={`active-${index}`} className="text-xs text-gray-400 cursor-pointer">Descuento activo</label>
+                                    <label 
+                                      htmlFor={`active-${index}`} 
+                                      className={`text-xs cursor-pointer ${
+                                        isDarkMode
+                                          ? 'text-gray-400'
+                                          : 'text-gray-600'
+                                      }`}
+                                    >
+                                      Descuento activo
+                                    </label>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </section>
-
-
             </div>
 
-            <div className="flex justify-end gap-4 border-t border-gray-800 pt-6">
+            <div className={`flex justify-end gap-4 border-t pt-6 transition-colors ${
+              isDarkMode
+                ? 'border-gray-800'
+                : 'border-gray-200'
+            }`}>
                 <button
                     type="button"
                     onClick={() => navigate(-1)}
-                    className="px-6 py-2.5 rounded-lg text-gray-400 hover:text-white transition-colors"
+                    className={`px-6 py-2.5 rounded-lg transition-colors ${
+                      isDarkMode
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
-                    {initialData ? ( "Cancelar Cambios" ) : ( "Cancelar" )}
+                    {initialData ? "Cancelar Cambios" : "Cancelar"}
                 </button>
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-10 py-2.5 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`text-white px-10 py-2.5 rounded-lg font-bold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isDarkMode
+                        ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20'
+                        : 'bg-blue-500 hover:bg-blue-600 shadow-blue-300/20'
+                    }`}
                 >
                     {loading ? "Procesando..." : initialData ? "Guardar Cambios" : "Registrar Empleado"}
                 </button>
