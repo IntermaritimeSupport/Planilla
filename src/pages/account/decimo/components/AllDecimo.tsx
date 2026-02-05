@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
+import { useTheme } from "../../../../context/themeContext"
 import {
   Gift,
   Calendar,
@@ -72,6 +73,7 @@ function getMonthlySalary(salary: number, salaryType: SalaryType): number {
 
 export const AllDecimo: React.FC = () => {
   const { selectedCompany } = useCompany()
+  const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
   const [currentPartida, setCurrentPartida] = useState(1)
 
@@ -201,15 +203,21 @@ export const AllDecimo: React.FC = () => {
 
   if (loadingEmps || loadingParams) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0f172a] text-white">
+      <div className={`flex items-center justify-center min-h-screen transition-colors ${
+        isDarkMode ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
         <Loader2 className="animate-spin text-blue-500" size={48} />
       </div>
     )
   }
 
   return (
-    <div className="bg-[#0f172a] text-white">
-      <PagesHeader title={`${pageName} - Décimo Tercer Mes`} description="Cálculo dinámico basado en parámetros legales de la base de datos" onExport={() => { }} />
+    <div className={`transition-colors ${isDarkMode ? 'bg-slate-900 text-white' : 'text-gray-900'}`}>
+      <PagesHeader 
+        title={`${pageName} - Décimo Tercer Mes`} 
+        description="Cálculo dinámico basado en parámetros legales de la base de datos" 
+        onExport={() => { }} 
+      />
 
       {/* Selector de Partida */}
       <div className="flex gap-4 mb-8">
@@ -217,13 +225,22 @@ export const AllDecimo: React.FC = () => {
           <button
             key={num}
             onClick={() => setCurrentPartida(num)}
-            className={`flex-1 p-4 rounded-xl border transition-all ${currentPartida === num
-              ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-900/20'
-              : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
-              }`}
+            className={`flex-1 p-4 rounded-xl border transition-all ${
+              currentPartida === num
+                ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-900/20'
+                : isDarkMode
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700'
+                : 'bg-white border-gray-300 hover:bg-gray-100'
+            }`}
           >
-            <div className="text-xs uppercase font-bold opacity-70">Partida {num}</div>
-            <div className="text-lg font-bold">
+            <div className={`text-xs uppercase font-bold opacity-70 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              Partida {num}
+            </div>
+            <div className={`text-lg font-bold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
               {num === 1 ? 'Abril' : num === 2 ? 'Agosto' : 'Diciembre'}
             </div>
           </button>
@@ -231,41 +248,87 @@ export const AllDecimo: React.FC = () => {
       </div>
 
       {/* Resumen de la Partida */}
-      <div className="bg-gradient-to-r from-blue-900/40 to-slate-800 p-6 rounded-2xl border border-blue-500/30 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className={`p-6 rounded-2xl border mb-8 flex flex-col md:flex-row justify-between items-center gap-6 transition-colors ${
+        isDarkMode
+          ? 'bg-gradient-to-r from-blue-900/40 to-slate-800 border-blue-500/30'
+          : 'bg-gradient-to-r from-blue-100 to-gray-100 border-blue-300'
+      }`}>
         <div className="flex items-center gap-4">
-          <div className="bg-blue-500/20 p-4 rounded-full">
+          <div className={`p-4 rounded-full transition-colors ${
+            isDarkMode
+              ? 'bg-blue-500/20'
+              : 'bg-blue-200'
+          }`}>
             <Gift className="text-blue-400" size={32} />
           </div>
           <div>
-            <h3 className="text-xl font-bold">{partidaInfo.name} - {new Date().getFullYear()}</h3>
-            <p className="text-gray-400 text-sm flex items-center gap-2">
+            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {partidaInfo.name} - {new Date().getFullYear()}
+            </h3>
+            <p className={`text-sm flex items-center gap-2 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               <Calendar size={14} /> Periodo: {partidaInfo.period}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-8">
           <div className="text-center">
-            <p className="text-gray-400 text-xs uppercase mb-1">Total Bruto</p>
-            <p className="text-2xl font-bold font-mono">${totals.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <p className={`text-xs uppercase mb-1 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Total Bruto
+            </p>
+            <p className={`text-2xl font-bold font-mono ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              ${totals.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-xs uppercase mb-1 text-green-400">Total Neto a Pagar</p>
-            <p className="text-2xl font-bold text-green-400 font-mono">${totals.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <p className={`text-xs uppercase mb-1 ${
+              isDarkMode ? 'text-green-400' : 'text-green-600'
+            }`}>
+              Total Neto a Pagar
+            </p>
+            <p className={`text-2xl font-bold font-mono ${
+              isDarkMode ? 'text-green-400' : 'text-green-600'
+            }`}>
+              ${totals.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Tabla de Empleados */}
-      <div className="bg-[#1e293b] rounded-xl border border-gray-700 overflow-hidden shadow-2xl">
-        <div className="p-4 bg-slate-800/50 border-b border-gray-700 flex justify-between items-center">
-          <h4 className="font-bold text-sm uppercase tracking-widest text-gray-400">Detalle de Colaboradores</h4>
-          <button className="flex items-center gap-2 text-xs bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors font-bold">
+      <div className={`rounded-xl border overflow-hidden shadow-2xl transition-colors ${
+        isDarkMode
+          ? 'bg-slate-800 border-gray-700'
+          : 'bg-white border-gray-200'
+      }`}>
+        <div className={`p-4 border-b flex justify-between items-center transition-colors ${
+          isDarkMode
+            ? 'bg-slate-800/50 border-gray-700'
+            : 'bg-gray-100 border-gray-200'
+        }`}>
+          <h4 className={`font-bold text-sm uppercase tracking-widest ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Detalle de Colaboradores
+          </h4>
+          <button className="flex items-center gap-2 text-xs bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors font-bold text-white">
             <Download size={14} /> Exportar Planilla
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-gray-500 uppercase text-[10px] font-bold bg-slate-900/50">
+          <table className={`w-full text-sm text-left transition-colors ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+          }`}>
+            <thead className={`uppercase text-[10px] font-bold transition-colors ${
+              isDarkMode
+                ? 'bg-slate-900/50 text-gray-500'
+                : 'bg-gray-100 text-gray-600'
+            }`}>
               <tr>
                 <th className="px-6 py-4">Empleado</th>
                 <th className="px-6 py-4">Salario Base (Mensual)</th>
@@ -275,20 +338,33 @@ export const AllDecimo: React.FC = () => {
                 <th className="px-6 py-4 text-green-400 font-bold">Monto Neto</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className={`divide-y transition-colors ${
+              isDarkMode ? 'divide-slate-800' : 'divide-gray-200'
+            }`}>
               {employeeData.map((emp) => (
-                <tr key={emp.id} className="hover:bg-slate-700/20 transition-colors">
+                <tr 
+                  key={emp.id} 
+                  className={`transition-colors ${
+                    isDarkMode
+                      ? 'hover:bg-slate-700/20'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
                   <td className="px-6 py-4 flex items-center gap-3">
                     <UserCheck className="text-blue-500/50" size={16} />
                     <div>
-                      <div className="font-bold text-slate-200">{emp.firstName} {emp.lastName}</div>
-                      <div className="text-[10px] text-gray-500">{emp.cedula}</div>
+                      <div className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-gray-900'}`}>
+                        {emp.firstName} {emp.lastName}
+                      </div>
+                      <div className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                        {emp.cedula}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-gray-300">
+                  <td className={`px-6 py-4 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     ${emp.monthlySalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </td>
-                  <td className="px-6 py-4 font-semibold text-slate-300">
+                  <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
                     ${emp.calc.grossThirteenth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-4 text-red-400/80 font-mono">
@@ -309,32 +385,50 @@ export const AllDecimo: React.FC = () => {
 
       {/* Reglas de Negocio dinámicas desde API */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700">
-          <div className="flex items-center gap-2 text-yellow-500 mb-2">
+        <div className={`p-4 rounded-lg border transition-colors ${
+          isDarkMode
+            ? 'bg-slate-800/40 border-slate-700'
+            : 'bg-yellow-50 border-yellow-300'
+        }`}>
+          <div className={`flex items-center gap-2 mb-2 ${
+            isDarkMode ? 'text-yellow-500' : 'text-yellow-600'
+          }`}>
             <AlertTriangle size={16} />
             <h5 className="text-xs font-bold uppercase">Seguro Social</h5>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
             Tasa actual: <strong>{getParam('ss_decimo')?.percentage || 7.25}%</strong>. 
             Este porcentaje se aplica sobre el bruto del décimo según configuración de la base de datos.
           </p>
         </div>
-        <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700">
-          <div className="flex items-center gap-2 text-blue-500 mb-2">
+        <div className={`p-4 rounded-lg border transition-colors ${
+          isDarkMode
+            ? 'bg-slate-800/40 border-slate-700'
+            : 'bg-blue-50 border-blue-300'
+        }`}>
+          <div className={`flex items-center gap-2 mb-2 ${
+            isDarkMode ? 'text-blue-500' : 'text-blue-600'
+          }`}>
             <Info size={16} />
             <h5 className="text-xs font-bold uppercase">Seguro Educativo</h5>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
             El Seguro Educativo para el décimo es <strong>{getParam('se_decimo')?.percentage || 0}%</strong>. 
             Por ley, el décimo tercer mes está exento de este descuento.
           </p>
         </div>
-        <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-700">
-          <div className="flex items-center gap-2 text-green-500 mb-2">
+        <div className={`p-4 rounded-lg border transition-colors ${
+          isDarkMode
+            ? 'bg-slate-800/40 border-slate-700'
+            : 'bg-green-50 border-green-300'
+        }`}>
+          <div className={`flex items-center gap-2 mb-2 ${
+            isDarkMode ? 'text-green-500' : 'text-green-600'
+          }`}>
             <Gift size={16} />
             <h5 className="text-xs font-bold uppercase">Base de Cálculo</h5>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
             Fórmula: (Sumatoria de salarios del periodo / 12). Se consideran los últimos 4 meses de ingresos brutos.
           </p>
         </div>

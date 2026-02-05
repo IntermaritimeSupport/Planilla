@@ -2,7 +2,7 @@ import React from "react";
 
 const Loader: React.FC = () => {
   return (
-    <div className="h-[90vh] bg-gray-900 text-white flex items-center justify-center">
+    <div className="h-[90vh] flex items-center justify-center">
       <div className="loader-container w-full h-full flex items-center justify-center">
         <svg className="pl" width="240" height="240" viewBox="0 0 240 240">
           <circle

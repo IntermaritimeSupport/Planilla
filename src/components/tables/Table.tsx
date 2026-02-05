@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { ChevronUp, ChevronDown, Eye, Edit, Trash2 } from "lucide-react"
+import { useTheme } from "../../context/themeContext"
 
 interface TablaProps {
   datos: any[]
@@ -20,6 +21,7 @@ export default function Tabla({
   onEliminar,
   mostrarAcciones = true,
 }: TablaProps) {
+  const { isDarkMode } = useTheme()
   const [ordenar, setOrdenar] = useState<{
     columna: string | null
     direccion: "asc" | "desc"
@@ -68,27 +70,43 @@ export default function Tabla({
   const IconoOrden = ({ columna }: { columna: string }) => {
     if (ordenar.columna !== columna) return <div className="w-4 h-4" />
     return ordenar.direccion === "asc" ? (
-      <ChevronUp size={16} className="text-gray-300" />
+      <ChevronUp size={16} className={isDarkMode ? "text-gray-300" : "text-gray-600"} />
     ) : (
-      <ChevronDown size={16} className="text-gray-300" />
+      <ChevronDown size={16} className={isDarkMode ? "text-gray-300" : "text-gray-600"} />
     )
   }
 
   if (!datos || datos.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mt-6">
-        <p className="text-gray-400">No hay datos disponibles</p>
+      <div className={`rounded-xl border p-6 mt-6 transition-colors ${
+        isDarkMode
+          ? 'bg-gray-800 border-gray-700'
+          : 'bg-white border-gray-200'
+      }`}>
+        <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+          No hay datos disponibles
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 mt-6">
-      <div className="p-6 border-b border-gray-700">
-        <h2 className="text-xl font-semibold text-white capitalize">
+    <div className={`rounded-xl border mt-6 transition-colors ${
+      isDarkMode
+        ? 'bg-gray-800 border-gray-700'
+        : 'bg-white border-gray-200'
+    }`}>
+      <div className={`p-6 border-b transition-colors ${
+        isDarkMode
+          ? 'border-gray-700'
+          : 'border-gray-200'
+      }`}>
+        <h2 className={`text-xl font-semibold capitalize ${
+          isDarkMode ? 'text-white' : 'text-gray-900'
+        }`}>
           {titulo}
         </h2>
-        <p className="text-gray-400 text-sm mt-1">
+        <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
           {datos.length} registros encontrados
         </p>
       </div>
@@ -96,12 +114,20 @@ export default function Tabla({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-700">
+            <tr className={`border-b transition-colors ${
+              isDarkMode
+                ? 'border-gray-700'
+                : 'border-gray-200'
+            }`}>
               {columnas.map((col) => (
                 <th
                   key={col}
                   onClick={() => ordenarDatos(col)}
-                  className="py-3 px-4 text-left font-semibold text-gray-300 cursor-pointer hover:bg-gray-700 transition"
+                  className={`py-3 px-4 text-left font-semibold cursor-pointer transition ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     {col}
@@ -110,7 +136,9 @@ export default function Tabla({
                 </th>
               ))}
               {mostrarAcciones && (
-                <th className="py-3 px-4 text-center font-semibold text-gray-300">
+                <th className={`py-3 px-4 text-center font-semibold ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Acciones
                 </th>
               )}
@@ -121,10 +149,19 @@ export default function Tabla({
             {datos.map((item, idx) => (
               <tr
                 key={idx}
-                className="border-b border-gray-700 hover:bg-gray-700 transition"
+                className={`border-b transition ${
+                  isDarkMode
+                    ? 'border-gray-700 hover:bg-gray-700'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
               >
                 {columnas.map((col) => (
-                  <td key={`${idx}-${col}`} className="py-3 px-4 text-gray-300">
+                  <td 
+                    key={`${idx}-${col}`} 
+                    className={`py-3 px-4 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}
+                  >
                     {columnasPersonalizadas?.[col]
                       ? columnasPersonalizadas[col](item)
                       : typeof item[col] === "boolean"
@@ -141,7 +178,11 @@ export default function Tabla({
                       {onVer && (
                         <button
                           onClick={() => onVer(item)}
-                          className="flex items-center px-3 py-1 border border-blue-600 text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition"
+                          className={`flex items-center px-3 py-1 border rounded-lg transition ${
+                            isDarkMode
+                              ? 'border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white'
+                              : 'border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white'
+                          }`}
                           title="Ver"
                         >
                           <Eye size={14} />
@@ -151,7 +192,11 @@ export default function Tabla({
                       {onEditar && (
                         <button
                           onClick={() => onEditar(item)}
-                          className="flex items-center px-3 py-1 border border-orange-600 text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition"
+                          className={`flex items-center px-3 py-1 border rounded-lg transition ${
+                            isDarkMode
+                              ? 'border-orange-600 text-orange-400 hover:bg-orange-600 hover:text-white'
+                              : 'border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white'
+                          }`}
                           title="Editar"
                         >
                           <Edit size={14} />
@@ -161,7 +206,11 @@ export default function Tabla({
                       {onEliminar && (
                         <button
                           onClick={() => onEliminar(item)}
-                          className="flex items-center px-3 py-1 border border-red-600 text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition"
+                          className={`flex items-center px-3 py-1 border rounded-lg transition ${
+                            isDarkMode
+                              ? 'border-red-600 text-red-400 hover:bg-red-600 hover:text-white'
+                              : 'border-red-500 text-red-600 hover:bg-red-500 hover:text-white'
+                          }`}
                           title="Eliminar"
                         >
                           <Trash2 size={14} />

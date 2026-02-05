@@ -9,6 +9,7 @@ import PagesHeader from "../../../../components/headers/pagesHeader"
 import { useSearch } from "../../../../context/searchContext"
 import Tabla from "../../../../components/tables/Table"
 import { X } from "lucide-react"
+import { useTheme } from "../../../../context/themeContext"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -73,6 +74,7 @@ const getStatusBadge = (user: UsuarioFull) => {
 }
 
 export const AllUsers: React.FC = () => {
+    const { isDarkMode, } = useTheme();
     const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
     const { data, error, isLoading } = useSWR<UsuarioFull[]>(`${import.meta.env.VITE_API_URL}/api/users/full/${selectedCompany?.id}`, fetcher)
     const { pageName } = usePageName()
@@ -198,7 +200,7 @@ export const AllUsers: React.FC = () => {
         : 0;
 
     return (
-        <div className="relative bg-gray-900 text-white">
+        <div className="relative">
             <PagesHeader
                 title={pageName}
                 description={pageName ? `${pageName} in ${selectedCompany?.name}` : "Cargando compañía..."}
@@ -207,22 +209,38 @@ export const AllUsers: React.FC = () => {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Total Usuarios</span>
                     <div className="text-3xl font-bold mb-1">{totalUsers}</div>
                     <div className="text-sm text-gray-400">Registrados en el sistema</div>
                 </div>
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Usuarios Activos</span>
                     <div className="text-3xl font-bold mb-1">{activeUsers}</div>
                     <div className="text-sm text-gray-400">Con acceso al sistema</div>
                 </div>
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Con Equipos</span>
                     <div className="text-3xl font-bold mb-1">{usersWithEquipment}</div>
                     <div className="text-sm text-gray-400">Tienen equipos asignados</div>
                 </div>
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Departamentos</span>
                     <div className="text-3xl font-bold mb-1">{departments}</div>
                     <div className="text-sm text-gray-400">Diferentes áreas</div>

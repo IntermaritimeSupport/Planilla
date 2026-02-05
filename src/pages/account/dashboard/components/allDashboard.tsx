@@ -4,6 +4,7 @@
 import useSWR from "swr";
 import React, { useState } from "react";
 import { useCompany } from "../../../../context/routerContext";
+import { useTheme } from "../../../../context/themeContext";
 import Loader from "../../../../components/loaders/loader";
 import ReportPreviewModal from "../../../../components/modals/ReportPreviewModal";
 import PagesHeader from "../../../../components/headers/pagesHeader";
@@ -212,6 +213,7 @@ const ActivityIcon: React.FC<{ icon: string }> = ({ icon }) => {
 // ------------ COMPONENTE PRINCIPAL ACTUALIZADO ----------
 const AllDashboard: React.FC<DashboardProps> = ({}) => {
   const { selectedCompany } = useCompany();
+  const { isDarkMode } = useTheme();
   const [showReportModal, setShowReportModal] = useState(false);
   const { pageName } = usePageName();
 
@@ -336,7 +338,7 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
 
   if (!dashboardData) {
     return (
-      <div className="flex-1 p-6 text-center text-gray-400">
+      <div className={`flex-1 p-6 text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
         No hay datos disponibles para esta empresa.
       </div>
     );
@@ -362,9 +364,15 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
         {/* KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Empleados */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <span className="text-gray-400 text-sm">Total Empleados</span>
-            <div className="text-3xl font-bold">
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Total Empleados
+            </span>
+            <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {dashboardData.kpi.totalEquipments.count}
             </div>
             <div
@@ -380,9 +388,15 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
           </div>
 
           {/* Ausencias */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <span className="text-gray-400 text-sm">Ausencias (30 días)</span>
-            <div className="text-3xl font-bold">
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Ausencias (30 días)
+            </span>
+            <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {dashboardData.kpi.pendingMaintenances.count}
             </div>
             <div
@@ -398,9 +412,15 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
           </div>
 
           {/* Empleados Activos */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <span className="text-gray-400 text-sm">Empleados Activos</span>
-            <div className="text-3xl font-bold">
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Empleados Activos
+            </span>
+            <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {dashboardData.kpi.activeEquipments.count}
             </div>
             <div
@@ -416,9 +436,17 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
           </div>
 
           {/* Usuarios Activos */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <span className="text-gray-400 text-sm">Usuarios Activos</span>
-            <div className="text-3xl font-bold">{dashboardData.kpi.activeUsers.count}</div>
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Usuarios Activos
+            </span>
+            <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {dashboardData.kpi.activeUsers.count}
+            </div>
             <div
               className={`mt-2 text-sm ${
                 dashboardData.kpi.activeUsers.change >= 0
@@ -435,9 +463,15 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
         {/* INVENTARIO + ACTIVIDAD */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* EMPLEADOS POR DEPARTAMENTO */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h2 className="text-xl font-bold mb-2">Empleados por Departamento</h2>
-            <p className="text-gray-400 text-sm mb-6">
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <h2 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Empleados por Departamento
+            </h2>
+            <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               Distribución de empleados por departamento
             </p>
 
@@ -447,12 +481,16 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-3">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>{category.name}</span>
+                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+                        {category.name}
+                      </span>
                     </div>
-                    <span className="font-semibold">{category.count}</span>
+                    <span className={`font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {category.count}
+                    </span>
                   </div>
 
-                  <div className="w-full bg-gray-700 rounded-full h-2 mt-1">
+                  <div className={`w-full rounded-full h-2 mt-1 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`}>
                     <div
                       className="bg-blue-500 h-2 rounded-full"
                       style={{
@@ -466,18 +504,30 @@ const AllDashboard: React.FC<DashboardProps> = ({}) => {
           </div>
 
           {/* NÓMINAS RECIENTES */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h2 className="text-xl font-bold mb-2">Nóminas Recientes</h2>
-            <p className="text-gray-400 text-sm mb-6">Últimas nóminas procesadas</p>
+          <div className={`rounded-lg p-6 border transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <h2 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Nóminas Recientes
+            </h2>
+            <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Últimas nóminas procesadas
+            </p>
 
             <div className="space-y-4">
               {dashboardData.recentActivity.map((activity, idx) => (
                 <div key={idx} className="flex items-start space-x-3">
                   <ActivityIcon icon={activity.icon} />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold">{activity.type}</p>
-                    <p className="text-gray-400 text-sm">{activity.description}</p>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <p className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {activity.type}
+                    </p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {activity.description}
+                    </p>
+                    <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                       {formatDate(activity.date)}
                     </div>
                   </div>

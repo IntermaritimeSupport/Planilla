@@ -9,6 +9,7 @@ import PagesHeader from "../../../../components/headers/pagesHeader"
 import { useSearch } from "../../../../context/searchContext"
 import Tabla from "../../../../components/tables/Table"
 import EmployeeImportModal from "./EmployeeImportModal"
+import { useTheme } from "../../../../context/themeContext"
 
 export type UserRole = 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPER_ADMIN';
 export type SalaryType = 'MONTHLY' | 'BIWEEKLY';
@@ -66,6 +67,7 @@ const getStatusBadge = (status: EmployeeStatus) => {
 
 export const AllEmployees: React.FC = () => {
     const { selectedCompany } = useCompany()
+    const { isDarkMode, } = useTheme();
     const { data, error, isLoading } = useSWR<Employee[]>(
         selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null, 
         fetcher
@@ -136,20 +138,20 @@ export const AllEmployees: React.FC = () => {
                     {item.firstName[0]}{item.lastName[0]}
                 </div>
                 <div>
-                    <div className="font-medium text-sm text-white">{item.firstName} {item.lastName}</div>
+                    <div className="font-medium text-sm">{item.firstName} {item.lastName}</div>
                     <div className="text-xs text-gray-400">{item.cedula}</div>
                 </div>
             </div>
         ),
         "Email": (item: Employee) => (
             <div className="text-sm">
-                <div className="text-gray-200">{item.email}</div>
+                <div className="">{item.email}</div>
                 <div className="text-xs text-gray-400">{item.phoneNumber || "Sin teléfono"}</div>
             </div>
         ),
         "Departamento": (item: Employee) => (
             <div>
-                <div className="font-medium text-sm text-white">{item.department || "Sin área"}</div>
+                <div className="font-medium text-sm">{item.department || "Sin área"}</div>
                 <div className="text-xs text-gray-400">{item.position}</div>
             </div>
         ),
@@ -169,7 +171,7 @@ export const AllEmployees: React.FC = () => {
     if (error) return <div className="text-center p-8 text-red-500">Error al cargar empleados</div>
 
     return (
-        <div className="relative bg-gray-900 text-white">
+        <div className="relative">
             <PagesHeader
                 title={pageName}
                 description={`${pageName} en ${selectedCompany?.name || '...'}`}
@@ -181,11 +183,19 @@ export const AllEmployees: React.FC = () => {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Total Empleados</span>
                     <div className="text-3xl font-bold">{data?.length || 0}</div>
                 </div>
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div className={`rounded-lg p-6 border transition-colors ${
+                    isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}>
                     <span className="text-gray-400 text-sm">Activos</span>
                     <div className="text-3xl font-bold text-green-500">{data?.filter(e => e.status === 'ACTIVE').length || 0}</div>
                 </div>

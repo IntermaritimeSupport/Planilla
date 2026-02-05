@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
+import { useTheme } from "../../../../context/themeContext"
 import { Users, AlertCircle, X, Loader2, Info } from "lucide-react"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
@@ -48,6 +49,7 @@ const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export const AllSipe: React.FC = () => {
   const { selectedCompany } = useCompany()
+  const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
 
   const [selectedMonth] = useState(
@@ -215,7 +217,9 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
   if (loadingEmps || loadingParams) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0f172a] text-white">
+      <div className={`flex items-center justify-center min-h-screen transition-colors ${
+        isDarkMode ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
         <Loader2 className="animate-spin text-blue-500" size={48} />
       </div>
     )
@@ -223,7 +227,9 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
   if (empError || paramsError) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0f172a] text-red-400">
+      <div className={`flex items-center justify-center min-h-screen transition-colors ${
+        isDarkMode ? 'bg-slate-900 text-red-400' : 'bg-gray-50 text-red-600'
+      }`}>
         <AlertCircle />
         Error cargando datos
       </div>
@@ -232,17 +238,27 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
 
   return (
-    <div className="bg-[#0f172a] text-white">
+    <div className={`transition-colors ${isDarkMode ? 'bg-slate-900' : ''}`}>
       <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
 
       {/* Banner de Pago del Mes Anterior */}
-      <div className="bg-[#1e293b] border-l-4 border-green-500 p-6 rounded-lg mb-8 flex justify-between items-center shadow-2xl">
+      <div className={`border-l-4 border-green-500 p-6 rounded-lg mb-8 flex justify-between items-center shadow-2xl transition-colors ${
+        isDarkMode 
+          ? 'bg-slate-800' 
+          : 'bg-white border border-gray-200'
+      }`}>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="text-green-400 font-bold uppercase text-sm">Pago del Mes Anterior - {payrollPeriod.monthName} {payrollPeriod.year}</h4>
+            <h4 className={`font-bold uppercase text-sm ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+              Pago del Mes Anterior - {payrollPeriod.monthName} {payrollPeriod.year}
+            </h4>
             <div className="group relative">
-                <Info size={14} className="text-gray-500 cursor-help" />
-                <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-black text-[10px] rounded hidden group-hover:block z-50">
+                <Info size={14} className={`cursor-help ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                <div className={`absolute bottom-full left-0 mb-2 w-64 p-2 rounded hidden group-hover:block z-50 text-[10px] ${
+                  isDarkMode 
+                    ? 'bg-black text-gray-200' 
+                    : 'bg-gray-900 text-gray-100'
+                }`}>
                     Tasas aplicadas desde base de datos: 
                     SS Emp: {getParam('ss_empleado')?.percentage}% | 
                     SS Pat: {getParam('ss_patrono')?.percentage}% |
@@ -250,22 +266,40 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
                 </div>
             </div>
           </div>
-          <p className="text-gray-400 text-xs">Este es el pago que debe realizar este mes (antes del 15 de {new Date(selectedMonth + "-15").toLocaleDateString("es-PA", { month: 'long' })})</p>
-          <h2 className="text-4xl font-bold mt-2 text-white">{format(totals.total)}</h2>
+          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Este es el pago que debe realizar este mes (antes del 15 de {new Date(selectedMonth + "-15").toLocaleDateString("es-PA", { month: 'long' })})
+          </p>
+          <h2 className={`text-4xl font-bold mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {format(totals.total)}
+          </h2>
         </div>
         <div className="text-right">
-          <p className="text-gray-400 text-xs italic">Fecha Límite</p>
-          <p className="font-mono font-bold text-2xl text-orange-400">{dueDate}</p>
-          <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg mt-3 text-sm font-bold transition-all transform hover:scale-105">
+          <p className={`text-xs italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Fecha Límite</p>
+          <p className={`font-mono font-bold text-2xl ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+            {dueDate}
+          </p>
+          <button className={`px-6 py-2 rounded-lg mt-3 text-sm font-bold transition-all transform hover:scale-105 ${
+            isDarkMode
+              ? 'bg-green-600 hover:bg-green-700 text-white'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}>
             Guardar en Historial
           </button>
         </div>
       </div>
 
       {/* Tabla de Reporte General */}
-      <div className="bg-[#1e293b] rounded-xl border border-gray-700 overflow-hidden shadow-xl">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-[#334155] text-gray-300 uppercase">
+      <div className={`rounded-xl border overflow-hidden shadow-xl transition-colors ${
+        isDarkMode
+          ? 'bg-slate-800 border-gray-700'
+          : 'bg-white border-gray-200'
+      }`}>
+        <table className={`w-full text-xs text-left ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <thead className={`uppercase transition-colors ${
+            isDarkMode
+              ? 'bg-slate-700 text-gray-300'
+              : 'bg-gray-200 text-gray-700'
+          }`}>
             <tr>
               <th className="p-4">Periodo</th>
               <th className="p-4">CSS Emp ({getParam('ss_empleado')?.percentage || '9.75'}%)</th>
@@ -280,8 +314,12 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-gray-700 hover:bg-slate-700/50 transition-colors">
-              <td className="p-4 font-bold">
+            <tr className={`border transition-colors ${
+              isDarkMode
+                ? 'border-gray-700 hover:bg-slate-700/50'
+                : 'border-gray-200 hover:bg-gray-100'
+            }`}>
+              <td className={`p-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {payrollPeriod.year}-{selectedMonth.split("-")[1]} 
                 <span className="bg-red-500/20 text-red-500 px-2 py-0.5 rounded ml-2 text-[10px]">VENCIDO</span>
               </td>
@@ -296,7 +334,11 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
               <td className="p-4">
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="bg-blue-600/20 text-blue-400 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                  className={`p-2 rounded-lg transition-all ${
+                    isDarkMode
+                      ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white'
+                      : 'bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white'
+                  }`}
                   title="Ver desglose individual"
                 >
                   <Users size={18} />
@@ -309,27 +351,49 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
       {/* MODAL DE DESGLOSE POR USUARIO */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1e293b] w-full max-w-6xl max-h-[90vh] rounded-2xl border border-gray-700 flex flex-col shadow-2xl">
-            <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+        <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4 ${
+          isDarkMode ? 'bg-black/80' : 'bg-black/50'
+        }`}>
+          <div className={`w-full max-w-6xl max-h-[90vh] rounded-2xl border flex flex-col shadow-2xl transition-colors ${
+            isDarkMode
+              ? 'bg-slate-800 border-gray-700'
+              : 'bg-white border-gray-200'
+          }`}>
+            <div className={`p-6 border-b flex justify-between items-center transition-colors ${
+              isDarkMode
+                ? 'border-gray-700'
+                : 'border-gray-200'
+            }`}>
               <div>
-                <h3 className="text-xl font-bold flex items-center gap-2">
+                <h3 className={`text-xl font-bold flex items-center gap-2 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
                     <Users className="text-blue-400" /> Desglose Individual de Planilla
                 </h3>
-                <p className="text-gray-400 text-xs mt-1">Periodo: {payrollPeriod.monthName} {payrollPeriod.year}</p>
+                <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Periodo: {payrollPeriod.monthName} {payrollPeriod.year}
+                </p>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)} 
-                className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-full transition-colors"
+                className={`p-2 rounded-full transition-colors ${
+                  isDarkMode
+                    ? 'text-gray-400 hover:text-white bg-gray-800'
+                    : 'text-gray-600 hover:text-gray-900 bg-gray-100'
+                }`}
               >
                 <X size={20} />
               </button>
             </div>
             
             <div className="overflow-auto p-6">
-              <table className="w-full text-xs text-left">
+              <table className={`w-full text-xs text-left ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700 uppercase">
+                  <tr className={`uppercase border-b transition-colors ${
+                    isDarkMode
+                      ? 'text-gray-400 border-gray-700'
+                      : 'text-gray-600 border-gray-200'
+                  }`}>
                     <th className="pb-3 px-2">Colaborador</th>
                     <th className="pb-3 px-2">Salario Bruto</th>
                     <th className="pb-3 px-2">SS Emp ({getParam('ss_empleado')?.percentage}%)</th>
@@ -341,19 +405,35 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
                     <th className="pb-3 px-2 text-green-400">Total SIPE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className={`divide-y transition-colors ${
+                  isDarkMode ? 'divide-gray-800' : 'divide-gray-200'
+                }`}>
                   {employeeCalculations.map((calc) => (
-                    <tr key={calc.id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={calc.id} className={`transition-colors ${
+                      isDarkMode
+                        ? 'hover:bg-slate-700/40'
+                        : 'hover:bg-gray-100'
+                    }`}>
                       <td className="py-4 px-2">
-                        <div className="font-medium text-white">{calc.firstName} {calc.lastName}</div>
-                        <div className="text-[10px] text-gray-500">{calc.cedula}</div>
+                        <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {calc.firstName} {calc.lastName}
+                        </div>
+                        <div className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          {calc.cedula}
+                        </div>
                       </td>
                       <td className="py-4 px-2 font-mono">{format(calc.gross)}</td>
                       <td className="py-4 px-2 text-red-300 font-mono">{format(calc.ssEmp)}</td>
-                      <td className="py-4 px-2 text-gray-300 font-mono">{format(calc.ssPat)}</td>
+                      <td className={`py-4 px-2 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {format(calc.ssPat)}
+                      </td>
                       <td className="py-4 px-2 text-red-300 font-mono">{format(calc.eduEmp)}</td>
-                      <td className="py-4 px-2 text-gray-300 font-mono">{format(calc.eduPat)}</td>
-                      <td className="py-4 px-2 text-gray-300 font-mono">{format(calc.riesgo)}</td>
+                      <td className={`py-4 px-2 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {format(calc.eduPat)}
+                      </td>
+                      <td className={`py-4 px-2 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {format(calc.riesgo)}
+                      </td>
                       <td className="py-4 px-2 text-blue-300 font-mono">{format(calc.isr)}</td>
                       <td className="py-4 px-2 font-bold text-green-400 font-mono">{format(calc.totalSipe)}</td>
                     </tr>
@@ -362,10 +442,20 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
               </table>
             </div>
 
-            <div className="p-6 border-t border-gray-700 flex justify-between items-center bg-slate-900/50 rounded-b-2xl">
-                <p className="text-gray-400 text-sm">Mostrando {employeeCalculations.length} empleados registrados</p>
+            <div className={`p-6 border-t flex justify-between items-center rounded-b-2xl transition-colors ${
+              isDarkMode
+                ? 'border-gray-700 bg-slate-900/50'
+                : 'border-gray-200 bg-gray-100/50'
+            }`}>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Mostrando {employeeCalculations.length} empleados registrados
+                </p>
                 <div>
-                    <span className="text-gray-400 mr-4 uppercase text-xs font-bold">Total Acumulado:</span>
+                    <span className={`mr-4 uppercase text-xs font-bold ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      Total Acumulado:
+                    </span>
                     <span className="text-2xl font-bold text-green-400 font-mono">{format(totals.total)}</span>
                 </div>
             </div>
@@ -374,11 +464,17 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
       )}
 
       {/* Alerta de Advertencia */}
-      <div className="mt-8 bg-red-900/20 border border-red-500/50 p-4 rounded-lg flex items-start gap-4 shadow-lg animate-pulse">
-        <AlertCircle className="text-red-500 flex-shrink-0" />
+      <div className={`mt-8 p-4 rounded-lg flex items-start gap-4 shadow-lg animate-pulse border transition-colors ${
+        isDarkMode
+          ? 'bg-red-900/20 border-red-500/50'
+          : 'bg-red-100/50 border-red-400'
+      }`}>
+        <AlertCircle className={isDarkMode ? 'text-red-500' : 'text-red-600'} />
         <div>
-          <h5 className="text-red-400 font-bold text-sm">¡Advertencia! Pagos Vencidos Detectados</h5>
-          <p className="text-red-200/70 text-xs mt-1">
+          <h5 className={`font-bold text-sm ${isDarkMode ? 'text-red-400' : 'text-red-700'}`}>
+            ¡Advertencia! Pagos Vencidos Detectados
+          </h5>
+          <p className={`text-xs mt-1 ${isDarkMode ? 'text-red-200/70' : 'text-red-700/70'}`}>
             Tiene uno o más pagos SIPE vencidos según el calendario de la CSS. 
             Por favor, realice el pago a la brevedad para evitar recargos e intereses moratorios del 10% mensual.
           </p>

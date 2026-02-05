@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 import { X, Edit2, Trash2 } from "lucide-react"
+import { useTheme } from "../../../../context/themeContext"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
 import { useCompany } from "../../../../context/routerContext"
@@ -45,6 +46,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
 export const AllLegalDecimoParameters: React.FC = () => {
   const { pageName } = usePageName()
   const { selectedCompany } = useCompany()
+  const { isDarkMode } = useTheme()
 
   const [activeTab, setActiveTab] = useState<ParameterCategory>("social_security")
   const [parameters, setParameters] = useState<LegalDecimoParameter[]>([])
@@ -116,7 +118,6 @@ export const AllLegalDecimoParameters: React.FC = () => {
 
     const formData = new FormData(e.currentTarget)
     
-    // Extraer valores y convertir tipos
     const isEditing = !!modal.parameter?.id
     const key = formData.get("key") as string
     const name = availableKeys.find(k => k.value === key)?.label || modal.parameter?.name
@@ -178,16 +179,22 @@ export const AllLegalDecimoParameters: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen">
+    <div className={`min-h-screen transition-colors ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
       <PagesHeader title={pageName} description="Configuración de parámetros legales" onModal={() => openModal()} />
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-700 mb-6">
+      <div className={`flex border-b mb-6 transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveTab(cat)}
-            className={`px-4 py-3 border-b-2 transition-colors ${activeTab === cat ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400"}`}
+            className={`px-4 py-3 border-b-2 transition-colors ${
+              activeTab === cat 
+                ? "border-blue-500 text-blue-400" 
+                : isDarkMode
+                ? "border-transparent text-gray-400 hover:text-gray-300"
+                : "border-transparent text-gray-600 hover:text-gray-700"
+            }`}
           >
             {categoryLabel[cat]}
           </button>
@@ -195,53 +202,126 @@ export const AllLegalDecimoParameters: React.FC = () => {
       </div>
 
       {/* Listado */}
-      <div className="bg-gray-800 p-6 rounded-lg mx-4">
+      <div className={`p-6 rounded-lg mx-4 transition-colors ${
+        isDarkMode
+          ? 'bg-gray-800'
+          : 'bg-white border border-gray-200'
+      }`}>
         {isLoading ? (
-          <p className="text-center py-10">Cargando...</p>
+          <p className={`text-center py-10 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Cargando...
+          </p>
         ) : parameters.length === 0 ? (
-          <p className="text-gray-400 text-center py-10">No hay parámetros en esta categoría</p>
+          <p className={`text-center py-10 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            No hay parámetros en esta categoría
+          </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-700">
-            <table className="w-full text-sm">
+          <div className={`overflow-x-auto rounded-lg border transition-colors ${
+            isDarkMode
+              ? 'border-gray-700'
+              : 'border-gray-200'
+          }`}>
+            <table className={`w-full text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               <thead>
-                <tr className="bg-gray-700/50">
-                  <th className="text-left px-6 py-4">Nombre</th>
-                  <th className="text-left px-6 py-4">Tipo</th>
-                  <th className="text-left px-6 py-4">Porcentaje</th>
+                <tr className={`transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-700/50'
+                    : 'bg-gray-100'
+                }`}>
+                  <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Nombre
+                  </th>
+                  <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Tipo
+                  </th>
+                  <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Porcentaje
+                  </th>
                   {activeTab === "isr" && (
                     <>
-                      <th className="text-left px-6 py-4">Mín</th>
-                      <th className="text-left px-6 py-4">Máx</th>
+                      <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Mín
+                      </th>
+                      <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Máx
+                      </th>
                     </>
                   )}
-                  <th className="text-left px-6 py-4">Estado</th>
-                  <th className="text-right px-6 py-4">Acciones</th>
+                  <th className={`text-left px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Estado
+                  </th>
+                  <th className={`text-right px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {parameters.map((p) => (
-                  <tr key={p.id} className="border-t border-gray-700 hover:bg-gray-700/30">
-                    <td className="px-6 py-4 font-medium">{p.name}</td>
+                  <tr 
+                    key={p.id} 
+                    className={`border-t transition-colors ${
+                      isDarkMode
+                        ? 'border-gray-700 hover:bg-gray-700/30'
+                        : 'border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <td className={`px-6 py-4 font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {p.name}
+                    </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs px-2 py-1 rounded-full bg-blue-900/30 border border-blue-700">
+                      <span className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                        isDarkMode
+                          ? 'bg-blue-900/30 border-blue-700 text-blue-300'
+                          : 'bg-blue-100 border-blue-300 text-blue-800'
+                      }`}>
                         {p.type === "employee" ? "Empleado" : p.type === "employer" ? "Patrono" : "Fijo"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-emerald-400 font-bold">{p.percentage}%</td>
                     {activeTab === "isr" && (
                       <>
-                        <td className="px-6 py-4">${p.minRange?.toLocaleString()}</td>
-                        <td className="px-6 py-4">{p.maxRange ? `$${p.maxRange.toLocaleString()}` : "∞"}</td>
+                        <td className={`px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          ${p.minRange?.toLocaleString()}
+                        </td>
+                        <td className={`px-6 py-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          {p.maxRange ? `$${p.maxRange.toLocaleString()}` : "∞"}
+                        </td>
                       </>
                     )}
                     <td className="px-6 py-4">
-                      <span className={`text-xs px-2 py-1 rounded-full ${p.status === 'active' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+                      <span className={`text-xs px-2 py-1 rounded-full transition-colors ${
+                        p.status === 'active'
+                          ? isDarkMode
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-green-100 text-green-800'
+                          : isDarkMode
+                          ? 'bg-red-900/30 text-red-400'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
                         {p.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
                     <td className="px-6 py-4 flex gap-2 justify-end">
-                      <button onClick={() => openModal(p)} className="p-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/40"><Edit2 size={16} /></button>
-                      <button onClick={() => deleteParameter(p.id)} className="p-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/40"><Trash2 size={16} /></button>
+                      <button 
+                        onClick={() => openModal(p)} 
+                        className={`p-2 rounded-lg transition-colors ${
+                          isDarkMode
+                            ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40'
+                            : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                        }`}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => deleteParameter(p.id)} 
+                        className={`p-2 rounded-lg transition-colors ${
+                          isDarkMode
+                            ? 'bg-red-600/20 text-red-400 hover:bg-red-600/40'
+                            : 'bg-red-100 text-red-600 hover:bg-red-200'
+                        }`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -254,18 +334,51 @@ export const AllLegalDecimoParameters: React.FC = () => {
       {/* MODAL CON FORMDATA */}
       {modal.show && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleSubmit} className="bg-gray-800 w-full max-w-lg rounded-xl shadow-xl overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold">{modal.parameter?.id ? "Editar Parámetro" : "Nuevo Parámetro"}</h3>
-              <button type="button" onClick={closeModal} className="text-gray-400 hover:text-white"><X /></button>
+          <form 
+            onSubmit={handleSubmit} 
+            className={`w-full max-w-lg rounded-xl shadow-xl overflow-hidden transition-colors ${
+              isDarkMode
+                ? 'bg-gray-800'
+                : 'bg-white'
+            }`}
+          >
+            <div className={`flex justify-between items-center p-4 border-b transition-colors ${
+              isDarkMode
+                ? 'border-gray-700'
+                : 'border-gray-200'
+            }`}>
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {modal.parameter?.id ? "Editar Parámetro" : "Nuevo Parámetro"}
+              </h3>
+              <button 
+                type="button" 
+                onClick={closeModal} 
+                className={`transition-colors ${
+                  isDarkMode
+                    ? 'text-gray-400 hover:text-white'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <X />
+              </button>
             </div>
 
-            <div className="p-5 space-y-4 text-sm">
+            <div className={`p-5 space-y-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               {/* Selector de Key (Solo creación) */}
               {!modal.parameter?.id ? (
                 <div>
-                  <label className="block mb-1 text-gray-300">Tipo de parámetro</label>
-                  <select name="key" required className="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                  <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Tipo de parámetro
+                  </label>
+                  <select 
+                    name="key" 
+                    required 
+                    className={`w-full p-2 rounded border transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
                     <option value="">Seleccione...</option>
                     {availableKeys.filter(k => k.category === activeTab).map(k => (
                       <option key={k.value} value={k.value}>{k.label}</option>
@@ -273,63 +386,170 @@ export const AllLegalDecimoParameters: React.FC = () => {
                   </select>
                 </div>
               ) : (
-                <div className="p-2 bg-gray-900 rounded border border-gray-700">
-                  <span className="text-gray-400 block text-xs">Editando:</span>
-                  <span className="font-bold">{modal.parameter.name}</span>
+                <div className={`p-2 rounded border transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-900 border-gray-700'
+                    : 'bg-gray-100 border-gray-300'
+                }`}>
+                  <span className={`block text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Editando:
+                  </span>
+                  <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {modal.parameter.name}
+                  </span>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1 text-gray-300">Aplica a</label>
-                  <select name="type" defaultValue={modal.parameter?.type} className="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                  <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Aplica a
+                  </label>
+                  <select 
+                    name="type" 
+                    defaultValue={modal.parameter?.type} 
+                    className={`w-full p-2 rounded border transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
                     <option value="employee">Empleado</option>
                     <option value="employer">Patrono</option>
                     <option value="fixed">Monto fijo</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block mb-1 text-gray-300">Porcentaje (%)</label>
-                  <input name="percentage" type="number" step="0.01" required defaultValue={modal.parameter?.percentage} className="w-full bg-gray-700 p-2 rounded border border-gray-600" />
+                  <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Porcentaje (%)
+                  </label>
+                  <input 
+                    name="percentage" 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    defaultValue={modal.parameter?.percentage} 
+                    className={`w-full p-2 rounded border transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
                 </div>
               </div>
 
               {activeTab === "isr" && (
-                <div className="grid grid-cols-2 gap-4 p-3 bg-gray-900 rounded-lg">
+                <div className={`grid grid-cols-2 gap-4 p-3 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-900'
+                    : 'bg-gray-100'
+                }`}>
                   <div>
-                    <label className="block mb-1 text-xs text-gray-400">Rango Mínimo</label>
-                    <input name="minRange" type="number" defaultValue={modal.parameter?.minRange ?? ""} className="w-full bg-gray-700 p-2 rounded" />
+                    <label className={`block mb-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Rango Mínimo
+                    </label>
+                    <input 
+                      name="minRange" 
+                      type="number" 
+                      defaultValue={modal.parameter?.minRange ?? ""} 
+                      className={`w-full p-2 rounded transition-colors ${
+                        isDarkMode
+                          ? 'bg-gray-700 border border-gray-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-900'
+                      }`}
+                    />
                   </div>
                   <div>
-                    <label className="block mb-1 text-xs text-gray-400">Rango Máximo</label>
-                    <input name="maxRange" type="number" defaultValue={modal.parameter?.maxRange ?? ""} className="w-full bg-gray-700 p-2 rounded" />
+                    <label className={`block mb-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Rango Máximo
+                    </label>
+                    <input 
+                      name="maxRange" 
+                      type="number" 
+                      defaultValue={modal.parameter?.maxRange ?? ""} 
+                      className={`w-full p-2 rounded transition-colors ${
+                        isDarkMode
+                          ? 'bg-gray-700 border border-gray-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-900'
+                      }`}
+                    />
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1 text-gray-300">Estado</label>
-                  <select name="status" defaultValue={modal.parameter?.status} className="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                  <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Estado
+                  </label>
+                  <select 
+                    name="status" 
+                    defaultValue={modal.parameter?.status} 
+                    className={`w-full p-2 rounded border transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block mb-1 text-gray-300">Fecha Efectiva</label>
-                  <input name="effectiveDate" type="date" required defaultValue={modal.parameter?.effectiveDate?.split('T')[0]} className="w-full bg-gray-700 p-2 rounded border border-gray-600" />
+                  <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Fecha Efectiva
+                  </label>
+                  <input 
+                    name="effectiveDate" 
+                    type="date" 
+                    required 
+                    defaultValue={modal.parameter?.effectiveDate?.split('T')[0]} 
+                    className={`w-full p-2 rounded border transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block mb-1 text-gray-300">Descripción (opcional)</label>
-                <textarea name="description" rows={2} defaultValue={modal.parameter?.description ?? ""} className="w-full bg-gray-700 p-2 rounded border border-gray-600 resize-none" />
+                <label className={`block mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Descripción (opcional)
+                </label>
+                <textarea 
+                  name="description" 
+                  rows={2} 
+                  defaultValue={modal.parameter?.description ?? ""} 
+                  className={`w-full p-2 rounded border resize-none transition-colors ${
+                    isDarkMode
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                />
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-700 flex gap-3">
-              <button type="button" onClick={closeModal} className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded">Cancelar</button>
-              <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded font-medium text-white">
+            <div className={`p-4 border-t flex gap-3 transition-colors ${
+              isDarkMode
+                ? 'border-gray-700'
+                : 'border-gray-200'
+            }`}>
+              <button 
+                type="button" 
+                onClick={closeModal} 
+                className={`flex-1 py-2 rounded transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-600 hover:bg-gray-500 text-white'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                className="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded font-medium text-white transition-colors"
+              >
                 {modal.parameter?.id ? "Actualizar" : "Crear Parámetro"}
               </button>
             </div>
@@ -338,7 +558,15 @@ export const AllLegalDecimoParameters: React.FC = () => {
       )}
 
       {notification.show && (
-        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[60] ${notification.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
+        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[60] transition-colors ${
+          notification.type === "success"
+            ? isDarkMode
+              ? 'bg-green-600 text-white'
+              : 'bg-green-500 text-white'
+            : isDarkMode
+            ? 'bg-red-600 text-white'
+            : 'bg-red-500 text-white'
+        }`}>
           {notification.message}
         </div>
       )}

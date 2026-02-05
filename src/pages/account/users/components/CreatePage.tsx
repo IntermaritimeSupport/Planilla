@@ -99,7 +99,7 @@ const CreateUserPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white">
+        <div className="min-h-screen ">
             <div className="p-6">
                 <div className="flex justify-between items-start mb-8">
                     <div>
