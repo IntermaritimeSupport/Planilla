@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from "react"
 import { X, Edit2, Trash2 } from "lucide-react"
 import { useTheme } from "../../../../context/themeContext"
 import PagesHeader from "../../../../components/headers/pagesHeader"
-import { usePageName } from "../../../../hook/usePageName"
 import { useCompany } from "../../../../context/routerContext"
 
 /* ============================ 
@@ -44,7 +43,6 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
    COMPONENT 
 ============================ */
 export const AllLegalParameters: React.FC = () => {
-  const { pageName } = usePageName()
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
 
