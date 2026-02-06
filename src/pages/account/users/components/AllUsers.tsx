@@ -202,7 +202,7 @@ export const AllUsers: React.FC = () => {
     return (
         <div className="relative">
             <PagesHeader
-                title={pageName}
+                title={"Usuarios"}
                 description={pageName ? `${pageName} in ${selectedCompany?.name}` : "Cargando compañía..."}
                 showCreate
             />

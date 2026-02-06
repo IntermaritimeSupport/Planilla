@@ -542,7 +542,7 @@ const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
         totalCount={employeeCalculations.length}
       />
       <PagesHeader
-        title={pageName}
+        title={"Planilla"}
         description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
         onExport={handleExport}
       />

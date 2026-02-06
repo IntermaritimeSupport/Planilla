@@ -173,7 +173,7 @@ export const AllEmployees: React.FC = () => {
     return (
         <div className="relative">
             <PagesHeader
-                title={pageName}
+                title={"Empleados"}
                 description={`${pageName} en ${selectedCompany?.name || '...'}`}
                 showCreate
                 onImportCsv={

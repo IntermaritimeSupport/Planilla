@@ -180,7 +180,7 @@ export const AllLegalDecimoParameters: React.FC = () => {
 
   return (
     <div className={`min-h-screen transition-colors ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <PagesHeader title={pageName} description="Configuración de parámetros legales" onModal={() => openModal()} />
+      <PagesHeader title={"Legal Decimo"} description="Configuración de parámetros legales" onModal={() => openModal()} />
 
       {/* Tabs */}
       <div className={`flex border-b mb-6 transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -202,7 +202,7 @@ export const AllLegalDecimoParameters: React.FC = () => {
       </div>
 
       {/* Listado */}
-      <div className={`p-6 rounded-lg mx-4 transition-colors ${
+      <div className={`rounded-lg transition-colors ${
         isDarkMode
           ? 'bg-gray-800'
           : 'bg-white border border-gray-200'

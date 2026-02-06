@@ -222,7 +222,7 @@ export default function AllSettingsPage() {
     <div className={`transition-colors ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
       {/* Header */}
       <PagesHeader
-        title={`${pageName} Company Management`}
+        title={`Ajustes sobre la información de tu empresa`}
         description={pageName ? `${pageName} in ${selectedCompany?.name}` : "Cargando compañía..."}
         showCreate
       />
