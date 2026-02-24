@@ -61,6 +61,7 @@ export const AllISR: React.FC = () => {
       : null,
     fetcher
   )
+  console.log("Legal", legalParams)
 
 /* ============================
    CALC ISR (PROGRESIVO)
