@@ -62,6 +62,7 @@ export const AllISR: React.FC = () => {
     fetcher
   )
   console.log("Legal", legalParams)
+  console.log("empleado", employees)
 
 /* ============================
    CALC ISR (PROGRESIVO)
