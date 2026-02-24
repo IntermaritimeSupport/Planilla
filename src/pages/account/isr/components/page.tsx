@@ -20,7 +20,7 @@ interface EmployeeBase {
   salary: number
 }
 
-// Lo que usa el frontend internamente (normalizado)
+// ✅ Formato normalizado para el cálculo en frontend
 interface LegalISRParameter {
   id: string
   min: number
@@ -30,7 +30,7 @@ interface LegalISRParameter {
   description: string
 }
 
-// Lo que realmente devuelve tu API
+// ✅ Formato real que devuelve tu API
 type ApiISRParam = {
   id: string
   name: string
@@ -46,7 +46,7 @@ type ApiISRParam = {
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
-// Normaliza la respuesta del API al formato que tu cálculo necesita
+// ✅ Normaliza la respuesta del API (minRange/maxRange/percentage -> min/max/rate)
 const legalFetcher = async (url: string): Promise<LegalISRParameter[]> => {
   const res = await fetch(url)
   const data: ApiISRParam[] = await res.json()
@@ -54,7 +54,7 @@ const legalFetcher = async (url: string): Promise<LegalISRParameter[]> => {
   return (data ?? []).map(p => ({
     id: p.id,
     min: Number(p.minRange) || 0,
-    // si tu backend usa 99999999 como tope grande, lo convertimos a null (∞)
+    // si viene un tope gigante, lo tratamos como "sin tope"
     max: p.maxRange >= 99999999 ? null : Number(p.maxRange),
     rate: (Number(p.percentage) || 0) / 100, // 15 -> 0.15
     label: p.name,
@@ -83,7 +83,6 @@ export const AllISR: React.FC = () => {
     fetcher
   )
 
-  // ✅ Usamos el fetcher normalizado para legalParams
   const { data: legalParams, isLoading: loadingLegal } = useSWR<LegalISRParameter[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters/isr/rates?companyId=${selectedCompany.id}`
@@ -96,28 +95,23 @@ export const AllISR: React.FC = () => {
 
   /* ============================
      ISR PROGRESIVO (ANUAL)
-     - Base anual: 13 meses (incluye décimo)
-     - Retención mensual directa: anual / 13
+     ✅ Según tu ejemplo:
+     - La base del ISR es el SALARIO BRUTO anualizado a 13 (incluye décimo)
+     - El ISR mensual es anual / 13
   ============================ */
 
-  const calculateAnnualISRProgressive = useCallback(
-    (annualTaxable: number, params: LegalISRParameter[]) => {
-      const sorted = [...params].sort((a, b) => a.min - b.min)
-      let total = 0
+  const calculateAnnualISRProgressive = useCallback((annualIncome: number, params: LegalISRParameter[]) => {
+    const sorted = [...params].sort((a, b) => a.min - b.min)
+    let total = 0
 
-      for (const tramo of sorted) {
-        const upper = tramo.max ?? Infinity
-        const portion = Math.min(annualTaxable, upper) - tramo.min
+    for (const tramo of sorted) {
+      const upper = tramo.max ?? Infinity
+      const portion = Math.min(annualIncome, upper) - tramo.min
+      if (portion > 0 && tramo.rate > 0) total += portion * tramo.rate
+    }
 
-        if (portion > 0 && tramo.rate > 0) {
-          total += portion * tramo.rate
-        }
-      }
-
-      return total
-    },
-    []
-  )
+    return total
+  }, [])
 
   const calculateISRDetails = useCallback(
     (salary: number) => {
@@ -133,34 +127,33 @@ export const AllISR: React.FC = () => {
 
       const gross = Number(salary) || 0
 
-      // Panamá (empleado)
+      // ✅ SS y SE se usan para NETO, pero NO reducen la base ISR (según tu tabla)
       const ss = gross * 0.0975
       const se = gross * 0.0125
 
-      // ✅ salario gravable mensual
-      const monthlyTaxable = gross - ss - se
+      // ✅ Base ISR mensual = salario bruto
+      const monthlyBaseISR = gross
 
-      // ✅ proyección anual por 13 (incluye décimo)
-      const annualTaxable = monthlyTaxable * 13
+      // ✅ Proyección anual (13 meses)
+      const annualBaseISR = monthlyBaseISR * 13
 
       // ✅ ISR anual progresivo por tramos
-      const annualISR = calculateAnnualISRProgressive(annualTaxable, legalParams)
+      const annualISR = calculateAnnualISRProgressive(annualBaseISR, legalParams)
 
-      // ✅ retención mensual directa (13 periodos)
+      // ✅ ISR mensual directo dividido entre 13 (como tu ejemplo)
       const monthlyISR = annualISR / 13
 
-      // etiqueta del tramo donde cae el anual gravable (solo visual)
+      // etiqueta del tramo (solo visual)
       const tramoActual = [...legalParams]
         .sort((a, b) => a.min - b.min)
-        .find(p => annualTaxable >= p.min && (p.max === null || annualTaxable <= p.max))
-
-      const rateLabel = tramoActual?.label ?? "Exento"
+        .find(p => annualBaseISR >= p.min && (p.max === null || annualBaseISR <= p.max))
 
       return {
-        monthlyTaxable,
-        annualTaxable,
+        // OJO: ahora “gravable” para ISR es el bruto, para que coincida con tu planilla de referencia
+        monthlyTaxable: monthlyBaseISR,
+        annualTaxable: annualBaseISR,
         monthlyISR,
-        rateLabel,
+        rateLabel: tramoActual?.label ?? "Exento",
         totalDeductions: ss + se + monthlyISR
       }
     },
@@ -175,10 +168,10 @@ export const AllISR: React.FC = () => {
     if (!employees) return []
 
     return employees
-      .filter(emp =>
-        `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.cedula.includes(searchTerm)
-      )
+      .filter(emp => {
+        const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase()
+        return fullName.includes(searchTerm.toLowerCase()) || emp.cedula.includes(searchTerm)
+      })
       .map(emp => ({
         ...emp,
         details: calculateISRDetails(emp.salary)
@@ -264,7 +257,7 @@ export const AllISR: React.FC = () => {
 
           <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
             <Info size={16} className="text-blue-400" />
-            Cálculo basado en parámetros legales
+            Cálculo basado en parámetros legales (base ISR = bruto × 13 / 13)
           </div>
         </div>
 
@@ -278,8 +271,8 @@ export const AllISR: React.FC = () => {
               <tr>
                 <th className="px-6 py-4">Empleado</th>
                 <th className="px-6 py-4">Salario</th>
-                <th className="px-6 py-4">Gravable</th>
-                <th className="px-6 py-4 text-blue-400">ISR</th>
+                <th className="px-6 py-4">Base ISR</th>
+                <th className="px-6 py-4 text-blue-400">I/R</th>
                 <th className="px-6 py-4">Neto</th>
               </tr>
             </thead>
