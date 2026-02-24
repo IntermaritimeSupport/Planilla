@@ -84,7 +84,7 @@ export default function AllSettingsPage() {
   const [showDeleteDeptConfirm, setShowDeleteDeptConfirm] = useState<{ companyId: string; deptId: string } | null>(null)
   const { selectedCompany } = useCompany()
   const { pageName } = usePageName()
-
+  
   useEffect(() => {
     loadCompanies()
   }, [])

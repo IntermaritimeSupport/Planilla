@@ -62,54 +62,78 @@ export const AllISR: React.FC = () => {
     fetcher
   )
 
-  /* ============================
-     CALC ISR (DINÁMICO)
-  ============================ */
+/* ============================
+   CALC ISR (PROGRESIVO)
+============================ */
 
-  const calculateISRDetails = useCallback(
-    (salary: number) => {
-      if (!legalParams) {
-        return {
-          monthlyTaxable: 0,
-          annualTaxable: 0,
-          monthlyISR: 0,
-          rateLabel: "—",
-          totalDeductions: 0
-        }
-      }
+const calculateAnnualISRProgressive = (
+  annualTaxable: number,
+  params: LegalISRParameter[]
+) => {
+  // Ordena por mínimo ascendente por seguridad
+  const sorted = [...params].sort((a, b) => a.min - b.min)
 
-      const gross = Number(salary) || 0
-      const ss = gross * 0.0975
-      const se = gross * 0.0125
+  let total = 0
 
-      const monthlyTaxable = gross - ss - se
-      const annualTaxable = monthlyTaxable * 13
+  for (const tramo of sorted) {
+    const upper = tramo.max ?? Infinity
 
-      const tramo = legalParams.find(p =>
-        annualTaxable >= p.min &&
-        (p.max === null || annualTaxable <= p.max)
-      )
+    // porción gravable dentro de este tramo
+    const portion = Math.min(annualTaxable, upper) - tramo.min
 
-      let annualISR = 0
-      let rateLabel = "Exento"
+    if (portion > 0 && tramo.rate > 0) {
+      total += portion * tramo.rate
+    }
+  }
 
-      if (tramo && tramo.rate > 0) {
-        annualISR = annualTaxable * tramo.rate
-        rateLabel = tramo.label
-      }
+  return total
+}
 
-      const monthlyISR = annualISR / 13
-
+const calculateISRDetails = useCallback(
+  (salary: number) => {
+    if (!legalParams) {
       return {
-        monthlyTaxable,
-        annualTaxable,
-        monthlyISR,
-        rateLabel,
-        totalDeductions: ss + se + monthlyISR
+        monthlyTaxable: 0,
+        annualTaxable: 0,
+        monthlyISR: 0,
+        rateLabel: "—",
+        totalDeductions: 0
       }
-    },
-    [legalParams]
-  )
+    }
+
+    const gross = Number(salary) || 0
+    const ss = gross * 0.0975
+    const se = gross * 0.0125
+
+    const monthlyTaxable = gross - ss - se
+
+    // Tu proyección usa 13 salarios (incluye décimo). Mantengo eso:
+    const annualTaxable = monthlyTaxable * 13
+
+    // Encuentra el tramo "principal" solo para mostrar etiqueta
+    const tramoActual = [...legalParams]
+      .sort((a, b) => a.min - b.min)
+      .find(p => annualTaxable >= p.min && (p.max === null || annualTaxable <= p.max))
+
+    const annualISR = calculateAnnualISRProgressive(annualTaxable, legalParams)
+
+    // ISR se retiene mensual: normalmente entre 12 meses.
+    // Si tu empresa retiene en 13 periodos, cambia a 13.
+    const PAY_PERIODS_FOR_ISR = 12
+    const monthlyISR = annualISR / PAY_PERIODS_FOR_ISR
+
+    const rateLabel = tramoActual?.label ?? "Exento"
+
+    return {
+      monthlyTaxable,
+      annualTaxable,
+      monthlyISR,
+      rateLabel,
+      totalDeductions: ss + se + monthlyISR
+    }
+  },
+  [legalParams]
+)
 
   /* ============================
      FILTER + MAP
