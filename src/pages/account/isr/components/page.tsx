@@ -12,25 +12,28 @@ import { usePageName } from "../../../../hook/usePageName"
    INTERFACES
 ============================ */
 
+type SalaryType = "monthly" | "quincenal" | "biweekly"
+
 interface EmployeeBase {
   id: string
   firstName: string
   lastName: string
   cedula: string
   salary: number
+  salaryType: SalaryType // 👈 viene del API (mensual o quincenal)
 }
 
-// ✅ Formato normalizado para el cálculo en frontend
+// Formato normalizado para el cálculo en frontend
 interface LegalISRParameter {
   id: string
   min: number
   max: number | null
-  rate: number // decimal: 0.15, 0.25
+  rate: number // 0.15, 0.25
   label: string
   description: string
 }
 
-// ✅ Formato real que devuelve tu API
+// Formato real que devuelve tu API
 type ApiISRParam = {
   id: string
   name: string
@@ -46,7 +49,7 @@ type ApiISRParam = {
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
-// ✅ Normaliza la respuesta del API (minRange/maxRange/percentage -> min/max/rate)
+// Normaliza la respuesta del API (minRange/maxRange/percentage -> min/max/rate)
 const legalFetcher = async (url: string): Promise<LegalISRParameter[]> => {
   const res = await fetch(url)
   const data: ApiISRParam[] = await res.json()
@@ -54,13 +57,35 @@ const legalFetcher = async (url: string): Promise<LegalISRParameter[]> => {
   return (data ?? []).map(p => ({
     id: p.id,
     min: Number(p.minRange) || 0,
-    // si viene un tope gigante, lo tratamos como "sin tope"
     max: p.maxRange >= 99999999 ? null : Number(p.maxRange),
     rate: (Number(p.percentage) || 0) / 100, // 15 -> 0.15
     label: p.name,
     description: p.description
   }))
 }
+
+/* ============================
+   HELPERS
+============================ */
+
+// Convierte el salario del empleado a:
+// - base mensual (para anualizar a 13)
+// - base quincenal (para mostrar / calcular por quincena)
+const getPeriodBases = (salary: number, salaryType: SalaryType) => {
+  const s = Number(salary) || 0
+
+  // asumimos:
+  // - monthly: salary es mensual
+  // - quincenal/biweekly: salary es por quincena
+  const isQuincenal = salaryType === "quincenal" || salaryType === "biweekly"
+
+  const monthlyGross = isQuincenal ? s * 2 : s
+  const biweeklyGross = isQuincenal ? s : s / 2
+
+  return { monthlyGross, biweeklyGross }
+}
+
+const formatMoney = (v: number) => `$${(Number(v) || 0).toFixed(2)}`
 
 /* ============================
    COMPONENT
@@ -70,7 +95,9 @@ export const AllISR: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
+
   const [searchTerm, setSearchTerm] = useState("")
+  const [viewMode, setViewMode] = useState<"monthly" | "biweekly">("monthly") // 👈 switch de vista
 
   /* ============================
      DATA
@@ -90,14 +117,14 @@ export const AllISR: React.FC = () => {
     legalFetcher
   )
 
-  console.log("Employees:", employees)
-  console.log("Legal Parameters:", legalParams)
-
   /* ============================
      ISR PROGRESIVO (ANUAL)
-     ✅ Según tu ejemplo:
-     - La base del ISR es el SALARIO BRUTO anualizado a 13 (incluye décimo)
-     - El ISR mensual es anual / 13
+     - Regla confirmada por tu planilla:
+       Base ISR = BRUTO (no se resta SS/SE)
+     - Proyección anual = mensual * 13 (incluye décimo)
+     - Retención por periodo:
+       mensual: anual / 13
+       quincenal: anual / 26   (13 meses * 2 quincenas)
   ============================ */
 
   const calculateAnnualISRProgressive = useCallback((annualIncome: number, params: LegalISRParameter[]) => {
@@ -114,50 +141,63 @@ export const AllISR: React.FC = () => {
   }, [])
 
   const calculateISRDetails = useCallback(
-    (salary: number) => {
+    (employeeSalary: number, salaryType: SalaryType) => {
       if (!legalParams) {
         return {
-          monthlyTaxable: 0,
-          annualTaxable: 0,
-          monthlyISR: 0,
+          grossPeriod: 0,
+          baseISRPeriod: 0,
+          annualBaseISR: 0,
+          periodISR: 0,
           rateLabel: "—",
-          totalDeductions: 0
+          ssPeriod: 0,
+          sePeriod: 0,
+          netPeriod: 0,
+          totalDeductionsPeriod: 0
         }
       }
 
-      const gross = Number(salary) || 0
+      const { monthlyGross, biweeklyGross } = getPeriodBases(employeeSalary, salaryType)
 
-      // ✅ SS y SE se usan para NETO, pero NO reducen la base ISR (según tu tabla)
-      const ss = gross * 0.0975
-      const se = gross * 0.0125
+      // Vista seleccionada
+      const grossPeriod = viewMode === "monthly" ? monthlyGross : biweeklyGross
 
-      // ✅ Base ISR mensual = salario bruto
-      const monthlyBaseISR = gross
+      // ✅ Según tu planilla: base ISR = BRUTO
+      const baseISRPeriod = grossPeriod
 
-      // ✅ Proyección anual (13 meses)
-      const annualBaseISR = monthlyBaseISR * 13
+      // ✅ Proyección anual siempre desde la base mensual * 13 (incluye décimo)
+      const annualBaseISR = monthlyGross * 13
 
-      // ✅ ISR anual progresivo por tramos
+      // ✅ ISR anual progresivo
       const annualISR = calculateAnnualISRProgressive(annualBaseISR, legalParams)
 
-      // ✅ ISR mensual directo dividido entre 13 (como tu ejemplo)
-      const monthlyISR = annualISR / 13
+      // ✅ ISR por periodo según vista (mensual 13, quincenal 26)
+      const periods = viewMode === "monthly" ? 13 : 26
+      const periodISR = annualISR / periods
 
-      // etiqueta del tramo (solo visual)
+      // ✅ SS/SE se calculan por el periodo mostrado (para NETO)
+      const ssPeriod = grossPeriod * 0.0975
+      const sePeriod = grossPeriod * 0.0125
+
+      const totalDeductionsPeriod = ssPeriod + sePeriod + periodISR
+      const netPeriod = grossPeriod - totalDeductionsPeriod
+
       const tramoActual = [...legalParams]
         .sort((a, b) => a.min - b.min)
         .find(p => annualBaseISR >= p.min && (p.max === null || annualBaseISR <= p.max))
 
       return {
-        // OJO: ahora “gravable” para ISR es el bruto, para que coincida con tu planilla de referencia
-        monthlyTaxable: monthlyBaseISR,
-        annualTaxable: annualBaseISR,
-        monthlyISR,
+        grossPeriod,
+        baseISRPeriod,
+        annualBaseISR,
+        periodISR,
         rateLabel: tramoActual?.label ?? "Exento",
-        totalDeductions: ss + se + monthlyISR
+        ssPeriod,
+        sePeriod,
+        netPeriod,
+        totalDeductionsPeriod
       }
     },
-    [legalParams, calculateAnnualISRProgressive]
+    [legalParams, calculateAnnualISRProgressive, viewMode]
   )
 
   /* ============================
@@ -174,7 +214,7 @@ export const AllISR: React.FC = () => {
       })
       .map(emp => ({
         ...emp,
-        details: calculateISRDetails(emp.salary)
+        details: calculateISRDetails(emp.salary, emp.salaryType)
       }))
   }, [employees, searchTerm, calculateISRDetails])
 
@@ -235,29 +275,81 @@ export const AllISR: React.FC = () => {
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
-          <div className="relative w-full md:w-96">
-            <Search
-              className={`absolute left-3 top-1/2 -translate-y-1/2 ${
-                isDarkMode ? "text-gray-500" : "text-gray-400"
-              }`}
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o cédula..."
-              className={`w-full rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
-                isDarkMode
-                  ? "bg-slate-900 border border-slate-700 text-white"
-                  : "bg-gray-100 border border-gray-300 text-gray-900"
-              }`}
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col gap-3 w-full md:w-auto">
+            {/* Search */}
+            <div className="relative w-full md:w-96">
+              <Search
+                className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+                  isDarkMode ? "text-gray-500" : "text-gray-400"
+                }`}
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o cédula..."
+                className={`w-full rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                  isDarkMode
+                    ? "bg-slate-900 border border-slate-700 text-white"
+                    : "bg-gray-100 border border-gray-300 text-gray-900"
+                }`}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Switch Mensual / Quincenal */}
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Vista:
+              </span>
+
+              <div
+                className={`inline-flex rounded-lg border overflow-hidden ${
+                  isDarkMode ? "border-slate-700" : "border-gray-300"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewMode("monthly")}
+                  className={`px-3 py-1.5 text-xs font-bold transition-colors ${
+                    viewMode === "monthly"
+                      ? isDarkMode
+                        ? "bg-blue-600 text-white"
+                        : "bg-blue-600 text-white"
+                      : isDarkMode
+                      ? "bg-slate-900 text-gray-300 hover:bg-slate-700/40"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  Mensual
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("biweekly")}
+                  className={`px-3 py-1.5 text-xs font-bold transition-colors ${
+                    viewMode === "biweekly"
+                      ? isDarkMode
+                        ? "bg-blue-600 text-white"
+                        : "bg-blue-600 text-white"
+                      : isDarkMode
+                      ? "bg-slate-900 text-gray-300 hover:bg-slate-700/40"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  Quincenal
+                </button>
+              </div>
+
+              <span className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                (base ISR = bruto, anual = mensual×13)
+              </span>
+            </div>
           </div>
 
           <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
             <Info size={16} className="text-blue-400" />
-            Cálculo basado en parámetros legales (base ISR = bruto × 13 / 13)
+            Cálculo basado en parámetros legales
           </div>
         </div>
 
@@ -270,12 +362,13 @@ export const AllISR: React.FC = () => {
             >
               <tr>
                 <th className="px-6 py-4">Empleado</th>
-                <th className="px-6 py-4">Salario</th>
+                <th className="px-6 py-4">{viewMode === "monthly" ? "Salario (Mensual)" : "Salario (Quincenal)"}</th>
                 <th className="px-6 py-4">Base ISR</th>
                 <th className="px-6 py-4 text-blue-400">I/R</th>
                 <th className="px-6 py-4">Neto</th>
               </tr>
             </thead>
+
             <tbody className={`divide-y transition-colors ${isDarkMode ? "divide-slate-800" : "divide-gray-200"}`}>
               {employeeData.map(emp => (
                 <tr
@@ -286,18 +379,18 @@ export const AllISR: React.FC = () => {
                     <div className={`font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                       {emp.firstName} {emp.lastName}
                     </div>
-                    <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-600"}`}>{emp.cedula}</div>
+                    <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-600"}`}>
+                      {emp.cedula} · {emp.salaryType === "monthly" ? "Mensual" : "Quincenal"}
+                    </div>
                   </td>
 
-                  <td className="px-6 py-4 font-mono">${emp.salary.toLocaleString()}</td>
+                  <td className="px-6 py-4 font-mono">{formatMoney(emp.details.grossPeriod)}</td>
 
-                  <td className="px-6 py-4">${emp.details.monthlyTaxable.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-mono">{formatMoney(emp.details.baseISRPeriod)}</td>
 
-                  <td className="px-6 py-4 font-bold text-blue-400">${emp.details.monthlyISR.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-bold text-blue-400 font-mono">{formatMoney(emp.details.periodISR)}</td>
 
-                  <td className="px-6 py-4 font-bold text-green-400">
-                    ${(emp.salary - emp.details.totalDeductions).toFixed(2)}
-                  </td>
+                  <td className="px-6 py-4 font-bold text-green-400 font-mono">{formatMoney(emp.details.netPeriod)}</td>
                 </tr>
               ))}
             </tbody>
