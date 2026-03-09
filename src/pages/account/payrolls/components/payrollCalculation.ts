@@ -107,10 +107,20 @@ export const getNormalizedMonthlySalary = (employee: Employee): number => {
 }
 
 // Calcular décimo tercer mes por período
+// ─────────────────────────────────────────────────────────────────
+// CORRECCIÓN: getMonth() devuelve índice 0-based (0=ene … 11=dic)
+//   • Abril  = índice 3  → Primera Partida  (pago en abril)
+//   • Agosto = índice 7  → Segunda Partida  (pago en agosto)
+//   • Diciembre = índice 11 → Tercera Partida (pago en diciembre)
+//
+// SSS del décimo: 7.25 % recibido como parámetro (no hardcodeado)
+// ISR del décimo: solo si ingreso anual > B/. 11,000 (Art. 700 CF)
+// ─────────────────────────────────────────────────────────────────
 export const calculateThirteenthMonthByPeriod = (
   totalIncome: number,
-  month: number,
-  calculateISRFunction: (income: number) => number
+  month: number,                               // 0-based (getMonth())
+  calculateISRFunction: (income: number) => number,
+  ssDecimoRate: number = 7.25                  // % desde legal-parameters (ss_decimo)
 ): {
   period: string
   grossAmount: number
@@ -124,23 +134,30 @@ export const calculateThirteenthMonthByPeriod = (
   let startMonth = 0
   let endMonth = 0
 
-  if (month >= 3 && month <= 6) {
+  // mes 3 = abril  → Primera Partida
+  if (month === 3) {
     period = "Primera Partida (16 dic - 15 abr)"
-    startMonth = 11
-    endMonth = 3
-  } else if (month >= 7 && month <= 9) {
+    startMonth = 11   // diciembre
+    endMonth = 3      // abril
+  // mes 7 = agosto → Segunda Partida
+  } else if (month === 7) {
     period = "Segunda Partida (16 abr - 15 ago)"
-    startMonth = 3
-    endMonth = 7
+    startMonth = 3    // abril
+    endMonth = 7      // agosto
+  // mes 11 = diciembre → Tercera Partida
   } else if (month === 11) {
     period = "Tercera Partida (16 ago - 15 dic)"
-    startMonth = 7
-    endMonth = 11
+    startMonth = 7    // agosto
+    endMonth = 11     // diciembre
   }
 
+  // Monto bruto = total del período / 12
   const grossAmount = Number((totalIncome / 12).toFixed(2))
-  const sss = Number((grossAmount * 0.0725).toFixed(2))
 
+  // SSS = tasa dinámica desde BD (default 7.25 %)
+  const sss = Number((grossAmount * (ssDecimoRate / 100)).toFixed(2))
+
+  // ISR solo si ingreso anual > B/. 11,000  (Código Fiscal Art. 700)
   const annualIncome = totalIncome
   let isr = 0
   if (annualIncome > 11000) {
@@ -163,7 +180,8 @@ export const calculateEmployeePayroll = (
   sssRate: number,
   calculateISRFunction: (income: number) => number,
   payrollMonth: number,
-  calculateThirteenthFunction: (income: number, month: number) => any
+  calculateThirteenthFunction: (income: number, month: number, ssRate?: number) => any,
+  ssDecimoRate: number = 7.25   // tasa SS del décimo desde BD (ss_decimo)
 ): PayrollCalculation => {
   const grossSalary = Number((baseSalary + hoursExtra + bonifications + otherIncome).toFixed(2))
   const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
@@ -192,10 +210,12 @@ export const calculateEmployeePayroll = (
     netSalaryBiweekly,
   }
 
+  // Meses exactos de pago del décimo: abril(3), agosto(7), diciembre(11)
   const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
   if (isPeriodThirteenthMonth) {
+    // Base = 4 meses del período (aproximación estándar cuando no hay historial de ingresos)
     const fourMonthsSalary = baseSalary * 4
-    const thirteenthData = calculateThirteenthFunction(fourMonthsSalary, payrollMonth)
+    const thirteenthData = calculateThirteenthFunction(fourMonthsSalary, payrollMonth, ssDecimoRate)
     calc.thirteenthMonth = thirteenthData.netAmount
   }
 
@@ -217,11 +237,19 @@ export const calculateAllPayrolls = (
 
   const sssRate = getSSSRate(legalParams)
   const isrTramos = getISRRates(legalParams)
+
+  // Tasa SS del décimo desde BD (key: ss_decimo) — default 7.25 %
+  const ssDecimoParam = legalParams.find(
+    (p) => p.key === "ss_decimo" && p.status === "active"
+  )
+  const ssDecimoRate = ssDecimoParam?.percentage ?? 7.25
+
+  // CORRECCIÓN: getMonth() devuelve 0-based; abril=3, agosto=7, diciembre=11
   const payrollMonth = new Date(payrollDate).getMonth()
 
   const calculateISRForEmployee = (income: number) => calculateISR(income, isrTramos)
-  const calculateThirteenthForEmployee = (income: number, month: number) =>
-    calculateThirteenthMonthByPeriod(income, month, calculateISRForEmployee)
+  const calculateThirteenthForEmployee = (income: number, month: number, ssRate?: number) =>
+    calculateThirteenthMonthByPeriod(income, month, calculateISRForEmployee, ssRate ?? ssDecimoRate)
 
   return employees.map((emp) => {
     const normalizedMonthlySalary = getNormalizedMonthlySalary(emp)
@@ -245,7 +273,8 @@ export const calculateAllPayrolls = (
       sssRate,
       calculateISRForEmployee,
       payrollMonth,
-      calculateThirteenthForEmployee
+      calculateThirteenthForEmployee,
+      ssDecimoRate
     )
   })
 }

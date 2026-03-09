@@ -4,6 +4,8 @@ import { useState, useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
+import { ExportButtons } from "../../../../components/exports/ExportButtons"
+import { exportDecimoExcel, exportDecimoPDF } from "../../../../utils/exports/exportEngine"
 import {
   Gift,
   Calendar,
@@ -211,13 +213,57 @@ export const AllDecimo: React.FC = () => {
     )
   }
 
+  const handleExcelExport = () => {
+    exportDecimoExcel({
+      rows: employeeData.map(e => ({
+        cedula: e.cedula,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        monthlySalary: e.monthlySalary,
+        grossThirteenth: e.calc.grossThirteenth,
+        ss: e.calc.ss,
+        isr: e.calc.isr,
+        net: e.calc.net,
+      })),
+      period: `${partidaInfo.name} (${partidaInfo.period})`,
+      companyName: selectedCompany?.name ?? "Empresa",
+    })
+  }
+
+  const handlePDFExport = () => {
+    exportDecimoPDF({
+      rows: employeeData.map(e => ({
+        cedula: e.cedula,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        monthlySalary: e.monthlySalary,
+        grossThirteenth: e.calc.grossThirteenth,
+        ss: e.calc.ss,
+        isr: e.calc.isr,
+        net: e.calc.net,
+      })),
+      period: `${partidaInfo.name} (${partidaInfo.period})`,
+      companyName: selectedCompany?.name ?? "Empresa",
+    })
+  }
+
   return (
     <div className={`transition-colors ${isDarkMode ? 'bg-slate-900 text-white' : 'text-gray-900'}`}>
-      <PagesHeader 
-        title={`${pageName} - Décimo Tercer Mes`} 
-        description="Cálculo dinámico basado en parámetros legales de la base de datos" 
-        onExport={() => { }} 
-      />
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <PagesHeader
+          title={`${pageName} - Décimo Tercer Mes`}
+          description="Cálculo dinámico basado en parámetros legales de la base de datos"
+          onExport={() => {}}
+        />
+        <div className="shrink-0 mt-1">
+          <ExportButtons
+            onExcel={handleExcelExport}
+            onPDF={handlePDFExport}
+            isDark={isDarkMode}
+            disabled={employeeData.length === 0}
+          />
+        </div>
+      </div>
 
       {/* Selector de Partida */}
       <div className="flex gap-4 mb-8">

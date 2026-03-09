@@ -6,6 +6,8 @@ import { Company, useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import { Calendar, Users, AlertCircle, Calculator, Eye } from "lucide-react"
 import { exportToExcel } from "./ExportToExcel"
+import { exportPayrollPDF } from "../../../../utils/exports/exportEngine"
+import { ExportButtons } from "../../../../components/exports/ExportButtons"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
 import LoadingPayrollModal from "./LoadingPayroolModal"
@@ -202,6 +204,13 @@ export const AllPayrolls: React.FC = () => {
     return sssParam?.percentage || 2.87
   }, [legalParams])
 
+  // Tasa SS del décimo (key: ss_decimo) — default 7.25 % (Ley 45-2007)
+  const getSSDecimoRate = useCallback(() => {
+    if (!legalParams || legalParams.length === 0) return 7.25
+    const param = legalParams.find((p) => p.key === "ss_decimo" && p.status === "active")
+    return param?.percentage ?? 7.25
+  }, [legalParams])
+
   const getISRRates = useCallback((): ISRTramo[] => {
     if (!legalParams || legalParams.length === 0) return []
 
@@ -276,32 +285,39 @@ export const AllPayrolls: React.FC = () => {
       let startMonth = 0
       let endMonth = 0
 
-      if (month >= 3 && month <= 6) {
+      // CORRECCIÓN: getMonth() es 0-based → abril=3, agosto=7, diciembre=11
+      if (month === 3) {
         period = "Primera Partida (16 dic - 15 abr)"
-        startMonth = 11
-        endMonth = 3
-      } else if (month >= 7 && month <= 9) {
+        startMonth = 11   // diciembre
+        endMonth = 3      // abril
+      } else if (month === 7) {
         period = "Segunda Partida (16 abr - 15 ago)"
-        startMonth = 3
-        endMonth = 7
+        startMonth = 3    // abril
+        endMonth = 7      // agosto
       } else if (month === 11) {
         period = "Tercera Partida (16 ago - 15 dic)"
-        startMonth = 7
-        endMonth = 11
+        startMonth = 7    // agosto
+        endMonth = 11     // diciembre
       }
 
       const grossAmount = Number((totalIncome / 12).toFixed(2))
-      const sss = Number((grossAmount * 0.0725).toFixed(2))
 
-      // En muchas implementaciones el décimo no lleva ISR en planilla regular.
-      // Si necesitas aplicar ISR aquí con tu misma regla (13/26), dímelo y lo integro.
-      const isr = 0
+      // SS del décimo: tasa dinámica desde BD (Ley 45-2007 art. 63: default 7.25 %)
+      const ssDecimoRate = getSSDecimoRate()
+      const sss = Number((grossAmount * (ssDecimoRate / 100)).toFixed(2))
+
+      // ISR del décimo: solo si ingreso anual > B/. 11,000 (Código Fiscal Art. 700)
+      let isr = 0
+      if (totalIncome > 11000) {
+        const taxableDecimo = grossAmount - sss
+        isr = Number(calculatePeriodISRFromGross(taxableDecimo, "Mensual").toFixed(2))
+      }
 
       const netAmount = Number((grossAmount - sss - isr).toFixed(2))
 
       return { period, grossAmount, sss, isr, netAmount, startMonth, endMonth }
     },
-    []
+    [getSSDecimoRate, calculatePeriodISRFromGross]
   )
 
   const employeeCalculations = useMemo<PayrollCalculation[]>(() => {
@@ -396,6 +412,7 @@ export const AllPayrolls: React.FC = () => {
     payrollDate,
     overrides,
     getSSSRate,
+    getSSDecimoRate,
     calculatePeriodISRFromGross,
     calculateThirteenthMonthByPeriod
   ])
@@ -580,6 +597,34 @@ export const AllPayrolls: React.FC = () => {
 
   const isrTramos = getISRRates()
 
+  const handlePDFExport = () => {
+    exportPayrollPDF({
+      rows: employeeCalculations.map(c => ({
+        employee: c.employee,
+        baseSalary: c.baseSalary,
+        hoursExtra: c.hoursExtra,
+        bonifications: c.bonifications,
+        otherIncome: c.otherIncome,
+        grossSalary: c.grossSalary,
+        sss: c.sss,
+        isr: c.isr,
+        recurringAmount: c.recurringAmount,
+        otherDeductions: c.otherDeductions,
+        totalDeductions: c.totalDeductions,
+        netSalary: c.netSalary,
+        thirteenthMonth: c.thirteenthMonth,
+      })),
+      payrollDate,
+      payrollType,
+      quincenal,
+      companyName: selectedCompany?.name ?? "Empresa",
+      isPeriodThirteenthMonth:
+        new Date(payrollDate).getMonth() === 3 ||
+        new Date(payrollDate).getMonth() === 7 ||
+        new Date(payrollDate).getMonth() === 11,
+    })
+  }
+
   return (
     <div className={`relative transition-colors ${isDarkMode ? "bg-gray-900" : ""}`}>
       <LoadingPayrollModal
@@ -588,12 +633,21 @@ export const AllPayrolls: React.FC = () => {
         errorCount={payrollProgress.error}
         totalCount={employeeCalculations.length}
       />
-
-      <PagesHeader
-        title={"Planilla"}
-        description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
-        onExport={handleExport}
-      />
+      <div className="flex items-start justify-between gap-4 mb-0">
+        <PagesHeader
+          title={"Planilla"}
+          description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
+          onExport={handleExport}
+        />
+        <div className="shrink-0 mt-1">
+          <ExportButtons
+            onExcel={handleExport}
+            onPDF={handlePDFExport}
+            isDark={isDarkMode}
+            disabled={employeeCalculations.length === 0}
+          />
+        </div>
+      </div>
 
       {/* Configuration Section */}
       <div className={`rounded-lg p-6 border mb-8 transition-colors ${

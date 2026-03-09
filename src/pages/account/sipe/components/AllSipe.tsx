@@ -7,6 +7,8 @@ import { useTheme } from "../../../../context/themeContext"
 import { Users, AlertCircle, X, Loader2, Info } from "lucide-react"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
+import { ExportButtons } from "../../../../components/exports/ExportButtons"
+import { exportSipeExcel, exportSipePDF } from "../../../../utils/exports/exportEngine"
 
 /* ============================
    TIPOS
@@ -18,6 +20,7 @@ interface Employee {
   lastName: string
   cedula: string
   salary: number
+  salaryType: "MONTHLY" | "BIWEEKLY"   // CORRECCIÓN: agregado para normalizar
 }
 
 interface LegalParameter {
@@ -148,7 +151,11 @@ export const AllSipe: React.FC = () => {
 
   const calculateSipeForEmployee = useCallback(
     (emp: Employee): SipeEmployeeCalc => {
-      const gross = Number(emp.salary) || 0
+      // CORRECCIÓN: normalizar a salario mensual para los aportes CSS/SIPE
+      // BIWEEKLY = salario almacenado es quincenal → ×2 para obtener mensual
+      // MONTHLY  = salario ya es mensual
+      const rawSalary = Number(emp.salary) || 0
+      const gross = emp.salaryType === "BIWEEKLY" ? rawSalary * 2 : rawSalary
 
       const ssEmpRate = Number(getParam("ss_empleado")?.percentage ?? 9.75)
       const ssPatRate = Number(getParam("ss_patrono")?.percentage ?? 12.25)
@@ -239,7 +246,35 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
   return (
     <div className={`transition-colors ${isDarkMode ? 'bg-slate-900' : ''}`}>
-      <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
+      <div className="flex items-start justify-between gap-4 mb-0">
+        <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
+        <div className="shrink-0 mt-1">
+          <ExportButtons
+            onExcel={() => exportSipeExcel({
+              rows: employeeCalculations.map(c => ({
+                cedula: c.cedula, firstName: c.firstName, lastName: c.lastName,
+                gross: c.gross, ssEmp: c.ssEmp, ssPat: c.ssPat,
+                eduEmp: c.eduEmp, eduPat: c.eduPat, riesgo: c.riesgo,
+                isr: c.isr, decCSS: c.decCSS, totalSipe: c.totalSipe,
+              })),
+              month: selectedMonth,
+              companyName: selectedCompany?.name ?? "Empresa",
+            })}
+            onPDF={() => exportSipePDF({
+              rows: employeeCalculations.map(c => ({
+                cedula: c.cedula, firstName: c.firstName, lastName: c.lastName,
+                gross: c.gross, ssEmp: c.ssEmp, ssPat: c.ssPat,
+                eduEmp: c.eduEmp, eduPat: c.eduPat, riesgo: c.riesgo,
+                isr: c.isr, decCSS: c.decCSS, totalSipe: c.totalSipe,
+              })),
+              month: selectedMonth,
+              companyName: selectedCompany?.name ?? "Empresa",
+            })}
+            isDark={isDarkMode}
+            disabled={employeeCalculations.length === 0}
+          />
+        </div>
+      </div>
 
       {/* Banner de Pago del Mes Anterior */}
       <div className={`border-l-4 border-green-500 p-6 rounded-lg mb-8 flex justify-between items-center shadow-2xl transition-colors ${
