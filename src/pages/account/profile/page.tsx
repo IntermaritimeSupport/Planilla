@@ -1,23 +1,21 @@
 "use client"
 
+import { authFetcher } from "../../../services/api"
 import useSWR from "swr"
 import { useTheme } from "../../../context/themeContext"
 import { formatValue } from "../../../utils/formatNull"
 import { UsuarioFull } from "../../../utils/usuarioFull"
 import Loader from "../../../components/loaders/loader.tsx"
-import { ThemeSelectorPills } from "../../../components/theme/ThemeSelector"
 
 const { VITE_API_URL } = import.meta.env
 
 interface ProfilePageProps {
     userId : string
 }
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 export default function ProfilePage({ userId }: ProfilePageProps) {
   const { isDarkMode } = useTheme()
-  const { data, error, isLoading } = useSWR(`${VITE_API_URL}/api/users/profile/${userId}`, fetcher)
-  console.log("User Data:", data);
+  const { data, error, isLoading } = useSWR(`${VITE_API_URL}/api/users/profile/${userId}`, authFetcher)
   if (isLoading) {
     return (
         <Loader/>
@@ -593,28 +591,6 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
             </div>
           </div>
         </div>
-
-        {/* ── PREFERENCIAS DE APARIENCIA ── */}
-        <div className={`rounded-lg p-6 border mt-8 transition-colors ${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        }`}>
-          <div className="flex items-center gap-3 mb-5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-slate-700" : "bg-gray-100"}`}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`w-4 h-4 ${isDarkMode ? "text-indigo-400" : "text-indigo-600"}`}>
-                <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-              </svg>
-            </div>
-            <div>
-              <h2 className={`text-base font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Preferencias de Apariencia</h2>
-              <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Elige cómo quieres ver la interfaz</p>
-            </div>
-          </div>
-          <ThemeSelectorPills />
-        </div>
-
       </div>
     </div>
   )

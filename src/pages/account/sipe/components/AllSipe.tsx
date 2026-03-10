@@ -1,14 +1,14 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import { useState, useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
-import { Users, AlertCircle, X, Loader2, Info } from "lucide-react"
+import { Users, AlertCircle, X, Loader2, Info, ChevronLeft, ChevronRight } from "lucide-react"
+import Pagination from "../../../../components/ui/Pagination"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
-import { ExportButtons } from "../../../../components/exports/ExportButtons"
-import { exportSipeExcel, exportSipePDF } from "../../../../utils/exports/exportEngine"
 
 /* ============================
    TIPOS
@@ -48,18 +48,20 @@ interface SipeEmployeeCalc extends Employee {
    FETCHER
 ============================ */
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+// authFetcher from services/api (autenticado)
 
 export const AllSipe: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
 
-  const [selectedMonth] = useState(
+  const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().split("T")[0].substring(0, 7)
   )
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalPage, setModalPage] = useState(1)
+  const MODAL_PAGE_SIZE = 20
 
   /* ============================
      DATA
@@ -68,16 +70,12 @@ export const AllSipe: React.FC = () => {
   const { data: employees, isLoading: loadingEmps, error: empError } = useSWR<Employee[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+      : null, authFetcher)
 
   const { data: legalParams, isLoading: loadingParams, error: paramsError } = useSWR<LegalParameter[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+      : null, authFetcher)
 
   /* ============================
      PARAMS MAP (OPTIMIZADO)
@@ -246,33 +244,46 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 
   return (
     <div className={`transition-colors ${isDarkMode ? 'bg-slate-900' : ''}`}>
-      <div className="flex items-start justify-between gap-4 mb-0">
-        <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
-        <div className="shrink-0 mt-1">
-          <ExportButtons
-            onExcel={() => exportSipeExcel({
-              rows: employeeCalculations.map(c => ({
-                cedula: c.cedula, firstName: c.firstName, lastName: c.lastName,
-                gross: c.gross, ssEmp: c.ssEmp, ssPat: c.ssPat,
-                eduEmp: c.eduEmp, eduPat: c.eduPat, riesgo: c.riesgo,
-                isr: c.isr, decCSS: c.decCSS, totalSipe: c.totalSipe,
-              })),
-              month: selectedMonth,
-              companyName: selectedCompany?.name ?? "Empresa",
-            })}
-            onPDF={() => exportSipePDF({
-              rows: employeeCalculations.map(c => ({
-                cedula: c.cedula, firstName: c.firstName, lastName: c.lastName,
-                gross: c.gross, ssEmp: c.ssEmp, ssPat: c.ssPat,
-                eduEmp: c.eduEmp, eduPat: c.eduPat, riesgo: c.riesgo,
-                isr: c.isr, decCSS: c.decCSS, totalSipe: c.totalSipe,
-              })),
-              month: selectedMonth,
-              companyName: selectedCompany?.name ?? "Empresa",
-            })}
-            isDark={isDarkMode}
-            disabled={employeeCalculations.length === 0}
+      <PagesHeader title={pageName} description={`Empresa: ${selectedCompany?.name}`} onExport={() => {}} />
+
+      {/* Selector de Mes */}
+      <div className={`flex items-center gap-4 mb-6 p-4 rounded-xl border ${isDarkMode ? "bg-slate-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className={`text-xs font-bold uppercase ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+          Período de Planilla
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const d = new Date(selectedMonth + "-01")
+              d.setMonth(d.getMonth() - 1)
+              setSelectedMonth(d.toISOString().substring(0, 7))
+            }}
+            className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className={`rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              isDarkMode ? "bg-gray-700 border border-gray-600 text-white" : "bg-white border border-gray-300 text-gray-900"
+            }`}
           />
+          <button
+            onClick={() => {
+              const d = new Date(selectedMonth + "-01")
+              d.setMonth(d.getMonth() + 1)
+              const next = d.toISOString().substring(0, 7)
+              if (next <= new Date().toISOString().substring(0, 7)) setSelectedMonth(next)
+            }}
+            className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div className={`text-sm font-medium capitalize ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>
+          Pago SIPE de {new Date(selectedMonth + "-15").toLocaleDateString("es-PA", { month: "long", year: "numeric" })}
         </div>
       </div>
 
@@ -342,7 +353,7 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
               <th className="p-4">Seg. Educ. Emp.</th>
               <th className="p-4">Seg. Educ. Patr.</th>
               <th className="p-4">Riesgo ({getParam('riesgo_profesional')?.percentage || '0.98'}%)</th>
-              <th className="p-4">ISR</th>
+              <th className="p-4">ISR Retenido (mensual)</th>
               {totals.decCSS > 0 && <th className="p-4 text-yellow-400">Décimo CSS</th>}
               <th className="p-4 text-green-400">Total SIPE</th>
               <th className="p-4">Acciones</th>
@@ -368,7 +379,7 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
               <td className="p-4 font-bold text-green-400 text-lg">{format(totals.total)}</td>
               <td className="p-4">
                 <button 
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => { setIsModalOpen(true); setModalPage(1) }}
                   className={`p-2 rounded-lg transition-all ${
                     isDarkMode
                       ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white'
@@ -443,7 +454,7 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
                 <tbody className={`divide-y transition-colors ${
                   isDarkMode ? 'divide-gray-800' : 'divide-gray-200'
                 }`}>
-                  {employeeCalculations.map((calc) => (
+                  {employeeCalculations.slice((modalPage-1)*MODAL_PAGE_SIZE, modalPage*MODAL_PAGE_SIZE).map((calc) => (
                     <tr key={calc.id} className={`transition-colors ${
                       isDarkMode
                         ? 'hover:bg-slate-700/40'
@@ -482,9 +493,14 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
                 ? 'border-gray-700 bg-slate-900/50'
                 : 'border-gray-200 bg-gray-100/50'
             }`}>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Mostrando {employeeCalculations.length} empleados registrados
-                </p>
+                <div className="flex items-center gap-4">
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {employeeCalculations.length} empleados
+                  </p>
+                  {employeeCalculations.length > MODAL_PAGE_SIZE && (
+                    <Pagination total={employeeCalculations.length} pageSize={MODAL_PAGE_SIZE} page={modalPage} onChange={setModalPage} compact />
+                  )}
+                </div>
                 <div>
                     <span className={`mr-4 uppercase text-xs font-bold ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'

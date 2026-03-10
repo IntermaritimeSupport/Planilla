@@ -1,3 +1,4 @@
+import { authFetcher } from "../../../../services/api"
 // src/components/forms/updateNetwork.tsx
 import React, { useState, useEffect } from "react";
 import useSWR from "swr";
@@ -6,8 +7,7 @@ import { useCompany } from "../../../../context/routerContext";
 import { CurrentPathname } from "../../../../components/layouts/main";
 
 const { VITE_API_URL } = import.meta.env;
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 interface NetworkFormData {
   name: string;
   status: "ONLINE" | "OFFLINE" | "MAINTENANCE" | "DECOMMISSIONED" | "UNKNOWN";
@@ -87,8 +87,7 @@ const UpdateNetworkForm: React.FC<UpdateNetworkFormProps> = ({
 
   // Fetch usuarios
   const { data: users, isLoading: usersLoading, error: usersError } = useSWR<User[]>(
-    `${VITE_API_URL}/api/users/getAll`,
-    fetcher,
+    `${VITE_API_URL}/api/users/getAll`, authFetcher,
     { revalidateOnFocus: false }
   );
 
@@ -119,8 +118,7 @@ const UpdateNetworkForm: React.FC<UpdateNetworkFormProps> = ({
 
   // Fetch network si es edición
   const { data: networkData, isLoading: networkLoading } = useSWR<any>(
-    actualNetworkId ? `${VITE_API_URL}/api/network/${selectedCompany?.id}/${actualNetworkId}` : null,
-    fetcher,
+    actualNetworkId ? `${VITE_API_URL}/api/network/${selectedCompany?.id}/${actualNetworkId}` : null, authFetcher,
     { revalidateOnFocus: false }
   );
 

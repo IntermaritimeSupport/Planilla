@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Download, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { useTheme } from '../../../../context/themeContext';
 
 interface EmployeeImportModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
   companyId, 
   onImportSuccess 
 }) => {
+  const { isDarkMode } = useTheme();
   const [step, setStep] = useState<'upload' | 'preview' | 'confirm'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
@@ -161,18 +163,18 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className={`fixed inset-0 flex items-center justify-center z-50 ${isDarkMode ? "bg-black/60" : "bg-black/40"}`}>
+      <div className={`rounded-xl border max-w-2xl w-full max-h-[90vh] overflow-y-auto ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         {/* Header */}
-        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">
+        <div className={`sticky top-0 border-b px-6 py-4 flex items-center justify-between ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+          <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
             {step === 'upload' && 'Importar Empleados'}
             {step === 'preview' && 'Vista Previa de Empleados'}
             {step === 'confirm' && 'Importación Completada'}
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-white transition"
+            className={`transition ${isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
           >
             <X size={24} />
           </button>
@@ -199,11 +201,11 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
                 </button>
               </div>
 
-              <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
+              <div className={`border-2 border-dashed rounded-lg p-8 text-center ${isDarkMode ? "border-gray-600" : "border-gray-300"}`}>
                 <label className="cursor-pointer">
-                  <Upload size={32} className="mx-auto mb-3 text-gray-400" />
-                  <p className="text-white font-medium mb-1">Arrastra tu archivo aquí</p>
-                  <p className="text-gray-400 text-sm mb-4">o haz clic para seleccionar</p>
+                  <Upload size={32} className={`mx-auto mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-400"}`} />
+                  <p className={`font-medium mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Arrastra tu archivo aquí</p>
+                  <p className={`text-sm mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>o haz clic para seleccionar</p>
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -226,7 +228,7 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={handleClose}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
                 >
                   Cancelar
                 </button>
@@ -246,12 +248,12 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
             <div className="space-y-6">
               {/* Resumen */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-700 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm">Total en archivo</p>
-                  <p className="text-2xl font-bold text-white">{previewData.totalRows}</p>
+                <div className={`rounded-lg p-4 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Total en archivo</p>
+                  <p className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{previewData.totalRows}</p>
                 </div>
-                <div className="bg-gray-700 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm">Válidos</p>
+                <div className={`rounded-lg p-4 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Válidos</p>
                   <p className="text-2xl font-bold text-green-400">{previewData.validEmployees}</p>
                 </div>
               </div>
@@ -259,7 +261,7 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
               {/* Errores */}
               {previewData.errors && previewData.errors.length > 0 && (
                 <div>
-                  <h3 className="text-white font-medium mb-3">Errores encontrados:</h3>
+                  <h3 className={`font-medium mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Errores encontrados:</h3>
                   <div className="bg-red-900/30 border border-red-700 rounded-lg max-h-48 overflow-y-auto">
                     {previewData.errors.map((err, idx) => (
                       <div key={idx} className="px-4 py-3 border-b border-red-800 last:border-b-0">
@@ -275,28 +277,28 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
               {/* Tabla de empleados válidos */}
               {previewData.employees && previewData.employees.length > 0 && (
                 <div>
-                  <h3 className="text-white font-medium mb-3">Empleados a importar:</h3>
-                  <div className="bg-gray-700 rounded-lg overflow-x-auto max-h-64 overflow-y-auto">
+                  <h3 className={`font-medium mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Empleados a importar:</h3>
+                  <div className={`rounded-lg overflow-x-auto max-h-64 overflow-y-auto ${isDarkMode ? "bg-gray-700" : "bg-gray-50 border border-gray-200"}`}>
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-600 sticky top-0">
+                      <thead className={`sticky top-0 ${isDarkMode ? "bg-gray-600" : "bg-gray-200"}`}>
                         <tr>
-                          <th className="px-4 py-2 text-gray-200">Cédula</th>
-                          <th className="px-4 py-2 text-gray-200">Nombre</th>
-                          <th className="px-4 py-2 text-gray-200">Email</th>
-                          <th className="px-4 py-2 text-gray-200">Posición</th>
-                          <th className="px-4 py-2 text-gray-200">Salario</th>
+                          <th className={`px-4 py-2 ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>Cédula</th>
+                          <th className={`px-4 py-2 ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>Nombre</th>
+                          <th className={`px-4 py-2 ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>Email</th>
+                          <th className={`px-4 py-2 ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>Posición</th>
+                          <th className={`px-4 py-2 ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>Salario</th>
                         </tr>
                       </thead>
                       <tbody>
                         {previewData.employees.map((emp: any, idx: number) => (
-                          <tr key={idx} className="border-b border-gray-600 hover:bg-gray-600/50">
-                            <td className="px-4 py-2 text-gray-300">{emp.cedula}</td>
-                            <td className="px-4 py-2 text-gray-300">
+                          <tr key={idx} className={`border-b ${isDarkMode ? "border-gray-600 hover:bg-gray-600/50" : "border-gray-200 hover:bg-gray-100"}`}>
+                            <td className={`px-4 py-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{emp.cedula}</td>
+                            <td className={`px-4 py-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                               {emp.firstName} {emp.lastName}
                             </td>
-                            <td className="px-4 py-2 text-gray-300">{emp.email || '-'}</td>
-                            <td className="px-4 py-2 text-gray-300">{emp.position || '-'}</td>
-                            <td className="px-4 py-2 text-gray-300">${emp.salary}</td>
+                            <td className={`px-4 py-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{emp.email || '-'}</td>
+                            <td className={`px-4 py-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{emp.position || '-'}</td>
+                            <td className={`px-4 py-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>${emp.salary}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -308,7 +310,7 @@ export const EmployeeImportModal: React.FC<EmployeeImportModalProps> = ({
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setStep('upload')}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
                 >
                   Atrás
                 </button>

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronUp, ChevronDown, Eye, Edit, Trash2 } from "lucide-react"
+import { ChevronUp, ChevronDown, Eye, Edit, Trash2, History } from "lucide-react"
 import { useTheme } from "../../context/themeContext"
 
 interface TablaProps {
@@ -9,6 +9,7 @@ interface TablaProps {
   onVer?: (item: any) => void
   onEditar?: (item: any) => void
   onEliminar?: (item: any) => void
+  onHistorial?: (item: any) => void
   mostrarAcciones?: boolean
 }
 
@@ -19,6 +20,7 @@ export default function Tabla({
   onVer,
   onEditar,
   onEliminar,
+  onHistorial,
   mostrarAcciones = true,
 }: TablaProps) {
   const { isDarkMode } = useTheme()
@@ -203,6 +205,19 @@ export default function Tabla({
                         </button>
                       )}
 
+                      {onHistorial && (
+                        <button
+                          onClick={() => onHistorial(item)}
+                          className={`p-1.5 rounded transition-colors ${
+                            isDarkMode
+                              ? "text-purple-400 hover:bg-purple-600 hover:text-white"
+                              : "text-purple-600 hover:bg-purple-600 hover:text-white"
+                          }`}
+                          title="Historial de salarios"
+                        >
+                          <History size={14} />
+                        </button>
+                      )}
                       {onEliminar && (
                         <button
                           onClick={() => onEliminar(item)}

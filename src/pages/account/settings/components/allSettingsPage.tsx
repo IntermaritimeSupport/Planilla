@@ -42,7 +42,7 @@ interface Company {
 
 const fetcherWithAuth = async (url: string): Promise<Company[]> => {
   try {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    const token = localStorage.getItem("jwt")
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -106,7 +106,7 @@ export default function AllSettingsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+      const token = localStorage.getItem("jwt")
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       }
@@ -137,7 +137,7 @@ export default function AllSettingsPage() {
 
   const handleDeleteDepartment = async (companyId: string, deptId: string) => {
     try {
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+      const token = localStorage.getItem("jwt")
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       }

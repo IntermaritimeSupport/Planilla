@@ -1,193 +1,115 @@
-import { decodeToken, Token } from "../utils/decode";
+/**
+ * src/actions/authentication.ts
+ * FASE 1 — Clave JWT estandarizada: localStorage ('jwt')
+ */
+import { decodeToken } from '../utils/decode'
+
 const { VITE_API_URL } = import.meta.env
 
+const getCleanToken = (): string | null => {
+  try {
+    const stored = localStorage.getItem('jwt')
+    if (!stored) return null
+    if (stored.startsWith('{')) {
+      const parsed = JSON.parse(stored)
+      return parsed.token || parsed.jwt || null
+    }
+    if (stored.startsWith('"') && stored.endsWith('"')) return stored.slice(1, -1)
+    return stored
+  } catch { return null }
+}
+
+const clearAuth = () => {
+  localStorage.removeItem('jwt')
+  sessionStorage.removeItem('jwt')
+  localStorage.removeItem('selectedCompany')
+  sessionStorage.removeItem('selectedCompany')
+}
+
 export class authServices {
-  static async login(email: string, password: string) {
+  static async login(email: string, password: string): Promise<string> {
     const response = await fetch(`${VITE_API_URL}/api/user/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
-    });
-    
+    })
     if (!response.ok) {
-      try {
-        const errorData = await response.json();
-        throw new Error(errorData?.message || 'Error en el inicio de sesión');
-      } catch (error) {
-        throw new Error('Error en el inicio de sesión');
-      }
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData?.message || 'Error en el inicio de sesión')
     }
-
-    const data = await response.json();
-
+    const data = await response.json()
     if (data?.token) {
-      window.sessionStorage.setItem('jwt', data.token);
-      localStorage.setItem('jwt', data.token);
-      return data.token; // ✅ Retornar solo el token
+      localStorage.setItem('jwt', data.token)
+      return data.token
     }
-
-    throw new Error('No se recibió token del servidor');
+    throw new Error('No se recibió token del servidor')
   }
 
-  static async logout(jwt: string) {
-    if (typeof jwt !== 'string' || jwt.trim() === '') {
-      const errorMessage = "La función de logout fue llamada incorrectamente sin un token JWT válido.";
-      console.error(errorMessage, "Argumento recibido:", jwt);
-      window.sessionStorage.removeItem('jwt');
-      localStorage.removeItem('jwt');
-      
-      window.sessionStorage.removeItem('selectedCompany');
-      localStorage.removeItem('selectedCompany');
-      window.location.href = '/login';
-      throw new TypeError(errorMessage);
+  static async logout(jwt: string): Promise<void> {
+    if (!jwt || typeof jwt !== 'string' || !jwt.trim()) {
+      clearAuth()
+      window.location.href = '/login'
+      return
     }
-
-    window.sessionStorage.removeItem('jwt');
-    localStorage.removeItem('jwt');
-    window.sessionStorage.removeItem('selectedCompany');
-    localStorage.removeItem('selectedCompany');
-
+    clearAuth()
     try {
-      const response = await fetch(`${VITE_API_URL}/api/user/auth/logout`, {
+      await fetch(`${VITE_API_URL}/api/user/auth/logout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})); 
-        throw new Error(errorData.message || 'Error del servidor al cerrar la sesión.');
-      }
-      console.log("Logout en el servidor exitoso.");
-
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      })
     } catch (error) {
-      console.error('Error durante la llamada de logout al servidor:', error);
+      console.error('Error en logout del servidor:', error)
     } finally {
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      if (window.location.pathname !== '/login') window.location.href = '/login'
     }
   }
 
-  static async register(formData: FormData) {
-    const email_address = formData.get('email');
-    const password = formData.get('password');
-
-    const response = await fetch(VITE_API_URL + "/api/user/auth/register", {
+  static async register(formData: FormData): Promise<unknown> {
+    const response = await fetch(`${VITE_API_URL}/api/user/auth/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email_address, password }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en el registro');
-    }
-
-    return await response.json();
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_address: formData.get('email'), password: formData.get('password') }),
+    })
+    if (!response.ok) { const e = await response.json(); throw new Error(e.message || 'Error en el registro') }
+    return response.json()
   }
 
-  static async verification(token: string) {
-    const url = new URL(VITE_API_URL + "/api/auth/activate-account");
-    url.searchParams.append('token', token);
-
-    const response = await fetch(url.toString());
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en la verificación');
-    }
-
-    return await response.json();
-  }
-
-  static async sendResetEmail(formData: FormData) {
-    const email = formData.get('email');
-    const password = formData.get('newPassword');
-
-    const response = await fetch(VITE_API_URL + "/api/user/auth/sendResetEmail", {
+  static async sendResetEmail(formData: FormData): Promise<unknown> {
+    const response = await fetch(`${VITE_API_URL}/api/user/auth/sendResetEmail`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al enviar el email de reseteo');
-    }
-
-    return await response.json();
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: formData.get('email'), password: formData.get('newPassword') }),
+    })
+    if (!response.ok) { const e = await response.json(); throw new Error(e.message || 'Error al enviar email') }
+    return response.json()
   }
 
-  static async sendReset(formData: FormData) {
-    const email = formData.get('email');
-    const newPassword = formData.get('newPassword');
-    const code = formData.get('code');
-
-    const response = await fetch(VITE_API_URL + "/api/user/auth/sendResetPassword", {
+  static async sendReset(formData: FormData): Promise<unknown> {
+    const response = await fetch(`${VITE_API_URL}/api/user/auth/sendResetPassword`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, code, newPassword }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al resetear la contraseña');
-    }
-
-    return await response.json();
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: formData.get('email'), code: formData.get('code'), newPassword: formData.get('newPassword') }),
+    })
+    if (!response.ok) { const e = await response.json(); throw new Error(e.message || 'Error al resetear') }
+    return response.json()
   }
 
   static isTokenExpired(exp: number): boolean {
-    const currentTime = Math.floor(Date.now() / 1000);
-    return exp < currentTime;
+    return Math.floor(Date.now() / 1000) >= exp
   }
 
-  /**
-   * Obtiene el token actual del storage si es válido
-   */
   static getCurrentUser(): string | null {
     try {
-      const token = Token();
-      
-      if (!token || token.split('.').length !== 3) {
-        return null;
-      }
-
-      const decoded = decodeToken();
-      if (!decoded) {
-        return null;
-      }
-
-      const isExpired = this.isTokenExpired(decoded?.exp);
-      
-      if (isExpired) {
-        localStorage.removeItem('jwt');
-        sessionStorage.removeItem('jwt');
-        return null;
-      }
-
-      return token;
-    } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
-    }
+      const token = getCleanToken()
+      if (!token || token.split('.').length !== 3) return null
+      const decoded = decodeToken()
+      if (!decoded) return null
+      if (this.isTokenExpired(decoded.exp)) { clearAuth(); return null }
+      return token
+    } catch { return null }
   }
 
-  /**
-   * Valida si el token actual es válido y no está expirado
-   */
   static isTokenValid(): boolean {
-    return this.getCurrentUser() !== null;
+    return this.getCurrentUser() !== null
   }
 }

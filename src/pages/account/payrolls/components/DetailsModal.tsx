@@ -3,8 +3,10 @@
 import type React from "react"
 import { useMemo } from "react"
 import { X, Download, Landmark, ReceiptText, Wallet, CalendarDays, User } from "lucide-react"
-import { formatCurrency, type PayrollCalculation } from "./AllPayrolls"
+import { type PayrollCalculation } from "./AllPayrolls"
 import jsPDF from "jspdf"
+import { useTheme } from "../../../../context/themeContext"
+import { formatCurrency } from "./payrollCalculation"
 
 // --- Utilidades de Cálculo con Tipado Seguro ---
 const preciseRound = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100
@@ -31,6 +33,7 @@ const DetailsModal: React.FC<{
   isOpen: boolean
   onClose: () => void
 }> = ({ calculation, isOpen, onClose }) => {
+  const { isDarkMode } = useTheme()
   const totals = useMemo(() => {
     const recurring = calculation.employee.recurringDeductions?.filter(d => d.isActive) || []
     
@@ -200,18 +203,18 @@ const DetailsModal: React.FC<{
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+    <div className={`fixed inset-0 backdrop-blur-md flex items-center justify-center z-50 p-4 ${isDarkMode ? "bg-slate-950/80" : "bg-black/40"}`}>
+      <div className={`border rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col ${isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200"}`}>
         
         {/* Header Superior */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-slate-900/50">
+        <div className={`flex justify-between items-center p-6 border-b ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-gray-200 bg-gray-50"}`}>
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
               <ReceiptText size={28} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Detalle de Nómina</h2>
-              <p className="text-sm text-slate-400">Periodo de pago actual</p>
+              <h2 className={`text-xl font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>Detalle de Nómina</h2>
+              <p className={`text-sm ${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>Periodo de pago actual</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -233,7 +236,7 @@ const DetailsModal: React.FC<{
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-xl"
+              className={`transition-colors p-2 rounded-xl ${isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"}`}
             >
               <X size={24} />
             </button>
@@ -242,16 +245,16 @@ const DetailsModal: React.FC<{
 
         <div className="overflow-y-auto p-6 space-y-8">
           {/* Información de la Compañía */}
-          <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/30 p-5 rounded-xl border border-slate-700/50 mb-6">
+          <div className={`p-5 rounded-xl border mb-6 ${isDarkMode ? "bg-gradient-to-br from-slate-800/60 to-slate-800/30 border-slate-700/50" : "bg-gray-50 border-gray-200"}`}>
             <div className="flex items-start gap-4">
               <div className="h-14 w-14 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Landmark size={28} className="text-blue-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-white mb-1">{(calculation?.employee as any)?.company?.name || "N/A"}</h3>
+                <h3 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{(calculation?.employee as any)?.company?.name || "N/A"}</h3>
                 <div className="flex flex-wrap gap-3 text-sm">
-                  <div className="flex items-center gap-1.5 text-slate-300">
-                    <span className="text-slate-500">Departamento:</span>
+                  <div className={`flex items-center gap-1.5 ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>
+                    <span className={isDarkMode ? "text-slate-500" : "text-gray-400"}>Departamento:</span>
                     <span className="font-medium">{calculation?.employee?.department || "N/A"}</span>
                   </div>
                 </div>
@@ -261,21 +264,21 @@ const DetailsModal: React.FC<{
 
           {/* Identidad */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-              <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <div className={`p-4 rounded-xl border ${isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`flex items-center gap-2 mb-1 ${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>
                 <User size={14} />
                 <span className="text-xs font-semibold uppercase tracking-wider">Empleado</span>
               </div>
-              <p className="text-white font-medium">{calculation?.employee?.firstName} {calculation?.employee?.lastName}</p>
-              <p className="text-slate-500 text-sm">{calculation?.employee?.cedula}</p>
-              <p className="text-slate-400 text-xs mt-1">{calculation?.employee?.position || "N/A"}</p>
+              <p className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>{calculation?.employee?.firstName} {calculation?.employee?.lastName}</p>
+              <p className={`text-sm ${isDarkMode ? "text-slate-500" : "text-gray-400"}`}>{calculation?.employee?.cedula}</p>
+              <p className={`text-xs mt-1 ${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>{calculation?.employee?.position || "N/A"}</p>
             </div>
-            <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-              <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <div className={`p-4 rounded-xl border ${isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`flex items-center gap-2 mb-1 ${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>
                 <Landmark size={14} />
                 <span className="text-xs font-semibold uppercase tracking-wider">Salario Base</span>
               </div>
-              <p className="text-white font-medium">{formatCurrency(Number(calculation.employee.salary))}</p>
+              <p className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>{formatCurrency(Number(calculation.employee.salary))}</p>
               <p className="text-slate-500 text-sm capitalize">{calculation.employee.salaryType}</p>
             </div>
             <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
@@ -291,16 +294,16 @@ const DetailsModal: React.FC<{
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-medium text-slate-300">Mensual</h4>
+                <h4 className={`text-sm font-medium ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>Mensual</h4>
                 <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded-lg">30 DÍAS</span>
               </div>
-              <div className="bg-slate-800/30 rounded-2xl p-5 border border-slate-800 space-y-4">
+              <div className={`rounded-2xl p-5 border space-y-4 ${isDarkMode ? "bg-slate-800/30 border-slate-800" : "bg-gray-50 border-gray-200"}`}>
                 <DeductionRow label="Seguro Social (SSS)" value={totals.sss} />
                 {totals.isr > 0 && <DeductionRow label="Impuesto Renta (ISR)" value={totals.isr} />}
                 {totals.recurringItems.map((d, i) => (
                   <DeductionRow key={i} label={d.name} value={getDeductionAmount(d, false)} sublabel={d.frequency} />
                 ))}
-                <div className="pt-3 border-t border-slate-700 flex justify-between items-center">
+                <div className={`pt-3 border-t flex justify-between items-center ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
                   <span className="text-sm font-bold text-red-400">Total Deducciones</span>
                   <span className="text-lg font-bold text-red-400">{formatCurrency(totals.monthlyDeductions)}</span>
                 </div>
@@ -309,16 +312,16 @@ const DetailsModal: React.FC<{
 
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-medium text-slate-300">Quincenal</h4>
+                <h4 className={`text-sm font-medium ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>Quincenal</h4>
                 <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs font-semibold rounded-lg">15 DÍAS</span>
               </div>
-              <div className="bg-slate-800/30 rounded-2xl p-5 border border-slate-800 space-y-4">
+              <div className={`rounded-2xl p-5 border space-y-4 ${isDarkMode ? "bg-slate-800/30 border-slate-800" : "bg-gray-50 border-gray-200"}`}>
                 <DeductionRow label="Seguro Social" value={totals.sss / 2} />
-                {totals.isr > 0 && <DeductionRow label="ISR" value={totals.isr / 2} />}
+                {totals.isr > 0 && <DeductionRow label="ISR Retenido (período)" value={totals.isr / 2} />}
                 {totals.recurringItems.map((d, i) => (
                   <DeductionRow key={i} label={d.name} value={getDeductionAmount(d, true)} />
                 ))}
-                <div className="pt-3 border-t border-slate-700 flex justify-between items-center">
+                <div className={`pt-3 border-t flex justify-between items-center ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
                   <span className="text-sm font-bold text-orange-400">Deducción p/pago</span>
                   <span className="text-lg font-bold text-orange-400">{formatCurrency(totals.biweeklyDeductions)}</span>
                 </div>
@@ -348,15 +351,18 @@ const DetailsModal: React.FC<{
 }
 
 // Sub-componentes para limpiar el código principal
-const DeductionRow = ({ label, value, sublabel }: { label: string; value: number; sublabel?: string }) => (
-  <div className="flex justify-between items-center">
-    <div className="flex flex-col">
-      <span className="text-sm text-slate-300">{label}</span>
-      {sublabel && <span className="text-[10px] text-slate-500 uppercase">{sublabel}</span>}
+const DeductionRow = ({ label, value, sublabel }: { label: string; value: number; sublabel?: string }) => {
+  const { isDarkMode } = useTheme()
+  return (
+    <div className="flex justify-between items-center">
+      <div className="flex flex-col">
+        <span className={`text-sm ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>{label}</span>
+        {sublabel && <span className={`text-[10px] uppercase ${isDarkMode ? "text-slate-500" : "text-gray-400"}`}>{sublabel}</span>}
+      </div>
+      <span className={`text-sm font-semibold ${isDarkMode ? "text-slate-100" : "text-gray-900"}`}>{formatCurrency(value)}</span>
     </div>
-    <span className="text-sm font-semibold text-slate-100">{formatCurrency(value)}</span>
-  </div>
-)
+  )
+}
 
 const ResultCard = ({ label, value, icon, gradient }: { label: string; value: number; icon: React.ReactNode; gradient: string }) => (
   <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} rounded-2xl p-6 shadow-xl`}>

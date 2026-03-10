@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import { useMemo, useState } from "react"
 import useSWR from "swr"
 import ReportModal from "./ReportModal"
@@ -10,8 +11,7 @@ import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
 
 const { VITE_API_URL } = import.meta.env
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
+// authFetcher from services/api (autenticado)
 // --- TIPOS DE DATOS ---
 export type Report = {
   id: number
@@ -116,7 +116,7 @@ const getIcon = (iconName: string) => {
 // --- COMPONENTE PRINCIPAL ---
 export default function AllReportsPage() {
   const { selectedCompany } = useCompany()
-  const { data, error, isLoading } = useSWR<DashboardApiResponse>(`${VITE_API_URL}/api/reports/${selectedCompany?.id}/all`, fetcher)
+  const { data, error, isLoading } = useSWR<DashboardApiResponse>(`${VITE_API_URL}/api/reports/${selectedCompany?.id}/all`, authFetcher)
   const { pageName } = usePageName();
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)

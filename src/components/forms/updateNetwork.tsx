@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../services/api"
 import type React from "react"
 import { useState, useEffect, type FormEvent } from "react"
 import { CheckCircle, AlertCircle, Save } from "lucide-react"
@@ -7,8 +8,7 @@ import useSWR from "swr"
 import { UsuarioFull } from "../../pages/account/users/components/AllUsers" // Asegúrate de que esta ruta y tipo sean correctos
 
 const { VITE_API_URL } = import.meta.env;
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 // --- Tipos ---
 interface Company {
     id: string
@@ -150,9 +150,7 @@ const UpdateNetworkForm: React.FC<Props> = ({ selectedCompany, networkID }) => {
     }, [networkID, isEditMode]);
 
     const { data: users, error: errorUsers, isLoading: isLoadingUsers } = useSWR<UsuarioFull[]>(
-        `${VITE_API_URL}/api/users/full`,
-        fetcher
-    );
+        `${VITE_API_URL}/api/users/full`, authFetcher);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target

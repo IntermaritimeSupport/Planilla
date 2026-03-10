@@ -1,6 +1,6 @@
 
 // import { TicketIcon } from "lucide-react";
-import { Banknote, ClipboardList, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale, ScrollText } from "lucide-react";
+import { Banknote, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale } from "lucide-react";
 import { DashboardIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 // import { DashboardIcon, DevicesIcon, InventoryIcon, MaintenanceIcon, NetworkIcon, ReportsIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
@@ -8,7 +8,7 @@ import { authRoles } from "../diccionary/constants";
 
 const routesConfig = [
   {
-    disable:true,
+    disable:false,
     icon: DashboardIcon,
     name: "Dashboard",
     href: "/dashboard/all",
@@ -165,26 +165,6 @@ const routesConfig = [
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Vacaciones", href: "/vacaciones/all" },
-    ]
-  },
-  {
-    disable:false,
-    icon: ScrollText,
-    name: "Liquidaciones",
-    href: "/liquidaciones/all",
-    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-    subroutes: [
-      { name: "Liquidaciones", href: "/liquidaciones/all" },
-    ]
-  },
-  {
-    disable:false,
-    icon: ClipboardList,
-    name: "Historial",
-    href: "/historial/all",
-    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-    subroutes: [
-      { name: "Historial", href: "/historial/all" },
     ]
   },
   {

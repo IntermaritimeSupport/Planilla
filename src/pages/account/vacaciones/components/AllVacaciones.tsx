@@ -1,13 +1,12 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
-import { ExportButtons } from "../../../../components/exports/ExportButtons"
-import { exportVacacionesExcel, exportVacacionesPDF } from "../../../../utils/exports/exportEngine"
 import {
   Palmtree,
   Clock,
@@ -32,7 +31,7 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+// authFetcher from services/api (autenticado)
 
 const fmt = (n: number) =>
   `$${(Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -300,16 +299,12 @@ export const AllVacaciones: React.FC = () => {
   const { data: employees, isLoading: loadingEmps } = useSWR<VacacionesEmployee[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+      : null, authFetcher)
 
   const { data: legalParams, isLoading: loadingParams } = useSWR<VacacionesLegalParam[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+      : null, authFetcher)
 
   // ── CÁLCULOS ──
   const allCalcs = useMemo(() => {
@@ -352,57 +347,11 @@ export const AllVacaciones: React.FC = () => {
   return (
     <div className={`transition-colors ${isDarkMode ? "bg-slate-900" : ""}`}>
 
-      <div className="flex items-start justify-between gap-4 mb-0">
-        <PagesHeader
-          title={`${pageName} — Vacaciones`}
-          description="Cálculo proporcional · Ley panameña Art. 54-60 Código de Trabajo"
-          onExport={() => {}}
-        />
-        <div className="shrink-0 mt-1">
-          <ExportButtons
-            onExcel={() => exportVacacionesExcel({
-              rows: allCalcs.map(c => ({
-                cedula: c.employee.cedula,
-                firstName: c.employee.firstName,
-                lastName: c.employee.lastName,
-                hireDate: c.hireDate,
-                monthsWorked: c.monthsWorked,
-                daysEarned: c.daysEarned,
-                monthlyBaseSalary: c.monthlyBaseSalary,
-                dailySalary: c.dailySalary,
-                grossVacationPay: c.grossVacationPay,
-                ss: c.ss,
-                se: c.se,
-                isr: c.isr,
-                netVacationPay: c.netVacationPay,
-                status: c.status,
-              })),
-              companyName: selectedCompany?.name ?? "Empresa",
-            })}
-            onPDF={() => exportVacacionesPDF({
-              rows: allCalcs.map(c => ({
-                cedula: c.employee.cedula,
-                firstName: c.employee.firstName,
-                lastName: c.employee.lastName,
-                hireDate: c.hireDate,
-                monthsWorked: c.monthsWorked,
-                daysEarned: c.daysEarned,
-                monthlyBaseSalary: c.monthlyBaseSalary,
-                dailySalary: c.dailySalary,
-                grossVacationPay: c.grossVacationPay,
-                ss: c.ss,
-                se: c.se,
-                isr: c.isr,
-                netVacationPay: c.netVacationPay,
-                status: c.status,
-              })),
-              companyName: selectedCompany?.name ?? "Empresa",
-            })}
-            isDark={isDarkMode}
-            disabled={allCalcs.length === 0}
-          />
-        </div>
-      </div>
+      <PagesHeader
+        title={`${pageName} — Vacaciones`}
+        description="Cálculo proporcional · Ley panameña Art. 54-60 Código de Trabajo"
+        onExport={() => {}}
+      />
 
       {/* ── TARJETAS DE RESUMEN ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

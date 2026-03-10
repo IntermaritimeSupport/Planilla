@@ -12,7 +12,6 @@ import useUserProfile from "../../../../hook/userUserProfile"
 export default function EditTicketPage() {
   const { selectedCompany } = useCompany()
   const {profile} = useUserProfile()
-  console.log("User Profile:", profile?.id);
   const { id } = useParams()
   const router = useNavigate()
 
@@ -142,8 +141,7 @@ export default function EditTicketPage() {
         sendTo: ticket.sendToId || null,
         sendBy: ticket.sendById || profile?.id,
       }
-      console.log(body)
-      const res = await fetch(url, {
+          const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

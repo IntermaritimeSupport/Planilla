@@ -38,7 +38,6 @@ const CompanySelectorComponent: React.FC<Props> = ({ isDarkMode = true }) => {
   const handleChangeAndNavigate = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     handleCompanyChange(event);
     const newCompanyCode = event.target.value;
-    console.log("New Company Code selected:", newCompanyCode);
     const currentPath = location.pathname;
     const pathSegments = currentPath.split('/');
 

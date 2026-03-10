@@ -1,3 +1,4 @@
+import { authFetcher } from "../../../../services/api"
 import React from "react";
 import UpdateDevices from "../../../../components/forms/UpdateDevices";
 import { useParams } from "react-router-dom";
@@ -5,8 +6,7 @@ import useSWR from "swr";
 import { Company, useCompany } from "../../../../context/routerContext";
 import { UsuarioFull } from "../../../../utils/usuarioFull";
 const { VITE_API_URL } = import.meta.env;
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 interface User {
     id: string;
     person: {
@@ -32,8 +32,7 @@ const UpdateDevicesPage: React.FC<Props> = ({ }) => {
 
     // 🔹 Consulta 1: Departamentos
     const { data: departments, error: errorDepartments, isLoading: isLoadingDepartments } = useSWR( // Añadido isLoading
-        selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null,
-        fetcher,
+        selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null, authFetcher,
         {
             revalidateOnFocus: true,
             shouldRetryOnError: true,
@@ -44,9 +43,7 @@ const UpdateDevicesPage: React.FC<Props> = ({ }) => {
 
     // 🔹 Consulta 2: Usuarios
     const { data: users, error: errorUsers, isLoading: isLoadingUsers } = useSWR<UsuarioFull[]>( // Añadido isLoading
-        `${VITE_API_URL}/api/users/full`,
-        fetcher
-    );
+        `${VITE_API_URL}/api/users/full`, authFetcher);
 
     // ✅ Lógica corregida para manejo de carga y errores
     if (errorUsers) return <div>Error al cargar usuarios: {errorUsers.message}</div>; // Muestra el error específico

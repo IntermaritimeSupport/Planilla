@@ -1,6 +1,7 @@
 // src/components/forms/UpdateMaintenanceForm.tsx
 "use client"
 
+import { authFetcher } from "../../services/api"
 import React, { useState, useEffect } from "react"
 import useSWR from "swr"
 
@@ -8,8 +9,7 @@ import useSWR from "swr"
 const { VITE_API_URL } = import.meta.env;
 
 // Función fetcher para SWR
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 // --- Tipos de Datos ---
 interface Company {
     id: string;
@@ -89,15 +89,11 @@ const UpdateMaintenanceForm: React.FC<Props> = ({ maintenanceId, selectedCompany
 
     // --- OBTENCIÓN DE DATOS (DATA FETCHING) ---
     const { data: maintenanceData } = useSWR(
-        isEditMode ? `${VITE_API_URL}/api/maintenances/${maintenanceId}` : null,
-        fetcher
-    );
+        isEditMode ? `${VITE_API_URL}/api/maintenances/${maintenanceId}` : null, authFetcher);
 
-    const { data: users } = useSWR<User[]>(`${VITE_API_URL}/api/users/full/${selectedCompany?.id}`, fetcher);
+    const { data: users } = useSWR<User[]>(`${VITE_API_URL}/api/users/full/${selectedCompany?.id}`, authFetcher);
     const { data: equipments } = useSWR<Equipment[]>(
-        formData.companyId ? `${VITE_API_URL}/api/devices/all` : null,
-        fetcher
-    );
+        formData.companyId ? `${VITE_API_URL}/api/devices/all` : null, authFetcher);
 
     // --- EFECTOS (LIFECYCLE) ---
     useEffect(() => {

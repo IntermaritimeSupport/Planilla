@@ -110,7 +110,7 @@ export const PayrollInfo: React.FC<PayrollInfoProps> = ({
                 isDarkMode ? 'text-blue-400' : 'text-blue-600'
               }`}>•</span>
               <div>
-                <strong>ISR (Impuesto sobre la Renta):</strong> Escala fiscal
+                <strong>ISR (Retención en la Fuente):</strong> Se retiene cada período de pago (quincena o mes). El empleador acumula y paga mensualmente a la DGI. Base anual = salario × 13. Escala fiscal
                 dinámica desde parámetros
                 {isrTramos.length > 0 && (
                   <ul className={`ml-4 mt-2 space-y-1 rounded p-2 border transition-colors ${

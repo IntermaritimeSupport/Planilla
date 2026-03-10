@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import { useState, useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
@@ -47,11 +48,12 @@ type ApiISRParam = {
    FETCHERS
 ============================ */
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+// authFetcher from services/api (autenticado)
 
 // Normaliza la respuesta del API (minRange/maxRange/percentage -> min/max/rate)
 const legalFetcher = async (url: string): Promise<LegalISRParameter[]> => {
-  const res = await fetch(url)
+  const token = localStorage.getItem('jwt')
+  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } })
   const data: ApiISRParam[] = await res.json()
 
   return (data ?? []).map(p => ({
@@ -106,9 +108,7 @@ export const AllISR: React.FC = () => {
   const { data: employees, isLoading: loadingEmployees } = useSWR<EmployeeBase[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+      : null, authFetcher)
 
   const { data: legalParams, isLoading: loadingLegal } = useSWR<LegalISRParameter[]>(
     selectedCompany

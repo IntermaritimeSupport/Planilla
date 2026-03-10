@@ -63,10 +63,6 @@ import LegalDecimoPage from "../pages/account/legaldecimo/page";
 import { AllLegalDecimoParameters } from "../pages/account/legaldecimo/components/AllLegalDecimo";
 import VacacionesPage from "../pages/account/vacaciones/page";
 import { AllVacaciones } from "../pages/account/vacaciones/components/AllVacaciones";
-import LiquidacionesPage from "../pages/account/liquidaciones/page";
-import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllLiquidaciones";
-import HistorialPage from "../pages/account/historial/page";
-import { AllHistorial } from "../pages/account/historial/components/AllHistorial";
 
 // Tipado de usuario
 export interface User {
@@ -745,76 +741,6 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       >
         <Route path="all" element={<AllVacaciones />} />
-      </Route>
-
-      <Route
-        path={`/:${code}/liquidaciones/*`}
-        element={
-          <ProtectedRoute
-            isLogged={isLogged}
-            auth={user}
-            allowedRoles={[
-              authRoles.user,
-              authRoles.admin,
-              authRoles.moderator,
-              authRoles.super_admin,
-            ]}
-          >
-            <EnvolveLayout
-              title="Liquidaciones"
-              description="Liquidaciones Page"
-              isLogged={isLogged}
-              profile={profile}
-              currentPathname={pathnameLocation}
-              publicRoute={false}
-              companies={companies}
-            >
-              <LiquidacionesPage
-                subroutes={
-                  routesConfig.find((route) => route.name === "Liquidaciones")
-                    ?.subroutes || []
-                }
-              />
-            </EnvolveLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="all" element={<AllLiquidaciones />} />
-      </Route>
-
-      <Route
-        path={`/:${code}/historial/*`}
-        element={
-          <ProtectedRoute
-            isLogged={isLogged}
-            auth={user}
-            allowedRoles={[
-              authRoles.user,
-              authRoles.admin,
-              authRoles.moderator,
-              authRoles.super_admin,
-            ]}
-          >
-            <EnvolveLayout
-              title="Historial"
-              description="Historial de Empleados"
-              isLogged={isLogged}
-              profile={profile}
-              currentPathname={pathnameLocation}
-              publicRoute={false}
-              companies={companies}
-            >
-              <HistorialPage
-                subroutes={
-                  routesConfig.find((route) => route.name === "Historial")
-                    ?.subroutes || []
-                }
-              />
-            </EnvolveLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="all" element={<AllHistorial />} />
       </Route>
 
       <Route

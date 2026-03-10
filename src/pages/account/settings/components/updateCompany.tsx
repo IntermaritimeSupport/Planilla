@@ -51,7 +51,7 @@ export default function UpdateCompany() {
       try {
         setLoading(true)
 
-        const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+        const token = localStorage.getItem("jwt") || localStorage.getItem("jwt")
 
         const res = await fetch(`${VITE_API_URL}/api/companies/${id}`, {
           headers: {
@@ -116,7 +116,7 @@ export default function UpdateCompany() {
     try {
       setLoading(true)
 
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+      const token = localStorage.getItem("jwt") || localStorage.getItem("jwt")
 
       const res = await fetch(isEdit ? `${VITE_API_URL}/api/companies/${id}` : `${VITE_API_URL}/api/companies/create`, {
         method: isEdit ? "PUT" : "POST",

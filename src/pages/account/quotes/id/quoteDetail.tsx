@@ -1,3 +1,4 @@
+import { authFetcher } from "../../../../services/api"
 // Suponiendo que este archivo está en algo como: src/pages/QuoteDetailPage.tsx
 
 import { Link, useParams } from 'react-router-dom'; // 👈 1. Importar useParams
@@ -22,8 +23,7 @@ const getStatusClass = (status: Quote['status']): string => {
 };
 
 // Fetcher para SWR (sin cambios)
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 // --- EL COMPONENTE DE LA PÁGINA DE DETALLE (CORREGIDO) ---
 export default function QuoteDetailPage() {
   // 👈 2. Usar useParams para obtener el 'id' de la URL
@@ -34,7 +34,7 @@ export default function QuoteDetailPage() {
 
   // SWR llamará a la API correcta. No se necesita la condición ternaria si la página
   // solo se renderiza cuando hay un 'id'.
-  const { data: quote, error, isLoading } = useSWR<Quote>(apiUrl, fetcher);
+  const { data: quote, error, isLoading } = useSWR<Quote>(apiUrl, authFetcher);
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen">Cargando detalles...</div>;

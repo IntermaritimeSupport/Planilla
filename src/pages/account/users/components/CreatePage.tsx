@@ -10,7 +10,7 @@ const { VITE_API_URL } = import.meta.env;
 
 const fetcher = async (url: string) => {
     try {
-        const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        const token = localStorage.getItem('jwt') || localStorage.getItem('jwt');
         
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',

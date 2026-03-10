@@ -10,6 +10,7 @@ import { useSearch } from "../../../../context/searchContext"
 import Tabla from "../../../../components/tables/Table"
 import EmployeeImportModal from "./EmployeeImportModal"
 import { useTheme } from "../../../../context/themeContext"
+import { authFetcher } from "../../../../services/api"
 
 export type UserRole = 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPER_ADMIN';
 export type SalaryType = 'MONTHLY' | 'BIWEEKLY';
@@ -47,7 +48,9 @@ export interface Employee {
     createdAt: string | Date;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+// fetcher unificado con auth (ver services/api.ts)
+import SalaryHistoryModal from "./SalaryHistoryModal"
+import Pagination from "../../../../components/ui/Pagination"
 
 const getAvatarColor = (nombre: string) => {
     const colors = ["bg-blue-600", "bg-green-600", "bg-purple-600", "bg-orange-600", "bg-pink-600", "bg-indigo-600", "bg-teal-600", "bg-red-600"]
@@ -70,7 +73,7 @@ export const AllEmployees: React.FC = () => {
     const { isDarkMode, } = useTheme();
     const { data, error, isLoading } = useSWR<Employee[]>(
         selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null, 
-        fetcher
+        authFetcher
     )
     
     const { pageName } = usePageName()
@@ -78,6 +81,9 @@ export const AllEmployees: React.FC = () => {
     const [statusFilter,] = useState("Todos")
     const [notification, setNotification] = useState<{ type: "success" | "error", message: string, show: boolean }>({ type: "success", message: "", show: false })
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, employee: Employee | null, isDeleting: boolean }>({ show: false, employee: null, isDeleting: false })
+    const [salaryHistoryEmployee, setSalaryHistoryEmployee] = useState<Employee | null>(null);
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 25;
     const [importModalOpen, setImportModalOpen] = useState(false)
 
     const showNotification = (type: "success" | "error", message: string) => {
@@ -96,8 +102,10 @@ export const AllEmployees: React.FC = () => {
         setDeleteConfirmation((prev) => ({ ...prev, isDeleting: true }))
 
         try {
+            const token = localStorage.getItem('jwt')
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payroll/employees/${deleteConfirmation.employee.id}`, {
-                method: "DELETE"
+                method: "DELETE",
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             })
 
             if (!response.ok) throw new Error("Error al eliminar el empleado")
@@ -130,6 +138,10 @@ export const AllEmployees: React.FC = () => {
             return statusMatch && searchMatch
         })
     }, [data, search, statusFilter])
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1) }, [filteredEmployees.length])
+
 
     const columnConfig = {
         "Nombre Completo": (item: Employee) => (
@@ -216,13 +228,26 @@ export const AllEmployees: React.FC = () => {
             </div> */}
 
             <Tabla
-                datos={filteredEmployees}
+                datos={filteredEmployees.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)}
                 titulo="Listado de Colaboradores"
                 columnasPersonalizadas={columnConfig}
                 onEditar={(item) => window.location.href = `edit/${item.id}`}
                 onEliminar={(item) => setDeleteConfirmation({ show: true, employee: item, isDeleting: false })}
+                onHistorial={(item) => setSalaryHistoryEmployee(item)}
                 mostrarAcciones={true}
             />
+
+            {/* Paginación */}
+            {filteredEmployees.length > PAGE_SIZE && (
+              <div className={`mt-4 flex items-center justify-between`}>
+                <Pagination
+                  total={filteredEmployees.length}
+                  pageSize={PAGE_SIZE}
+                  page={page}
+                  onChange={(p) => setPage(p)}
+                />
+              </div>
+            )}
 
             {/* Modal de eliminación */}
             {deleteConfirmation.show && (
@@ -264,6 +289,16 @@ export const AllEmployees: React.FC = () => {
                 <div className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl border z-50 ${notification.type === 'success' ? 'bg-green-900 border-green-500' : 'bg-red-900 border-red-500'}`}>
                     {notification.message}
                 </div>
+            )}
+            {/* Historial de Salarios */}
+            {salaryHistoryEmployee && (
+                <SalaryHistoryModal
+                    employeeId={salaryHistoryEmployee.id}
+                    employeeName={`${salaryHistoryEmployee.firstName} ${salaryHistoryEmployee.lastName}`}
+                    currentSalary={Number(salaryHistoryEmployee.salary)}
+                    currentSalaryType={salaryHistoryEmployee.salaryType}
+                    onClose={() => setSalaryHistoryEmployee(null)}
+                />
             )}
         </div>
     )

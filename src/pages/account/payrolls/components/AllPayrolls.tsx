@@ -1,13 +1,26 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import useSWR, { mutate } from "swr"
+import { authFetcher, getToken } from "../../../../services/api"
+import {
+  calcAllPayrolls,
+  calcPayrollTotals,
+  getISRTramos,
+  getSSSRate,
+  // calcDecimo,
+  validateLegalParams,
+  formatCurrency,
+  // REQUIRED_LEGAL_KEYS,
+  type LegalParameter,
+  type PayrollPeriodType,
+  type QuincenaType,
+} from "../../../../lib/payrollCalculation"
 import { Company, useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
-import { Calendar, Users, AlertCircle, Calculator, Eye } from "lucide-react"
+import { Calendar, Users, AlertCircle, Calculator, Eye, History, PlusCircle } from "lucide-react"
+import PayrollHistory from "./PayrollHistory"
 import { exportToExcel } from "./ExportToExcel"
-import { exportPayrollPDF } from "../../../../utils/exports/exportEngine"
-import { ExportButtons } from "../../../../components/exports/ExportButtons"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
 import LoadingPayrollModal from "./LoadingPayroolModal"
@@ -15,7 +28,7 @@ import DetailsModal from "./DetailsModal"
 import { PayrollInfo } from "./PayrollInfo"
 import { NotificationComponent } from "./Notification"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+// fetcher autenticado centralizado (ver services/api.ts)
 
 // ==================== TYPES ====================
 type SalaryType = "MONTHLY" | "BIWEEKLY"
@@ -40,38 +53,9 @@ export interface Employee {
   recurringDeductions?: RecurringDeduction[]
 }
 
-const REQUIRED_LEGAL_KEYS = [
-  "ss_empleado",
-  "ss_patrono",
-  "ss_decimo",
-  "se_empleado",
-  "se_patrono",
-  "isr_r1",
-  "isr_r2",
-  "isr_r3",
-  "riesgo_profesional"
-]
+// REQUIRED_LEGAL_KEYS imported from lib/payrollCalculation
 
-interface LegalParameter {
-  id: string
-  key: string
-  name: string
-  type: "employee" | "employer" | "fixed"
-  category: "social_security" | "educational_insurance" | "isr" | "other"
-  percentage: number
-  minRange?: number
-  maxRange?: number
-  status: "active" | "inactive"
-  effectiveDate: string
-  description?: string
-}
-
-interface ISRTramo {
-  name: string
-  percentage: number // 0, 15, 25
-  minRange: number
-  maxRange: number
-}
+// LegalParameter & ISRTramo imported from lib/payrollCalculation
 
 export interface PayrollCalculation {
   employeeId: string
@@ -113,35 +97,17 @@ type PayrollOverrides = Record<
   >
 >
 
-export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("es-PA", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount)
-}
+// formatCurrency imported from lib/payrollCalculation
 
-/* ============================
-   HELPERS DE PERIODO
-   employee.salaryType:
-   - MONTHLY: salary es mensual
-   - BIWEEKLY: salary es quincenal
-============================ */
-
-const getMonthlyGross = (emp: Employee) => {
-  const s = Number(emp.salary) || 0
-  return emp.salaryType === "MONTHLY" ? s : s * 2
-}
-
-const getBiweeklyGross = (emp: Employee) => {
-  const s = Number(emp.salary) || 0
-  return emp.salaryType === "BIWEEKLY" ? s : s / 2
-}
+// getMonthlyGross/getBiweeklyGross moved to lib/payrollCalculation.ts
 
 export const AllPayrolls: React.FC = () => {
   const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
 
+  const [activeTab, setActiveTab] = useState<"nueva" | "historial">("nueva")
+  // const [duplicateWarning, setDuplicateWarning] = useState<{show: boolean; employeeName: string; existingId: string} | null>(null)
   const [isGeneratingPayrolls, setIsGeneratingPayrolls] = useState(false)
   const [payrollProgress, setPayrollProgress] = useState({ success: 0, error: 0 })
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<string | null>(null)
@@ -164,28 +130,18 @@ export const AllPayrolls: React.FC = () => {
 
   const { data: employees, isLoading: empLoading } = useSWR<Employee[]>(
     selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
-    fetcher
+    authFetcher
   )
 
   const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
     selectedCompany?.id ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany?.id}` : null,
-    fetcher,
+    authFetcher,
     { revalidateOnFocus: false }
   )
 
   const validation = useMemo(() => {
-    if (isLoading) return { isValid: true, missing: [] }
-
-    const activeKeys = legalParams
-      .filter(p => p.status === "active")
-      .map(p => p.key)
-
-    const missing = REQUIRED_LEGAL_KEYS.filter(key => !activeKeys.includes(key))
-
-    return {
-      isValid: missing.length === 0,
-      missing
-    }
+    if (isLoading) return { isValid: true, missing: [] as string[] }
+    return validateLegalParams(legalParams)
   }, [legalParams, isLoading])
 
   // ✅ Este selector ahora sí afecta los cálculos del período
@@ -196,226 +152,22 @@ export const AllPayrolls: React.FC = () => {
   // ✅ Overrides ahora sí se usan
   const [overrides, setOverrides] = useState<PayrollOverrides>({})
 
-  const getSSSRate = useCallback(() => {
-    if (!legalParams || legalParams.length === 0) return 2.87
-    const sssParam = legalParams.find(
-      (p) => p.category === "social_security" && p.type === "employee" && p.status === "active"
-    )
-    return sssParam?.percentage || 2.87
-  }, [legalParams])
+  // ── Wrappers para usar las funciones del lib con los legalParams actuales ──
+  // const getSSSRateMemo = () => getSSSRate(legalParams)
+  // const getISRRates = () => getISRTramos(legalParams)
 
-  // Tasa SS del décimo (key: ss_decimo) — default 7.25 % (Ley 45-2007)
-  const getSSDecimoRate = useCallback(() => {
-    if (!legalParams || legalParams.length === 0) return 7.25
-    const param = legalParams.find((p) => p.key === "ss_decimo" && p.status === "active")
-    return param?.percentage ?? 7.25
-  }, [legalParams])
-
-  const getISRRates = useCallback((): ISRTramo[] => {
-    if (!legalParams || legalParams.length === 0) return []
-
-    return legalParams
-      .filter((p) => p.category === "isr" && p.status === "active")
-      .map((p) => ({
-        name: p.name,
-        percentage: p.percentage, // 0,15,25
-        minRange: p.minRange || 0,
-        maxRange: p.maxRange || 999999999,
-      }))
-      .sort((a, b) => a.minRange - b.minRange)
-  }, [legalParams])
-
-  /* ============================
-     ✅ ISR PANAMÁ (según tu planilla)
-     - ISR sobre BRUTO
-     - Anual = (bruto mensual) * 13
-     - Retención por periodo:
-        Mensual => anual / 13
-        Quincenal => anual / 26
-     - Progresivo por tramos
-  ============================ */
-
-  const calculateAnnualISRProgressive = useCallback(
-    (annualIncome: number): number => {
-      const tramos = getISRRates()
-      if (tramos.length === 0) return 0
-
-      let tax = 0
-
-      for (const tramo of tramos) {
-        const upper = tramo.maxRange ?? 999999999
-        const portion = Math.min(annualIncome, upper) - tramo.minRange
-        if (portion > 0 && tramo.percentage > 0) {
-          tax += portion * (tramo.percentage / 100)
-        }
-      }
-
-      return Number(tax.toFixed(2))
-    },
-    [getISRRates]
-  )
-
-  const calculatePeriodISRFromGross = useCallback(
-    (grossSalaryPeriod: number, payrollTypeLocal: "Quincenal (cada 15 días)" | "Mensual") => {
-      // Convertimos el bruto del periodo a "bruto mensual equivalente"
-      const monthlyGrossEquivalent = payrollTypeLocal === "Mensual"
-        ? grossSalaryPeriod
-        : grossSalaryPeriod * 2
-
-      const annualBase = monthlyGrossEquivalent * 13
-      const annualISR = calculateAnnualISRProgressive(annualBase)
-
-      const periods = payrollTypeLocal === "Mensual" ? 13 : 26
-      return Number((annualISR / periods).toFixed(2))
-    },
-    [calculateAnnualISRProgressive]
-  )
-
-  const calculateThirteenthMonthByPeriod = useCallback(
-    (totalIncome: number, month: number): {
-      period: string
-      grossAmount: number
-      sss: number
-      isr: number
-      netAmount: number
-      startMonth: number
-      endMonth: number
-    } => {
-      let period = ""
-      let startMonth = 0
-      let endMonth = 0
-
-      // CORRECCIÓN: getMonth() es 0-based → abril=3, agosto=7, diciembre=11
-      if (month === 3) {
-        period = "Primera Partida (16 dic - 15 abr)"
-        startMonth = 11   // diciembre
-        endMonth = 3      // abril
-      } else if (month === 7) {
-        period = "Segunda Partida (16 abr - 15 ago)"
-        startMonth = 3    // abril
-        endMonth = 7      // agosto
-      } else if (month === 11) {
-        period = "Tercera Partida (16 ago - 15 dic)"
-        startMonth = 7    // agosto
-        endMonth = 11     // diciembre
-      }
-
-      const grossAmount = Number((totalIncome / 12).toFixed(2))
-
-      // SS del décimo: tasa dinámica desde BD (Ley 45-2007 art. 63: default 7.25 %)
-      const ssDecimoRate = getSSDecimoRate()
-      const sss = Number((grossAmount * (ssDecimoRate / 100)).toFixed(2))
-
-      // ISR del décimo: solo si ingreso anual > B/. 11,000 (Código Fiscal Art. 700)
-      let isr = 0
-      if (totalIncome > 11000) {
-        const taxableDecimo = grossAmount - sss
-        isr = Number(calculatePeriodISRFromGross(taxableDecimo, "Mensual").toFixed(2))
-      }
-
-      const netAmount = Number((grossAmount - sss - isr).toFixed(2))
-
-      return { period, grossAmount, sss, isr, netAmount, startMonth, endMonth }
-    },
-    [getSSDecimoRate, calculatePeriodISRFromGross]
-  )
-
+  // ── Cálculos usando lib/payrollCalculation (fuente única) ──
   const employeeCalculations = useMemo<PayrollCalculation[]>(() => {
-    if (!legalParams || legalParams.length === 0) return []
-    if (!employees || employees.length === 0) return []
-
-    const sssRate = getSSSRate()
-    const isFirstQuincena = quincenal === "Primera Quincena (1-15)"
-    const payrollMonth = new Date(payrollDate).getMonth()
-    const isPeriodThirteenthMonth = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
-    const isMensual = payrollType === "Mensual"
-
-    return employees.map((emp) => {
-      const ov = overrides[emp.id] || {}
-
-      // Base por periodo según el filtro
-      const defaultBaseSalary = isMensual ? getMonthlyGross(emp) : getBiweeklyGross(emp)
-      const baseSalary = Number((ov.baseSalary ?? defaultBaseSalary) || 0)
-
-      const hoursExtra = Number((ov.hoursExtra ?? 0) || 0)
-      const bonifications = Number((ov.bonifications ?? 0) || 0)
-      const otherIncome = Number((ov.otherIncome ?? 0) || 0)
-
-      const grossSalary = Number((baseSalary + hoursExtra + bonifications + otherIncome).toFixed(2))
-
-      // SSS por periodo
-      const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
-
-      // ISR por periodo (según tu planilla: sobre BRUTO)
-      const isr = calculatePeriodISRFromGross(grossSalary, payrollType)
-
-      // Deducciones recurrentes:
-      // - Mensual: ALWAYS + FIRST + SECOND
-      // - Quincenal: ALWAYS + la quincena seleccionada
-      const recurringAmount = (emp.recurringDeductions || []).reduce((acc, d) => {
-        if (!d.isActive) return acc
-        const amount = Number(d.amount) || 0
-
-        if (d.frequency === "ALWAYS") return acc + amount
-
-        if (isMensual) {
-          if (d.frequency === "FIRST_QUINCENA") return acc + amount
-          if (d.frequency === "SECOND_QUINCENA") return acc + amount
-          return acc
-        }
-
-        if (isFirstQuincena && d.frequency === "FIRST_QUINCENA") return acc + amount
-        if (!isFirstQuincena && d.frequency === "SECOND_QUINCENA") return acc + amount
-        return acc
-      }, 0)
-
-      const otherDeductions = Number((ov.otherDeductions ?? 0) || 0)
-
-      const totalDeductions = Number((sss + isr + otherDeductions + recurringAmount).toFixed(2))
-      const netSalary = Number((grossSalary - totalDeductions).toFixed(2))
-
-      // Mostrar ambos coherentes con el periodo calculado
-      const netSalaryMonthly = isMensual ? netSalary : Number((netSalary * 2).toFixed(2))
-      const netSalaryBiweekly = isMensual ? Number((netSalary / 2).toFixed(2)) : netSalary
-
-      const calc: PayrollCalculation = {
-        employeeId: emp.id,
-        employee: emp,
-        baseSalary,
-        hoursExtra,
-        bonifications,
-        otherIncome,
-        grossSalary,
-        sss,
-        isr,
-        otherDeductions,
-        totalDeductions,
-        netSalary,
-        netSalaryMonthly,
-        netSalaryBiweekly,
-        recurringAmount,
-      }
-
-      if (isPeriodThirteenthMonth) {
-        const fourMonthsSalary = baseSalary * 4
-        const thirteenthData = calculateThirteenthMonthByPeriod(fourMonthsSalary, payrollMonth)
-        calc.thirteenthMonth = thirteenthData.netAmount
-      }
-
-      return calc
-    })
-  }, [
-    employees,
-    legalParams,
-    payrollType,
-    quincenal,
-    payrollDate,
-    overrides,
-    getSSSRate,
-    getSSDecimoRate,
-    calculatePeriodISRFromGross,
-    calculateThirteenthMonthByPeriod
-  ])
+    if (!legalParams?.length || !employees?.length) return []
+    return calcAllPayrolls(
+      employees as any,
+      legalParams,
+      payrollType as PayrollPeriodType,
+      quincenal as QuincenaType,
+      payrollDate,
+      overrides
+    )
+  }, [employees, legalParams, payrollType, quincenal, payrollDate, overrides])
 
   const updateEmployeeCalc = useCallback(
     (employeeId: string, field: keyof PayrollOverrides[string], value: number) => {
@@ -454,9 +206,10 @@ export const AllPayrolls: React.FC = () => {
             .filter(d => d.isActive)
             .map(d => ({ type: "OTHER", description: d.name, amount: Number(d.amount), isFixed: true }))
 
+          const _token = getToken()
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payroll/payrolls/generate`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_token}` },
             body: JSON.stringify({
               employeeId: calc.employeeId,
               payPeriod: payrollDate,
@@ -519,6 +272,10 @@ export const AllPayrolls: React.FC = () => {
 
           if (!response.ok) {
             const error = await response.json()
+            if (response.status === 409) {
+              // Duplicado detectado — mostrar advertencia pero no contar como error fatal
+              showNotification("error", `${calc.employee.firstName} ${calc.employee.lastName}: ya existe nómina para este período`)
+            }
             console.error(`Error para ${calc.employee.firstName}:`, error)
             errorCount++
           } else {
@@ -585,45 +342,12 @@ export const AllPayrolls: React.FC = () => {
         ? "Tercera Partida (16 ago - 15 dic)"
         : ""
 
-  const totalGrossSalary = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.grossSalary), 0).toFixed(2))
-  const totalSss = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.sss), 0).toFixed(2))
-  const totalIsr = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.isr), 0).toFixed(2))
-  const totalDeductions = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.totalDeductions), 0).toFixed(2))
-  const totalNetSalaryMonthly = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.netSalaryMonthly), 0).toFixed(2))
-  const totalNetSalaryBiweekly = Number(employeeCalculations.reduce((sum, c) => sum + Number(c.netSalaryBiweekly), 0).toFixed(2))
-  const totalThirteenthMonth = isPeriodThirteenthMonth
-    ? Number(employeeCalculations.reduce((sum, c) => sum + Number(c.thirteenthMonth || 0), 0).toFixed(2))
-    : 0
+  const totals = calcPayrollTotals(employeeCalculations, isPeriodThirteenthMonth)
+  const { totalGross: totalGrossSalary, totalSss, totalIsr, totalDeductions,
+          totalNetMonthly: totalNetSalaryMonthly, totalNetBiweekly: totalNetSalaryBiweekly,
+          totalThirteenth: totalThirteenthMonth } = totals
 
-  const isrTramos = getISRRates()
-
-  const handlePDFExport = () => {
-    exportPayrollPDF({
-      rows: employeeCalculations.map(c => ({
-        employee: c.employee,
-        baseSalary: c.baseSalary,
-        hoursExtra: c.hoursExtra,
-        bonifications: c.bonifications,
-        otherIncome: c.otherIncome,
-        grossSalary: c.grossSalary,
-        sss: c.sss,
-        isr: c.isr,
-        recurringAmount: c.recurringAmount,
-        otherDeductions: c.otherDeductions,
-        totalDeductions: c.totalDeductions,
-        netSalary: c.netSalary,
-        thirteenthMonth: c.thirteenthMonth,
-      })),
-      payrollDate,
-      payrollType,
-      quincenal,
-      companyName: selectedCompany?.name ?? "Empresa",
-      isPeriodThirteenthMonth:
-        new Date(payrollDate).getMonth() === 3 ||
-        new Date(payrollDate).getMonth() === 7 ||
-        new Date(payrollDate).getMonth() === 11,
-    })
-  }
+  const isrTramos = getISRTramos(legalParams)
 
   return (
     <div className={`relative transition-colors ${isDarkMode ? "bg-gray-900" : ""}`}>
@@ -633,21 +357,46 @@ export const AllPayrolls: React.FC = () => {
         errorCount={payrollProgress.error}
         totalCount={employeeCalculations.length}
       />
-      <div className="flex items-start justify-between gap-4 mb-0">
-        <PagesHeader
-          title={"Planilla"}
-          description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
-          onExport={handleExport}
-        />
-        <div className="shrink-0 mt-1">
-          <ExportButtons
-            onExcel={handleExport}
-            onPDF={handlePDFExport}
-            isDark={isDarkMode}
-            disabled={employeeCalculations.length === 0}
-          />
-        </div>
+
+      <PagesHeader
+        title={"Planilla"}
+        description={pageName ? `${pageName} in ${selectedCompany?.name} "Configuración del Período de Pago"` : "Cargando compañía..."}
+        onExport={activeTab === "nueva" ? handleExport : undefined}
+      />
+
+      {/* ── TABS ──────────────────────────────────────────────────────── */}
+      <div className={`flex gap-1 p-1 rounded-xl mb-6 w-fit ${
+        isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"
+      }`}>
+        <button
+          onClick={() => setActiveTab("nueva")}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === "nueva"
+              ? isDarkMode ? "bg-blue-600 text-white shadow-lg" : "bg-white text-blue-700 shadow-md"
+              : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-800"
+          }`}
+        >
+          <PlusCircle size={15} />
+          Nueva Nómina
+        </button>
+        <button
+          onClick={() => setActiveTab("historial")}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === "historial"
+              ? isDarkMode ? "bg-blue-600 text-white shadow-lg" : "bg-white text-blue-700 shadow-md"
+              : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-800"
+          }`}
+        >
+          <History size={15} />
+          Historial
+        </button>
       </div>
+
+      {/* ── TAB: HISTORIAL ──────────────────────────────────────────────── */}
+      {activeTab === "historial" && <PayrollHistory />}
+
+      {/* ── TAB: NUEVA NÓMINA ───────────────────────────────────────────── */}
+      {activeTab === "nueva" && <>
 
       {/* Configuration Section */}
       <div className={`rounded-lg p-6 border mb-8 transition-colors ${
@@ -727,7 +476,7 @@ export const AllPayrolls: React.FC = () => {
             ? "border border-gray-700 bg-gray-700/30"
             : "border border-gray-300 bg-gray-100/30"
         }`}>
-          <div className="flex w-full justify-center items-center gap-2 text-lg font-semibold text-center">
+          <div className="flex w-full justify-center items-center gap-2 text-lg font-semibold text-center flex-wrap">
             <span className={isDarkMode ? "text-white" : "text-gray-900"}>Período:</span>
             <span className="font-medium text-blue-400">
               {payrollType === "Mensual"
@@ -737,6 +486,11 @@ export const AllPayrolls: React.FC = () => {
                   : `16 - 31 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`}
             </span>
             {payrollType !== "Mensual" && <span className={isDarkMode ? "text-gray-500" : "text-gray-600"}>(15 días)</span>}
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-900/40 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
+              {payrollType === "Mensual"
+                ? "ISR se retiene mensualmente • empleador paga a DGI este mes"
+                : "ISR se retiene esta quincena • empleador paga a DGI suma Q1+Q2"}
+            </span>
           </div>
         </div>
 
@@ -838,7 +592,7 @@ export const AllPayrolls: React.FC = () => {
                     SSS
                   </th>
                   <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    ISR
+                    ISR Retenido
                   </th>
                   <th className={`text-right py-3 px-2 font-medium ${isDarkMode ? "text-orange-400" : "text-orange-600"}`}>
                     Dctos. Fijos
@@ -1068,7 +822,7 @@ export const AllPayrolls: React.FC = () => {
       )}
 
       <PayrollInfo
-        sssRate={getSSSRate() || 2.87}
+        sssRate={getSSSRate(legalParams) || 9.75}
         isrTramos={isrTramos}
         defaultOpen={false}
       />
@@ -1111,6 +865,8 @@ export const AllPayrolls: React.FC = () => {
           </button>
         </div>
       )}
+
+      </> /* fin tab nueva nómina */}
     </div>
   )
 }

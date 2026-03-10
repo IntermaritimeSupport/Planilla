@@ -1,3 +1,4 @@
+import { authFetcher } from "../../../services/api"
 import { Link } from 'react-router-dom';
 import useSWR from 'swr'; // 👈 1. Importar el hook useSWR
 const { VITE_API_URL } = import.meta.env
@@ -60,15 +61,14 @@ const getStatusClass = (status: Quote['status']): string => {
 
 // 👈 2. Definir una función "fetcher" global o local.
 // SWR la usará para obtener los datos. Solo necesita recibir la URL.
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
+// authFetcher from services/api (autenticado)
 // --- EL COMPONENTE ACTUALIZADO ---
 export function QuotesSection() {
   const {
     data: quotes,
     error,
     isLoading
-  } = useSWR<Quote[]>(`${VITE_API_URL}/api/quotations/all/getAll`, fetcher);
+  } = useSWR<Quote[]>(`${VITE_API_URL}/api/quotations/all/getAll`, authFetcher);
 
   // El manejo de estados de carga y error es más limpio
   if (error) return <p className="text-center p-8 text-red-600">Error al cargar los datos.</p>;

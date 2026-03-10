@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import useSWR, { mutate } from "swr"
 import { useEffect, useState } from "react"
 import * as XLSX from 'xlsx'
@@ -12,8 +13,7 @@ import Tabla from "../../../../components/tables/Table"
 import { X } from "lucide-react"
 
 const { VITE_API_URL } = import.meta.env
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
+// authFetcher from services/api (autenticado)
 export interface CreateEquipmentData {
     id: string;
     type: string;
@@ -69,7 +69,7 @@ export default function AllDevices() {
         message: "",
         show: false,
     })
-    const { data, error, isLoading } = useSWR<CreateEquipmentData[]>(`${VITE_API_URL}/api/devices/${selectedCompany?.id}/all`, fetcher)
+    const { data, error, isLoading } = useSWR<CreateEquipmentData[]>(`${VITE_API_URL}/api/devices/${selectedCompany?.id}/all`, authFetcher)
     const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
         show: false,
         equipo: null,

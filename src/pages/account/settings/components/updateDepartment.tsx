@@ -31,10 +31,6 @@ export function UpdateDepartment() {
     companyId: companyIdFromUrl || (selectedCompany ? selectedCompany.id : ""),
     isActive: true,
   })
-  console.log("Selected Company from Context:", selectedCompany)
-  console.log("Company ID from URL:", companyIdFromUrl)
-  console.log("Form Data:", formData)
-  console.log("Is Edit:", id)
 
   useEffect(() => {
     if (!id) return
@@ -43,7 +39,7 @@ export function UpdateDepartment() {
       try {
         setLoading(true)
 
-        const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+        const token = localStorage.getItem("jwt") || localStorage.getItem("jwt")
 
         const res = await fetch(`${VITE_API_URL}/api/departments/${id}`, {
           headers: {
@@ -95,7 +91,7 @@ export function UpdateDepartment() {
     try {
       setLoading(true)
 
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+      const token = localStorage.getItem("jwt") || localStorage.getItem("jwt")
 
       const res = await fetch(
         isEdit ? `${VITE_API_URL}/api/departments/${id}` : `${VITE_API_URL}/api/departments/create`,

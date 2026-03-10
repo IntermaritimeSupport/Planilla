@@ -1,483 +1,330 @@
 "use client"
 
+import { authFetcher, getToken } from "../../../../services/api"
 import { useState, useCallback, useMemo } from "react"
-import useSWR from "swr"
+import useSWR, { mutate } from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
-import { ExportButtons } from "../../../../components/exports/ExportButtons"
-import { exportDecimoExcel, exportDecimoPDF } from "../../../../utils/exports/exportEngine"
 import {
-  Gift,
-  Calendar,
-  Info,
-  Download,
-  AlertTriangle,
-  UserCheck,
-  Loader2,
+  Gift, Calendar, Info, Download, AlertTriangle,
+  UserCheck, Loader2, CheckCircle2, Clock, XCircle,
+  ChevronDown, ChevronUp, Lock,
 } from "lucide-react"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { usePageName } from "../../../../hook/usePageName"
+import Pagination from "../../../../components/ui/Pagination"
 
-/* =======================
-   TIPOS
-======================= */
+const PARTIDA_INFO = [
+  { num: 1, month: "Abril",     payMonth: 4,  periodLabel: (y: number) => `16 Dic ${y-1} \u2013 15 Abr ${y}` },
+  { num: 2, month: "Agosto",    payMonth: 8,  periodLabel: (y: number) => `16 Abr ${y} \u2013 15 Ago ${y}` },
+  { num: 3, month: "Diciembre", payMonth: 12, periodLabel: (y: number) => `16 Ago ${y} \u2013 15 Dic ${y}` },
+]
+
+const PAGE_SIZE = 15
 
 type SalaryType = "MONTHLY" | "BIWEEKLY"
+interface EmployeeBase { id: string; firstName: string; lastName: string; cedula: string; salary: number; salaryType: SalaryType }
+interface LegalParameter { id: string; key: string; percentage: number; category: string; minRange: number | null; maxRange: number | null; status: string }
+interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: { grossThirteenth: number; ss: number; isr: number; net: number } }
+interface ThirteenthTotals { gross: number; ss: number; net: number }
+interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDING"; paymentId: string | null; amount: number | null; ssAmount: number | null; netAmount: number | null; paymentDate: string | null; notes: string | null }
 
-interface EmployeeBase {
-  id: string
-  firstName: string
-  lastName: string
-  cedula: string
-  salary: number
-  salaryType: SalaryType
-}
-
-interface LegalParameter {
-  id: string
-  key: string
-  percentage: number
-  category: string
-  minRange: number | null
-  maxRange: number | null
-  status: string
-}
-
-interface EmployeeThirteenth extends EmployeeBase {
-  monthlySalary: number
-  calc: {
-    grossThirteenth: number
-    ss: number
-    isr: number
-    net: number
-  }
-}
-
-interface ThirteenthTotals {
-  gross: number
-  ss: number
-  net: number
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-/* =======================
-   HELPERS
-======================= */
-
-function getMonthlySalary(salary: number, salaryType: SalaryType): number {
-  return salaryType === "BIWEEKLY" ? salary * 2 : salary
-}
-
-/* =======================
-   COMPONENTE
-======================= */
+const fmt = (n: number) => new Intl.NumberFormat("es-PA", { style: "currency", currency: "USD" }).format(n)
+function getMonthlySalary(salary: number, salaryType: SalaryType): number { return salaryType === "BIWEEKLY" ? salary * 2 : salary }
 
 export const AllDecimo: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
-  const [currentPartida, setCurrentPartida] = useState(1)
+  const API_URL = import.meta.env.VITE_API_URL as string
+  const year = new Date().getFullYear()
 
-  /* ---------- DATA ---------- */
+  const [currentPartida, setCurrentPartida] = useState(1)
+  const [page, setPage] = useState(1)
+  const [payingPartida, setPayingPartida] = useState<number | null>(null)
+  const [payNotes, setPayNotes] = useState("")
+  const [notification, setNotification] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [expandedRules, setExpandedRules] = useState(false)
+
+  const notify = (type: "success" | "error", text: string) => {
+    setNotification({ type, text })
+    setTimeout(() => setNotification(null), 4500)
+  }
 
   const { data: employees, isLoading: loadingEmps } = useSWR<EmployeeBase[]>(
-    selectedCompany
-      ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
-      : null,
-    fetcher
-  )
+    selectedCompany ? `${API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null, authFetcher)
+  const { data: legalParams, isLoading: loadingParams } = useSWR<LegalParameter[]>(
+    selectedCompany ? `${API_URL}/api/system/legal-decimo-parameters?companyId=${selectedCompany.id}` : null, authFetcher)
 
-  const { data: legalParams, isLoading: loadingParams } =
-    useSWR<LegalParameter[]>(
-      selectedCompany
-        ? `${import.meta.env.VITE_API_URL}/api/system/legal-decimo-parameters?companyId=${selectedCompany.id}`
-        : null,
-      fetcher
-    )
+  const historyKey = selectedCompany
+    ? `${API_URL}/api/payroll/decimo/history?companyId=${selectedCompany.id}&year=${year}` : null
+  const { data: decimoHistory, mutate: mutateHistory } = useSWR<{ year: number; partidas: PartidaStatus[]; totalPaid: number }>(
+    historyKey, authFetcher, { revalidateOnFocus: false })
 
-  const getParam = useCallback(
-    (key: string) => legalParams?.find((p) => p.key === key && p.status === "active"),
-    [legalParams]
-  )
+  const getParam = useCallback((key: string) => legalParams?.find((p) => p.key === key && p.status === "active"), [legalParams])
 
-  /* ---------- PARTIDAS ---------- */
+  const partidaStatus = useMemo<PartidaStatus | null>(() => {
+    if (!decimoHistory) return null
+    return decimoHistory.partidas.find(p => p.partida === currentPartida) || null
+  }, [decimoHistory, currentPartida])
 
-  const partidaInfo = useMemo(() => {
-    const year = new Date().getFullYear()
-    switch (currentPartida) {
-      case 1:
-        return { name: "Primera Partida", period: `16 Dic ${year - 1} - 15 Abr ${year}` }
-      case 2:
-        return { name: "Segunda Partida", period: `16 Abr ${year} - 15 Ago ${year}` }
-      case 3:
-        return { name: "Tercera Partida", period: `16 Ago ${year} - 15 Dic ${year}` }
-      default:
-        return { name: "", period: "" }
+  const calculateISRForDecimo = useCallback((annualSalary: number, annualISR: number, decimoAmount: number) => {
+    if (!legalParams) return 0
+    const brackets = legalParams.filter((p) => p.category === "isr" && p.status === "active").sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
+    const newAnnualIncome = annualSalary + decimoAmount
+    let newAnnualISR = 0
+    for (const b of brackets) {
+      const min = b.minRange ?? 0; const max = b.maxRange ?? Infinity; const rate = b.percentage / 100
+      if (newAnnualIncome > min) newAnnualISR += (Math.min(newAnnualIncome, max) - min) * rate
     }
-  }, [currentPartida])
+    return Math.max(0, newAnnualISR - annualISR)
+  }, [legalParams])
 
-  /* ---------- ISR PROPORCIONAL ---------- */
-
-  const calculateISRForDecimo = useCallback(
-    (annualSalary: number, annualISR: number, decimoAmount: number) => {
-      if (!legalParams) return 0
-
-      const brackets = legalParams
-        .filter((p) => p.category === "isr" && p.status === "active")
-        .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
-
-      const newAnnualIncome = annualSalary + decimoAmount
-      let newAnnualISR = 0
-
-      for (const b of brackets) {
-        const min = b.minRange ?? 0
-        const max = b.maxRange ?? Infinity
-        const rate = b.percentage / 100
-
-        if (newAnnualIncome > min) {
-          const taxable = Math.min(newAnnualIncome, max) - min
-          newAnnualISR += taxable * rate
-        }
-      }
-
-      return Math.max(0, newAnnualISR - annualISR)
-    },
-    [legalParams]
-  )
-
-  /* ---------- DÉCIMO ---------- */
-
-  const calculateThirteenth = useCallback(
-    (totalPaidInPeriod: number, annualSalary: number, annualISR: number) => {
-      const grossThirteenth = totalPaidInPeriod / 12
-      const ssRate = getParam("ss_decimo")?.percentage ?? 7.25
-      const ss = grossThirteenth * (ssRate / 100)
-      const isr = calculateISRForDecimo(annualSalary, annualISR, grossThirteenth)
-
-      return {
-        grossThirteenth,
-        ss,
-        isr,
-        net: grossThirteenth - ss - isr,
-      }
-    },
-    [getParam, calculateISRForDecimo]
-  )
-
-  /* ---------- EMPLEADOS ---------- */
+  const calculateThirteenth = useCallback((totalPaidInPeriod: number, annualSalary: number, annualISR: number) => {
+    const grossThirteenth = totalPaidInPeriod / 12
+    const ssRate = getParam("ss_decimo")?.percentage ?? 7.25
+    const ss = grossThirteenth * (ssRate / 100)
+    const isr = calculateISRForDecimo(annualSalary, annualISR, grossThirteenth)
+    return { grossThirteenth, ss, isr, net: grossThirteenth - ss - isr }
+  }, [getParam, calculateISRForDecimo])
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
-
     return employees.map((emp) => {
       const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-      const totalPaidInPeriod = monthlySalary * 4
-      const annualSalary = monthlySalary * 13
-      const annualISR = 0
-
-      return {
-        ...emp,
-        monthlySalary,
-        calc: calculateThirteenth(
-          totalPaidInPeriod,
-          annualSalary,
-          annualISR
-        ),
-      }
+      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary * 4, monthlySalary * 13, 0) }
     })
   }, [employees, calculateThirteenth])
 
-  /* ---------- TOTALES ---------- */
+  const totals = useMemo<ThirteenthTotals>(() =>
+    employeeData.reduce((acc, c) => ({ gross: acc.gross + c.calc.grossThirteenth, ss: acc.ss + c.calc.ss, net: acc.net + c.calc.net }), { gross: 0, ss: 0, net: 0 })
+  , [employeeData])
 
-  const totals = useMemo<ThirteenthTotals>(() => {
-    return employeeData.reduce(
-      (acc, curr) => ({
-        gross: acc.gross + curr.calc.grossThirteenth,
-        ss: acc.ss + curr.calc.ss,
-        net: acc.net + curr.calc.net,
-      }),
-      { gross: 0, ss: 0, net: 0 }
-    )
-  }, [employeeData])
+  const pagedEmployees = useMemo(() => employeeData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [employeeData, page])
 
-  /* ---------- LOADING ---------- */
+  const handleRegisterPayment = async () => {
+    if (!selectedCompany) return
+    setPayingPartida(currentPartida)
+    try {
+      const token = getToken()
+      const res = await fetch(`${API_URL}/api/payroll/decimo/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ companyId: selectedCompany.id, year, partida: currentPartida, amount: totals.gross, ssAmount: totals.ss, netAmount: totals.net, paymentDate: new Date().toISOString().split("T")[0], notes: payNotes || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) { notify("error", res.status === 409 ? "Esta partida ya est\u00e1 registrada como pagada" : data.error || "Error al registrar"); return }
+      notify("success", `${PARTIDA_INFO[currentPartida - 1].month} registrada como pagada \u2713`)
+      setPayNotes("")
+      mutateHistory()
+      mutate(historyKey)
+    } catch (e: any) { notify("error", e.message || "Error al registrar pago") }
+    finally { setPayingPartida(null) }
+  }
+
+  const handleVoidPayment = async (paymentId: string) => {
+    if (!confirm("Anular este registro? La partida volver\u00e1 a PENDIENTE.")) return
+    try {
+      const token = getToken()
+      const res = await fetch(`${API_URL}/api/payroll/decimo/pay/${paymentId}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } })
+      if (!res.ok) throw new Error((await res.json()).error)
+      notify("success", "Pago anulado \u2014 partida pendiente")
+      mutateHistory()
+    } catch (e: any) { notify("error", e.message || "Error al anular") }
+  }
 
   if (loadingEmps || loadingParams) {
-    return (
-      <div className={`flex items-center justify-center min-h-screen transition-colors ${
-        isDarkMode ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'
-      }`}>
-        <Loader2 className="animate-spin text-blue-500" size={48} />
-      </div>
-    )
+    return <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? "bg-slate-900" : "bg-gray-50"}`}><Loader2 className="animate-spin text-blue-500" size={48} /></div>
   }
 
-  const handleExcelExport = () => {
-    exportDecimoExcel({
-      rows: employeeData.map(e => ({
-        cedula: e.cedula,
-        firstName: e.firstName,
-        lastName: e.lastName,
-        monthlySalary: e.monthlySalary,
-        grossThirteenth: e.calc.grossThirteenth,
-        ss: e.calc.ss,
-        isr: e.calc.isr,
-        net: e.calc.net,
-      })),
-      period: `${partidaInfo.name} (${partidaInfo.period})`,
-      companyName: selectedCompany?.name ?? "Empresa",
-    })
-  }
-
-  const handlePDFExport = () => {
-    exportDecimoPDF({
-      rows: employeeData.map(e => ({
-        cedula: e.cedula,
-        firstName: e.firstName,
-        lastName: e.lastName,
-        monthlySalary: e.monthlySalary,
-        grossThirteenth: e.calc.grossThirteenth,
-        ss: e.calc.ss,
-        isr: e.calc.isr,
-        net: e.calc.net,
-      })),
-      period: `${partidaInfo.name} (${partidaInfo.period})`,
-      companyName: selectedCompany?.name ?? "Empresa",
-    })
-  }
+  const brd = isDarkMode ? "border-gray-700" : "border-gray-200"
+  const lbl = `block text-xs font-bold uppercase mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`
 
   return (
-    <div className={`transition-colors ${isDarkMode ? 'bg-slate-900 text-white' : 'text-gray-900'}`}>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <PagesHeader
-          title={`${pageName} - Décimo Tercer Mes`}
-          description="Cálculo dinámico basado en parámetros legales de la base de datos"
-          onExport={() => {}}
-        />
-        <div className="shrink-0 mt-1">
-          <ExportButtons
-            onExcel={handleExcelExport}
-            onPDF={handlePDFExport}
-            isDark={isDarkMode}
-            disabled={employeeData.length === 0}
-          />
+    <div className={`transition-colors ${isDarkMode ? "bg-slate-900 text-white" : "text-gray-900"}`}>
+
+      {notification && (
+        <div className={`fixed bottom-5 right-5 z-50 px-5 py-4 rounded-xl shadow-2xl border text-sm font-medium ${notification.type === "success" ? (isDarkMode ? "bg-green-900 border-green-600 text-green-200" : "bg-green-100 border-green-400 text-green-800") : (isDarkMode ? "bg-red-900 border-red-600 text-red-200" : "bg-red-100 border-red-400 text-red-800")}`}>
+          {notification.type === "success" ? "\u2705 " : "\u274c "}{notification.text}
+        </div>
+      )}
+
+      <PagesHeader title={`${pageName} - D\u00e9cimo Tercer Mes`} description="C\u00e1lculo y seguimiento de las 3 partidas del d\u00e9cimo" onExport={() => {}} />
+
+      {/* TRACKER DE 3 PARTIDAS */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Estado del D\u00e9cimo {year}</h3>
+          {decimoHistory && (
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${decimoHistory.totalPaid === 3 ? (isDarkMode ? "bg-green-900/40 text-green-300" : "bg-green-100 text-green-700") : (isDarkMode ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-600")}`}>
+              {decimoHistory.totalPaid}/3 pagadas
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {PARTIDA_INFO.map((p, idx) => {
+            const status = decimoHistory?.partidas[idx]
+            const isPaid = status?.status === "PAID"
+            const isActive = currentPartida === p.num
+            return (
+              <button key={p.num} onClick={() => { setCurrentPartida(p.num); setPage(1) }}
+                className={`relative p-4 rounded-xl border-2 transition-all text-left ${isActive ? (isDarkMode ? "border-blue-500 bg-blue-900/30 shadow-lg" : "border-blue-500 bg-blue-50 shadow-md") : (isDarkMode ? "border-gray-700 bg-slate-800 hover:border-gray-600" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${isPaid ? "bg-green-500 border-green-400" : isActive ? "bg-blue-600 border-blue-400" : (isDarkMode ? "bg-gray-700 border-gray-600" : "bg-gray-100 border-gray-300")}`}>
+                    {isPaid ? <CheckCircle2 size={20} className="text-white" /> : <Clock size={18} className={isActive ? "text-white" : (isDarkMode ? "text-gray-400" : "text-gray-500")} />}
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isPaid ? (isDarkMode ? "bg-green-900/30 text-green-300 border-green-700" : "bg-green-100 text-green-700 border-green-300") : (isDarkMode ? "bg-gray-700/50 text-gray-400 border-gray-600" : "bg-gray-100 text-gray-500 border-gray-200")}`}>
+                    {isPaid ? "\u2713 PAGADA" : "PENDIENTE"}
+                  </span>
+                </div>
+                <div className={`text-xs font-bold uppercase mb-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Partida {p.num}</div>
+                <div className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{p.month}</div>
+                <div className={`text-[10px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{p.periodLabel(year)}</div>
+                {isPaid && status?.netAmount != null && (
+                  <div className={`mt-2 pt-2 border-t ${brd}`}>
+                    <div className={`text-xs font-mono font-bold ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{fmt(status.netAmount)}</div>
+                    {status.paymentDate && <div className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{new Date(status.paymentDate).toLocaleDateString("es-PA", { day:"2-digit", month:"short", year:"numeric" })}</div>}
+                  </div>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Selector de Partida */}
-      <div className="flex gap-4 mb-8">
-        {[1, 2, 3].map((num) => (
-          <button
-            key={num}
-            onClick={() => setCurrentPartida(num)}
-            className={`flex-1 p-4 rounded-xl border transition-all ${
-              currentPartida === num
-                ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-900/20'
-                : isDarkMode
-                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700'
-                : 'bg-white border-gray-300 hover:bg-gray-100'
-            }`}
-          >
-            <div className={`text-xs uppercase font-bold opacity-70 ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-600'
-            }`}>
-              Partida {num}
-            </div>
-            <div className={`text-lg font-bold ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              {num === 1 ? 'Abril' : num === 2 ? 'Agosto' : 'Diciembre'}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Resumen de la Partida */}
-      <div className={`p-6 rounded-2xl border mb-8 flex flex-col md:flex-row justify-between items-center gap-6 transition-colors ${
-        isDarkMode
-          ? 'bg-gradient-to-r from-blue-900/40 to-slate-800 border-blue-500/30'
-          : 'bg-gradient-to-r from-blue-100 to-gray-100 border-blue-300'
-      }`}>
+      {/* RESUMEN PARTIDA ACTIVA */}
+      <div className={`p-6 rounded-2xl border mb-6 flex flex-col md:flex-row justify-between items-center gap-6 ${isDarkMode ? "bg-gradient-to-r from-blue-900/40 to-slate-800 border-blue-500/30" : "bg-gradient-to-r from-blue-50 to-gray-50 border-blue-200"}`}>
         <div className="flex items-center gap-4">
-          <div className={`p-4 rounded-full transition-colors ${
-            isDarkMode
-              ? 'bg-blue-500/20'
-              : 'bg-blue-200'
-          }`}>
-            <Gift className="text-blue-400" size={32} />
+          <div className={`p-4 rounded-full ${isDarkMode ? "bg-blue-500/20" : "bg-blue-100"}`}><Gift className="text-blue-400" size={32} /></div>
+          <div>
+            <h3 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{PARTIDA_INFO[currentPartida-1].month} {year} \u2014 Partida {currentPartida}</h3>
+            <p className={`text-sm flex items-center gap-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}><Calendar size={14} />{PARTIDA_INFO[currentPartida-1].periodLabel(year)}</p>
+            {partidaStatus?.status === "PAID" && <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDarkMode ? "text-green-400" : "text-green-700"}`}><CheckCircle2 size={12} /> Pagada el {new Date(partidaStatus.paymentDate!).toLocaleDateString("es-PA")}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-6 text-center">
+          <div>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Bruto</p>
+            <p className={`text-xl font-bold font-mono ${isDarkMode ? "text-white" : "text-gray-900"}`}>{fmt(totals.gross)}</p>
           </div>
           <div>
-            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {partidaInfo.name} - {new Date().getFullYear()}
-            </h3>
-            <p className={`text-sm flex items-center gap-2 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              <Calendar size={14} /> Periodo: {partidaInfo.period}
-            </p>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>S.S.</p>
+            <p className={`text-xl font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>-{fmt(totals.ss)}</p>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-8">
-          <div className="text-center">
-            <p className={`text-xs uppercase mb-1 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Total Bruto
-            </p>
-            <p className={`text-2xl font-bold font-mono ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              ${totals.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className={`text-xs uppercase mb-1 ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`}>
-              Total Neto a Pagar
-            </p>
-            <p className={`text-2xl font-bold font-mono ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`}>
-              ${totals.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </p>
+          <div>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-green-400" : "text-green-600"}`}>Neto a Pagar</p>
+            <p className={`text-2xl font-bold font-mono ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</p>
           </div>
         </div>
       </div>
 
-      {/* Tabla de Empleados */}
-      <div className={`rounded-xl border overflow-hidden shadow-2xl transition-colors ${
-        isDarkMode
-          ? 'bg-slate-800 border-gray-700'
-          : 'bg-white border-gray-200'
-      }`}>
-        <div className={`p-4 border-b flex justify-between items-center transition-colors ${
-          isDarkMode
-            ? 'bg-slate-800/50 border-gray-700'
-            : 'bg-gray-100 border-gray-200'
-        }`}>
-          <h4 className={`font-bold text-sm uppercase tracking-widest ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            Detalle de Colaboradores
-          </h4>
-          <button className="flex items-center gap-2 text-xs bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors font-bold text-white">
-            <Download size={14} /> Exportar Planilla
+      {/* PANEL DE PAGO */}
+      {partidaStatus?.status === "PENDING" ? (
+        <div className={`mb-6 p-5 rounded-xl border-2 ${isDarkMode ? "border-amber-700/50 bg-amber-900/10" : "border-amber-300 bg-amber-50"}`}>
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div>
+              <p className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}><Clock size={15} /> Partida {currentPartida} pendiente de pago</p>
+              <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Registra el pago una vez que hayas transferido a los empleados.</p>
+            </div>
+            <div className="flex items-end gap-3">
+              <div>
+                <label className={lbl}>Notas (opcional)</label>
+                <input value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="Ej. Transferencia banco..." className={`rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-60 ${isDarkMode ? "bg-gray-800 border border-gray-600 text-white" : "bg-white border border-gray-300"}`} />
+              </div>
+              <button onClick={handleRegisterPayment} disabled={payingPartida !== null} className="flex items-center gap-2 px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-all disabled:opacity-50">
+                {payingPartida === currentPartida ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                Marcar como Pagada
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : partidaStatus?.status === "PAID" ? (
+        <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? "border-green-700/40 bg-green-900/10" : "border-green-300 bg-green-50"}`}>
+          <div className={`flex items-center gap-2 text-sm font-medium ${isDarkMode ? "text-green-300" : "text-green-700"}`}>
+            <Lock size={14} /> Esta partida ya fue registrada como pagada.
+            {partidaStatus.notes && <span className={`ml-2 text-xs italic ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>"{partidaStatus.notes}"</span>}
+          </div>
+          <button onClick={() => handleVoidPayment(partidaStatus.paymentId!)} className={`text-xs px-3 py-1 rounded-lg border transition-colors ${isDarkMode ? "text-red-400 border-red-800 hover:bg-red-900/40" : "text-red-600 border-red-300 hover:bg-red-100"}`}>
+            <XCircle size={11} className="inline mr-1" />Anular registro
           </button>
         </div>
+      ) : null}
+
+      {/* TABLA */}
+      <div className={`rounded-xl border overflow-hidden shadow-xl ${isDarkMode ? "bg-slate-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className={`p-4 border-b flex justify-between items-center ${isDarkMode ? "bg-slate-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+          <h4 className={`font-bold text-sm uppercase tracking-wide ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Detalle de Colaboradores <span className={`font-normal text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>({employeeData.length})</span></h4>
+          <button className="flex items-center gap-2 text-xs bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold text-white transition-colors"><Download size={14} /> Exportar</button>
+        </div>
         <div className="overflow-x-auto">
-          <table className={`w-full text-sm text-left transition-colors ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            <thead className={`uppercase text-[10px] font-bold transition-colors ${
-              isDarkMode
-                ? 'bg-slate-900/50 text-gray-500'
-                : 'bg-gray-100 text-gray-600'
-            }`}>
+          <table className={`w-full text-sm text-left ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+            <thead className={`uppercase text-[10px] font-bold ${isDarkMode ? "bg-slate-900/50 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
               <tr>
-                <th className="px-6 py-4">Empleado</th>
-                <th className="px-6 py-4">Salario Base (Mensual)</th>
-                <th className="px-6 py-4">Monto Bruto</th>
-                <th className="px-6 py-4 text-red-400">S.S. ({getParam('ss_decimo')?.percentage || '7.25'}%)</th>
-                <th className="px-6 py-4 text-blue-400">ISR</th>
-                <th className="px-6 py-4 text-green-400 font-bold">Monto Neto</th>
+                <th className="px-6 py-3">Empleado</th>
+                <th className="px-6 py-3">Salario Mensual</th>
+                <th className="px-6 py-3">Bruto</th>
+                <th className="px-6 py-3 text-red-400">S.S. ({getParam("ss_decimo")?.percentage ?? 7.25}%)</th>
+                <th className="px-6 py-3 text-blue-400">ISR</th>
+                <th className="px-6 py-3 text-green-400 font-bold">Neto</th>
               </tr>
             </thead>
-            <tbody className={`divide-y transition-colors ${
-              isDarkMode ? 'divide-slate-800' : 'divide-gray-200'
-            }`}>
-              {employeeData.map((emp) => (
-                <tr 
-                  key={emp.id} 
-                  className={`transition-colors ${
-                    isDarkMode
-                      ? 'hover:bg-slate-700/20'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <td className="px-6 py-4 flex items-center gap-3">
-                    <UserCheck className="text-blue-500/50" size={16} />
+            <tbody className={`divide-y ${isDarkMode ? "divide-slate-700/50" : "divide-gray-100"}`}>
+              {pagedEmployees.map((emp) => (
+                <tr key={emp.id} className={`transition-colors ${isDarkMode ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}`}>
+                  <td className="px-6 py-3 flex items-center gap-3">
+                    <UserCheck className="text-blue-500/50 shrink-0" size={15} />
                     <div>
-                      <div className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-gray-900'}`}>
-                        {emp.firstName} {emp.lastName}
-                      </div>
-                      <div className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                        {emp.cedula}
-                      </div>
+                      <div className={`font-medium ${isDarkMode ? "text-slate-200" : "text-gray-900"}`}>{emp.firstName} {emp.lastName}</div>
+                      <div className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{emp.cedula}</div>
                     </div>
                   </td>
-                  <td className={`px-6 py-4 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    ${emp.monthlySalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </td>
-                  <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
-                    ${emp.calc.grossThirteenth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 text-red-400/80 font-mono">
-                    -${emp.calc.ss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </td>
-                  <td className="px-6 py-4 text-blue-400/80 font-mono">
-                    -${emp.calc.isr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 font-bold text-green-400 font-mono text-lg">
-                    ${emp.calc.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
+                  <td className={`px-6 py-3 font-mono ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{fmt(emp.monthlySalary)}</td>
+                  <td className={`px-6 py-3 font-semibold ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>{fmt(emp.calc.grossThirteenth)}</td>
+                  <td className="px-6 py-3 text-red-400/80 font-mono">-{fmt(emp.calc.ss)}</td>
+                  <td className="px-6 py-3 text-blue-400/80 font-mono">-{fmt(emp.calc.isr)}</td>
+                  <td className={`px-6 py-3 font-bold font-mono text-base ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(emp.calc.net)}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className={`font-bold text-xs border-t-2 ${isDarkMode ? "bg-slate-900/40 border-gray-600 text-white" : "bg-gray-100 border-gray-300 text-gray-900"}`}>
+                <td colSpan={2} className="px-6 py-3">TOTALES ({employeeData.length} empleados)</td>
+                <td className="px-6 py-3 font-mono">{fmt(totals.gross)}</td>
+                <td className="px-6 py-3 font-mono text-red-400">-{fmt(totals.ss)}</td>
+                <td className="px-6 py-3 font-mono text-blue-400">-</td>
+                <td className={`px-6 py-3 font-mono text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
+        {employeeData.length > PAGE_SIZE && (
+          <div className={`p-4 border-t flex items-center justify-between ${brd}`}>
+            <Pagination total={employeeData.length} pageSize={PAGE_SIZE} page={page} onChange={setPage} />
+          </div>
+        )}
       </div>
 
-      {/* Reglas de Negocio dinámicas desde API */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className={`p-4 rounded-lg border transition-colors ${
-          isDarkMode
-            ? 'bg-slate-800/40 border-slate-700'
-            : 'bg-yellow-50 border-yellow-300'
-        }`}>
-          <div className={`flex items-center gap-2 mb-2 ${
-            isDarkMode ? 'text-yellow-500' : 'text-yellow-600'
-          }`}>
-            <AlertTriangle size={16} />
-            <h5 className="text-xs font-bold uppercase">Seguro Social</h5>
+      {/* REGLAS COLAPSABLES */}
+      <div className="mt-6">
+        <button onClick={() => setExpandedRules(!expandedRules)} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}>
+          {expandedRules ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Par\u00e1metros Legales Aplicados
+        </button>
+        {expandedRules && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-yellow-50 border-yellow-200"}`}>
+              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-yellow-500" : "text-yellow-600"}`}><AlertTriangle size={14} /><h5 className="text-xs font-bold uppercase">Seguro Social</h5></div>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>Tasa actual: <strong>{getParam("ss_decimo")?.percentage ?? 7.25}%</strong>. Aplica sobre el bruto del d\u00e9cimo.</p>
+            </div>
+            <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-blue-50 border-blue-200"}`}>
+              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-blue-500" : "text-blue-600"}`}><Info size={14} /><h5 className="text-xs font-bold uppercase">Seguro Educativo</h5></div>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>El d\u00e9cimo tercer mes est\u00e1 <strong>exento</strong> del Seguro Educativo por ley.</p>
+            </div>
+            <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-green-50 border-green-200"}`}>
+              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-green-500" : "text-green-600"}`}><Gift size={14} /><h5 className="text-xs font-bold uppercase">F\u00f3rmula</h5></div>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>Sumatoria de salarios del per\u00edodo \u00f7 12. Se toman los \u00faltimos 4 meses.</p>
+            </div>
           </div>
-          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-            Tasa actual: <strong>{getParam('ss_decimo')?.percentage || 7.25}%</strong>. 
-            Este porcentaje se aplica sobre el bruto del décimo según configuración de la base de datos.
-          </p>
-        </div>
-        <div className={`p-4 rounded-lg border transition-colors ${
-          isDarkMode
-            ? 'bg-slate-800/40 border-slate-700'
-            : 'bg-blue-50 border-blue-300'
-        }`}>
-          <div className={`flex items-center gap-2 mb-2 ${
-            isDarkMode ? 'text-blue-500' : 'text-blue-600'
-          }`}>
-            <Info size={16} />
-            <h5 className="text-xs font-bold uppercase">Seguro Educativo</h5>
-          </div>
-          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-            El Seguro Educativo para el décimo es <strong>{getParam('se_decimo')?.percentage || 0}%</strong>. 
-            Por ley, el décimo tercer mes está exento de este descuento.
-          </p>
-        </div>
-        <div className={`p-4 rounded-lg border transition-colors ${
-          isDarkMode
-            ? 'bg-slate-800/40 border-slate-700'
-            : 'bg-green-50 border-green-300'
-        }`}>
-          <div className={`flex items-center gap-2 mb-2 ${
-            isDarkMode ? 'text-green-500' : 'text-green-600'
-          }`}>
-            <Gift size={16} />
-            <h5 className="text-xs font-bold uppercase">Base de Cálculo</h5>
-          </div>
-          <p className={`text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-            Fórmula: (Sumatoria de salarios del periodo / 12). Se consideran los últimos 4 meses de ingresos brutos.
-          </p>
-        </div>
+        )}
       </div>
     </div>
   )

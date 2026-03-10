@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import type React from "react"
 import { useState, useMemo } from "react"
 import useSWR, { mutate } from "swr"
@@ -14,8 +15,7 @@ import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 
 const { VITE_API_URL } = import.meta.env
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
+// authFetcher from services/api (autenticado)
 export enum NetworkDeviceStatus {
   ONLINE = "ONLINE",
   OFFLINE = "OFFLINE",
@@ -174,7 +174,7 @@ const AllNetwork: React.FC<Props> = ({ }) => {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const { selectedCompany } = useCompany()
-  const { data, isLoading } = useSWR<ApiNetworkDevice[]>(`${VITE_API_URL}/api/network/${selectedCompany?.id}/all`, fetcher)
+  const { data, isLoading } = useSWR<ApiNetworkDevice[]>(`${VITE_API_URL}/api/network/${selectedCompany?.id}/all`, authFetcher)
 
   const openDeleteModal = (connection: FrontendNetworkConnection) => {
     setSelectedConnection(connection)

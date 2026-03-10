@@ -131,7 +131,8 @@ export const calculateISRForVacaciones = (
   if (isrRates.length === 0) return 0
 
   // Anualizar el pago de vacaciones para ubicar en tramo correcto
-  const annualEquivalent = grossVacationPay * 12
+  // Base anual = 13 salarios (12 meses + 1 décimo tercer mes) — consistente con nómina
+  const annualEquivalent = grossVacationPay * 13
   let annualISR = 0
 
   for (const rate of isrRates) {
@@ -145,11 +146,11 @@ export const calculateISRForVacaciones = (
     }
   }
 
-  // Retención proporcional al monto real (no mensual)
-  const monthlyISR = annualISR / 12
-  // Proporción: ISR del período = (vacPay / mensual) × ISR mensual
-  // Si vacPay es menor al mensual, aplica proporcionalmente
-  return Number(monthlyISR.toFixed(2))
+  // Retención ISR sobre el pago de vacaciones:
+  // Se calcula anualizando para ubicar en tramo, luego se divide entre 12
+  // para obtener la retención proporcional al monto de vacaciones
+  const retencionISR = annualISR / 12
+  return Number(retencionISR.toFixed(2))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

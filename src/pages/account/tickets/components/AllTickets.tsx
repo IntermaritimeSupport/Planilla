@@ -1,5 +1,6 @@
 "use client"
 
+import { authFetcher } from "../../../../services/api"
 import { useState, useEffect, useMemo } from "react"
 import useSWR, { mutate } from "swr"
 import Loader from "../../../../components/loaders/loader"
@@ -11,8 +12,7 @@ import Tabla from "../../../../components/tables/Table"
 import { X } from "lucide-react"
 import * as XLSX from 'xlsx'
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
+// authFetcher from services/api (autenticado)
 // ==================== USERS ====================
 export interface UsuarioFull {
   id: string
@@ -75,7 +75,7 @@ const getStatusBadge = (user: UsuarioFull) => {
 
 export const AllUsers: React.FC = () => {
   const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
-  const { data, error, isLoading } = useSWR<UsuarioFull[]>(`${import.meta.env.VITE_API_URL}/api/users/full/${selectedCompany?.id}`, fetcher)
+  const { data, error, isLoading } = useSWR<UsuarioFull[]>(`${import.meta.env.VITE_API_URL}/api/users/full/${selectedCompany?.id}`, authFetcher)
   const { pageName } = usePageName()
   const { search } = useSearch()
   const [statusFilter, setStatusFilter] = useState("Todos")

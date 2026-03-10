@@ -8,7 +8,7 @@ import EmployeeForm from "../../../../components/forms/EmployeeFom";
 const { VITE_API_URL } = import.meta.env;
 
 const fetcher = async (url: string) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('jwt');
     const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -29,7 +29,6 @@ const ManageEmployeePage: React.FC = () => {
         employeeId ? `${VITE_API_URL}/api/payroll/employees/${employeeId}` : null,
         fetcher
     );
-    console.log("Employee Data:", employeeData);
     // Traemos departamentos para el select
     const { data: departments, isLoading: loadingDepts } = useSWR(
         selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null,

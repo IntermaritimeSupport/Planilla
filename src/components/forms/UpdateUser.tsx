@@ -61,7 +61,7 @@ interface UpdateUserProps {
 }
 
 const fetcher = async (url: string) => {
-  const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+  const token = localStorage.getItem("jwt") || localStorage.getItem("jwt");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -192,7 +192,7 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
     setSubmitError("");
 
     try {
-      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      const token = localStorage.getItem("jwt") || localStorage.getItem("jwt");
       if (!selectedCompanies || selectedCompanies.length === 0) {
         throw new Error("Debe seleccionar al menos una compañía");
       }
