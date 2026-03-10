@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import useSWR from "swr"
+// import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import {
-  History, Search, Download, Trash2, Filter,
-  ChevronDown, ChevronUp, Clock, Users,
-  AlertTriangle, Info, Loader2, RefreshCw,
+  History, Search, Download, Trash2,
+  ChevronDown, ChevronUp, Clock,
+  AlertTriangle, Info, RefreshCw,
 } from "lucide-react"
 import {
   type AuditEvent,
@@ -22,7 +22,7 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+// const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACTION BADGE
