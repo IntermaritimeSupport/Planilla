@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
@@ -407,7 +407,7 @@ export const AllLiquidaciones: React.FC = () => {
   const { pageName } = usePageName()
 
   const [search, setSearch] = useState("")
-  const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")
+  // const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")
 
   // ── DATA ──
   const { data: employees, isLoading: loadingEmps } = useSWR<LiquidacionEmployee[]>(

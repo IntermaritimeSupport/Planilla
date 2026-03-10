@@ -1,6 +1,5 @@
 "use client"
 
-import { authFetcher } from "../../../../services/api"
 import React, { useState, useEffect, useCallback } from "react"
 import { X, Edit2, Trash2 } from "lucide-react"
 import { useTheme } from "../../../../context/themeContext"

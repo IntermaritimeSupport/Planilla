@@ -22,9 +22,6 @@ import AllDevices from "../pages/account/devices/components/AllDevices";
 import UpdateDevicesPage from "../pages/account/devices/components/updateDevicesPage";
 import AllNetwork from "../pages/account/network/components/AllNetwork";
 import UpdateNetworkPage from "../pages/account/network/components/updateNetwork";
-import UpdateMaintenancePage from "../pages/account/maintenance/components/updateMaintenance";
-import AllMaintenance from "../pages/account/maintenance/components/AllMaintenance";
-import MaintenancePage from "../pages/account/maintenance/page";
 import { CompanySelector } from "../pages/account/companies/companies";
 import ProtectedCompanyRoute from "./protectedCompanyRoute";
 import NetworkProvidersPage from "../pages/account/network/components/AllProvider";
@@ -302,44 +299,6 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         <Route path="edit/:id" element={<UpdateNetworkPage />} />
         <Route path="create-provider" element={<UpdateNetworkProviderPage />} />
         <Route path="edit-provider/:id" element={<UpdateNetworkProviderPage />} />
-      </Route>
-
-      <Route
-        path={`/:${code}/maintenance/*`}
-        element={
-          <ProtectedRoute
-            isLogged={isLogged}
-            auth={user}
-            allowedRoles={[
-              authRoles.user,
-              authRoles.admin,
-              authRoles.moderator,
-              authRoles.super_admin,
-            ]}
-          >
-            <EnvolveLayout
-              title="maintenance"
-              description="maintenance"
-              isLogged={isLogged}
-              profile={profile}
-              currentPathname={pathnameLocation}
-              publicRoute={false}
-              companies={companies}
-            >
-              <MaintenancePage
-                currentPathname={pathnameLocation}
-                subroutes={
-                  routesConfig.find((route) => route.name === "maintenance")
-                    ?.subroutes || []
-                }
-              />
-            </EnvolveLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="all" element={<AllMaintenance currentPathname={pathnameLocation} />} />
-        <Route path="create" element={<UpdateMaintenancePage currentPathname={pathnameLocation} />} />
-        <Route path="edit/:id" element={<UpdateMaintenancePage currentPathname={pathnameLocation} />} />
       </Route>
 
       <Route

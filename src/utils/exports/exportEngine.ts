@@ -174,8 +174,11 @@ const addFooter = (doc: jsPDF) => {
 
 // ─── Hoja resumen Excel ───────────────────────────────────────────────────────
 
-const summarySheet = (rows: [string, string|number][]) => {
-  const ws = XLSX.utils.aoa_to_sheet(rows)
+const summarySheet = (rows: (string | number | [string, string|number])[]) => {
+  const formatted = rows.map(r => 
+    Array.isArray(r) ? r : [r, ""]
+  ) as [string|number, string|number][]
+  const ws = XLSX.utils.aoa_to_sheet(formatted)
   ws["!cols"] = [{ wch: 38 }, { wch: 18 }]
   return ws
 }
@@ -214,7 +217,7 @@ export const exportPayrollExcel = (p: PayrollExportParams) => {
   ws["!cols"] = [14,26,12,10,10,12,12,11,9,11,12,11,11,11].map(w=>({wch:w}))
   const period = p.payrollType==="Mensual"?"Mensual":`Quincenal ${p.quincenal??""}`
   XLSX.utils.book_append_sheet(wb, ws, "Planilla")
-  XLSX.utils.book_append_sheet(wb, summarySheet([["RESUMEN DE PLANILLA"],[],["Empresa",p.companyName],["Período",period],["Fecha",new Date(p.payrollDate).toLocaleDateString("es-PA")],["Empleados",p.rows.length],[],["Salario Bruto Total",sum("Bruto")],["SS Total",sum("SS (9.75%)")],["ISR Total",sum("ISR")],["Desc. Fijos",sum("Desc.Fijos")],["T.Deducc.",sum("T.Deducc.")],["NETO A PAGAR",sum("Neto")],...(p.isPeriodThirteenthMonth?[["13° Mes Total",sum("13° Mes")]]:[])] as any), "Resumen")
+  XLSX.utils.book_append_sheet(wb, summarySheet([["RESUMEN DE PLANILLA"],[""],["Empresa",p.companyName],["Período",period],["Fecha",new Date(p.payrollDate).toLocaleDateString("es-PA")],["Empleados",p.rows.length],[""],["Salario Bruto Total",sum("Bruto")],["SS Total",sum("SS (9.75%)")],["ISR Total",sum("ISR")],["Desc. Fijos",sum("Desc.Fijos")],["T.Deducc.",sum("T.Deducc.")],["NETO A PAGAR",sum("Neto")],...(p.isPeriodThirteenthMonth?[["13° Mes Total",sum("13° Mes")]]:[])] as any), "Resumen")
   const m = new Date(p.payrollDate).toLocaleDateString("es-PA",{month:"long",year:"numeric"})
   XLSX.writeFile(wb, `Planilla_${m.replace(" ","_")}_${p.companyName}.xlsx`)
 }
@@ -251,7 +254,7 @@ export const exportDecimoExcel = (p: DecimoExportParams) => {
   XLSX.utils.sheet_add_json(ws,[{"Cédula":"TOTALES","Nombre":"","Sal. Mensual":sum("Sal. Mensual"),"Décimo Bruto":sum("Décimo Bruto"),"SS (7.25%)":sum("SS (7.25%)"),"ISR":sum("ISR"),"Neto":sum("Neto")}],{origin:data.length+1,skipHeader:true})
   ws["!cols"]=[14,26,16,14,12,10,14].map(w=>({wch:w}))
   XLSX.utils.book_append_sheet(wb,ws,"Décimo")
-  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN DÉCIMO TERCER MES"],[],["Empresa",p.companyName],["Período",p.period],["Generado",today()],["Empleados",p.rows.length],[],["Total Bruto",sum("Décimo Bruto")],["Total SS",sum("SS (7.25%)")],["Total ISR",sum("ISR")],["TOTAL NETO",sum("Neto")]]) as any,"Resumen")
+  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN DÉCIMO TERCER MES", ""],["Empresa",p.companyName],["Período",p.period],["Generado",today()],["Empleados",p.rows.length],["",""],["Total Bruto",sum("Décimo Bruto")],["Total SS",sum("SS (7.25%)")],["Total ISR",sum("ISR")],["TOTAL NETO",sum("Neto")]]) as any,"Resumen")
   XLSX.writeFile(wb,`Decimo_${p.companyName}.xlsx`)
 }
 
@@ -282,7 +285,7 @@ export const exportSipeExcel = (p: SipeExportParams) => {
   XLSX.utils.sheet_add_json(ws,[{"Cédula":"TOTALES","Nombre":"","Bruto":sum("Bruto"),"SS Emp":sum("SS Emp"),"SS Pat":sum("SS Pat"),"Edu Emp":sum("Edu Emp"),"Edu Pat":sum("Edu Pat"),"Riesgo":sum("Riesgo"),"ISR":sum("ISR"),"Décimo CSS":sum("Décimo CSS"),"Total SIPE":sum("Total SIPE")}],{origin:data.length+1,skipHeader:true})
   ws["!cols"]=[14,26,14,12,12,12,12,12,10,12,13].map(w=>({wch:w}))
   XLSX.utils.book_append_sheet(wb,ws,"SIPE")
-  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN PLANILLA SIPE"],[],["Empresa",p.companyName],["Mes",p.month],["Generado",today()],["Empleados",p.rows.length],[],["Total Bruto",sum("Bruto")],["SS Empleado",sum("SS Emp")],["SS Patrono",sum("SS Pat")],["Edu Empleado",sum("Edu Emp")],["Edu Patrono",sum("Edu Pat")],["Riesgo Profesional",sum("Riesgo")],["ISR",sum("ISR")],["Décimo CSS",sum("Décimo CSS")],["TOTAL SIPE",sum("Total SIPE")]]) as any,"Resumen")
+  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN PLANILLA SIPE",""],["Empresa",p.companyName],["Mes",p.month],["Generado",today()],["Empleados",p.rows.length],["",""],["Total Bruto",sum("Bruto")],["SS Empleado",sum("SS Emp")],["SS Patrono",sum("SS Pat")],["Edu Empleado",sum("Edu Emp")],["Edu Patrono",sum("Edu Pat")],["Riesgo Profesional",sum("Riesgo")],["ISR",sum("ISR")],["Décimo CSS",sum("Décimo CSS")],["TOTAL SIPE",sum("Total SIPE")]]) as any,"Resumen")
   XLSX.writeFile(wb,`SIPE_${p.month}_${p.companyName}.xlsx`)
 }
 
@@ -313,7 +316,7 @@ export const exportVacacionesExcel = (p: VacacionesExportParams) => {
   XLSX.utils.sheet_add_json(ws,[{"Cédula":"TOTALES","Nombre":"","Fecha Ingreso":"","Meses":"","Días Ganados":sum("Días Ganados"),"Sal. Mensual":sum("Sal. Mensual"),"Bruto Vac.":sum("Bruto Vac."),"SS":sum("SS"),"S.Edu.":sum("S.Edu."),"ISR":sum("ISR"),"Neto Vac.":sum("Neto Vac."),"Estado":""}],{origin:data.length+1,skipHeader:true})
   ws["!cols"]=[14,26,14,10,13,14,12,10,10,10,12,12].map(w=>({wch:w}))
   XLSX.utils.book_append_sheet(wb,ws,"Vacaciones")
-  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN VACACIONES PROPORCIONALES"],[],["Empresa",p.companyName],["Fecha de corte",p.refDate??today()],["Empleados",p.rows.length],["Disponibles",p.rows.filter(r=>r.status==="disponible").length],["Parciales",p.rows.filter(r=>r.status==="parcial").length],[],["Total Bruto",sum("Bruto Vac.")],["Total SS",sum("SS")],["Total S.Edu.",sum("S.Edu.")],["Total ISR",sum("ISR")],["TOTAL NETO",sum("Neto Vac.")]]) as any,"Resumen")
+  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN VACACIONES PROPORCIONALES",""],["Empresa",p.companyName],["Fecha de corte",p.refDate??today()],["Empleados",p.rows.length],["Disponibles",p.rows.filter(r=>r.status==="disponible").length],["Parciales",p.rows.filter(r=>r.status==="parcial").length],["",""],["Total Bruto",sum("Bruto Vac.")],["Total SS",sum("SS")],["Total S.Edu.",sum("S.Edu.")],["Total ISR",sum("ISR")],["TOTAL NETO",sum("Neto Vac.")]]) as any,"Resumen")
   XLSX.writeFile(wb,`Vacaciones_${today().replace(/\//g,"-")}_${p.companyName}.xlsx`)
 }
 
@@ -346,7 +349,7 @@ export const exportLiquidacionesExcel = (p: LiquidacionExportParams) => {
   XLSX.utils.sheet_add_json(ws,[{"Cédula":"TOTALES","Nombre":"","Cargo":"","Ingreso":"","Terminación":"","Causa":"","Antigüedad":"","Sal. Mensual":sum("Sal. Mensual"),"Prima":sum("Prima"),"Preaviso":sum("Preaviso"),"Vacaciones":sum("Vacaciones"),"Décimo":sum("Décimo"),"Indemn.":sum("Indemn."),"Bruto":sum("Bruto"),"SS":sum("SS"),"S.Edu.":sum("S.Edu."),"ISR":sum("ISR"),"Neto":sum("Neto")}],{origin:data.length+1,skipHeader:true})
   ws["!cols"]=[14,26,16,12,14,18,12,13,12,12,12,12,12,12,10,10,10,12].map(w=>({wch:w}))
   XLSX.utils.book_append_sheet(wb,ws,"Liquidaciones")
-  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN LIQUIDACIONES"],[],["Empresa",p.companyName],["Generado",today()],["Empleados liquidados",p.rows.length],[],["Prima de Antigüedad",sum("Prima")],["Preaviso",sum("Preaviso")],["Vacaciones",sum("Vacaciones")],["Décimo",sum("Décimo")],["Indemnización",sum("Indemn.")],["Total Bruto",sum("Bruto")],[],["SS",sum("SS")],["Seg. Educativo",sum("S.Edu.")],["ISR",sum("ISR")],["TOTAL NETO",sum("Neto")]]) as any,"Resumen")
+  XLSX.utils.book_append_sheet(wb,summarySheet([["RESUMEN LIQUIDACIONES",""],["Empresa",p.companyName],["Generado",today()],["Empleados liquidados",p.rows.length],["",""],["Prima de Antigüedad",sum("Prima")],["Preaviso",sum("Preaviso")],["Vacaciones",sum("Vacaciones")],["Décimo",sum("Décimo")],["Indemnización",sum("Indemn.")],["Total Bruto",sum("Bruto")],["",""],["SS",sum("SS")],["Seg. Educativo",sum("S.Edu.")],["ISR",sum("ISR")],["TOTAL NETO",sum("Neto")]]) as any,"Resumen")
   XLSX.writeFile(wb,`Liquidaciones_${today().replace(/\//g,"-")}_${p.companyName}.xlsx`)
 }
 

@@ -8,9 +8,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Moon, Sun, Monitor, Check } from "lucide-react";
-import { useTheme, type ThemeMode } from "../../context/themeContext";
+import { useTheme } from "../../context/themeContext";
 
-const OPTIONS: { mode: ThemeMode; label: string; icon: React.ReactNode; desc: string }[] = [
+const OPTIONS: { mode: any; label: string; icon: React.ReactNode; desc: string }[] = [
   { mode: "light",  label: "Claro",   icon: <Sun size={15} />,     desc: "Siempre modo claro"   },
   { mode: "dark",   label: "Oscuro",  icon: <Moon size={15} />,    desc: "Siempre modo oscuro"  },
   { mode: "system", label: "Sistema", icon: <Monitor size={15} />, desc: "Según tu dispositivo" },
@@ -18,7 +18,7 @@ const OPTIONS: { mode: ThemeMode; label: string; icon: React.ReactNode; desc: st
 
 // ─── Variante DROPDOWN (para usar en Navbar) ─────────────────────────────────
 export const ThemeSelectorDropdown: React.FC = () => {
-  const { isDarkMode, themeMode, setThemeMode } = useTheme();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -30,7 +30,7 @@ export const ThemeSelectorDropdown: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const current = OPTIONS.find(o => o.mode === themeMode) ?? OPTIONS[1];
+  const current = OPTIONS.find(o => o.mode === isDarkMode) ?? OPTIONS[1];
 
   return (
     <div ref={ref} className="relative">
@@ -62,11 +62,11 @@ export const ThemeSelectorDropdown: React.FC = () => {
           {/* Options */}
           <div className="p-1.5 space-y-0.5">
             {OPTIONS.map(opt => {
-              const active = themeMode === opt.mode;
+              const active = isDarkMode === opt.mode;
               return (
                 <button
                   key={opt.mode}
-                  onClick={() => { setThemeMode(opt.mode); setOpen(false); }}
+                  onClick={() => { toggleTheme(); setOpen(false); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
                     active
                       ? isDarkMode
@@ -102,7 +102,7 @@ export const ThemeSelectorDropdown: React.FC = () => {
 
 // ─── Variante PILLS INLINE (para usar en Settings / Profile) ─────────────────
 export const ThemeSelectorPills: React.FC<{ label?: boolean }> = ({ label = true }) => {
-  const { isDarkMode, themeMode, setThemeMode } = useTheme();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   return (
     <div>
@@ -113,11 +113,11 @@ export const ThemeSelectorPills: React.FC<{ label?: boolean }> = ({ label = true
       )}
       <div className={`flex rounded-xl p-1 gap-1 w-fit ${isDarkMode ? "bg-slate-800" : "bg-gray-100"}`}>
         {OPTIONS.map(opt => {
-          const active = themeMode === opt.mode;
+          const active = isDarkMode === opt.mode;
           return (
             <button
               key={opt.mode}
-              onClick={() => setThemeMode(opt.mode)}
+              onClick={() => toggleTheme()}
               title={opt.desc}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
                 active

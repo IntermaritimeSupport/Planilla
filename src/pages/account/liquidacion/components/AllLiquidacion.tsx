@@ -16,7 +16,7 @@
 import React, { useState, useMemo } from "react"
 import useSWR from "swr"
 import {
-  Search, Calculator, User, Calendar, DollarSign,
+  Search, Calculator, User, Calendar,
   FileText, Download, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle2, Clock
 } from "lucide-react"
@@ -25,7 +25,6 @@ import { useTheme } from "../../../../context/themeContext"
 import { authFetcher } from "../../../../services/api"
 import { formatCurrency, getMonthlySalary } from "../../../../lib/payrollCalculation"
 import PagesHeader from "../../../../components/headers/pagesHeader"
-import { usePageName } from "../../../../hook/usePageName"
 import jsPDF from "jspdf"
 
 const API = import.meta.env.VITE_API_URL as string
@@ -286,7 +285,6 @@ function generarPDF(res: LiquidacionResult, companyName: string) {
 export const AllLiquidacion: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
-  const { pageName } = usePageName()
   const dark = isDarkMode
 
   const [search, setSearch] = useState("")

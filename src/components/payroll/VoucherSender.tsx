@@ -34,7 +34,7 @@ interface VoucherSenderProps {
 
 export const VoucherSender: React.FC<VoucherSenderProps> = ({
   payrollId,
-  employeeName = "",
+  // employeeName = "",
   employeeEmail,
   isDark = true,
   variant = "icon",

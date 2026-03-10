@@ -15,7 +15,7 @@ interface ProfilePageProps {
 // authFetcher from services/api (autenticado)
 export default function ProfilePage({ userId }: ProfilePageProps) {
   const { isDarkMode } = useTheme()
-  const { data, error, isLoading } = useSWR(`${VITE_API_URL}/api/users/profile/${userId}`, authFetcher)
+  const { data, error, isLoading } = useSWR<UsuarioFull>(`${VITE_API_URL}/api/users/profile/${userId}`, authFetcher)
   if (isLoading) {
     return (
         <Loader/>
@@ -32,7 +32,7 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
     );
   }
 
-  const userData: UsuarioFull = data;
+  const userData = data;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("es-ES", {
