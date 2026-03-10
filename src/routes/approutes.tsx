@@ -11,15 +11,12 @@ import { authRoles } from "../diccionary/constants";
 import routesConfig, { getUserRoles } from "./routesConfig";
 import useUserProfile from "../hook/userUserProfile";
 import NotFound from "../pages/public_pages/not_found";
-import DevicesPage from "../pages/account/devices/devices";
 import NextworkPage from "../pages/account/network/network";
 import UsersPage from "../pages/account/users/page";
 import ProfilePage from "../pages/account/profile/page";
 import { Company } from "../components/layouts/slideBar";
 import { useCompany } from "../context/routerContext";
 import CreateUserPage from "../pages/account/users/components/CreatePage";
-import AllDevices from "../pages/account/devices/components/AllDevices";
-import UpdateDevicesPage from "../pages/account/devices/components/updateDevicesPage";
 import AllNetwork from "../pages/account/network/components/AllNetwork";
 import UpdateNetworkPage from "../pages/account/network/components/updateNetwork";
 import { CompanySelector } from "../pages/account/companies/companies";
@@ -37,8 +34,6 @@ import SettingsPage from "../pages/account/settings/page";
 import AllSettingsPage from "../pages/account/settings/components/allSettingsPage";
 import DashboardPage from "../pages/account/dashboard/page";
 import AllDashboard from "../pages/account/dashboard/components/allDashboard";
-import InventoryPage from "../pages/account/inventory/page";
-import AllInventory from "../pages/account/inventory/components/allInventory";
 import UpdateExpensePage from "../pages/account/expense/components/updateExpense";
 import UpdateCompany from "../pages/account/settings/components/updateCompany";
 import { AllUsers } from "../pages/account/users/components/AllUsers";
@@ -185,80 +180,6 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       >
         <Route path="all" element={<AllDashboard />} />
-      </Route>
-
-      <Route
-        path={`/:${code}/inventory/*`}
-        element={
-          <ProtectedRoute
-            isLogged={isLogged}
-            auth={user}
-            allowedRoles={[
-              authRoles.user,
-              authRoles.admin,
-              authRoles.moderator,
-              authRoles.super_admin,
-            ]}
-          >
-            <EnvolveLayout
-              title="Inventory"
-              description="Inventory"
-              isLogged={isLogged}
-              profile={profile}
-              currentPathname={pathnameLocation}
-              publicRoute={false}
-              companies={companies}
-            >
-              <InventoryPage
-                subroutes={
-                  routesConfig.find((route) => route.name === "Inventory")
-                    ?.subroutes || []
-                }
-              />
-            </EnvolveLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="all" element={<AllInventory />} />
-        <Route path="create" element={<UpdateDevicesPage />} />
-        <Route path="edit/:id" element={<UpdateDevicesPage />} />
-      </Route>
-
-      <Route
-        path={`/:${code}/devices/*`}
-        element={
-          <ProtectedRoute
-            isLogged={isLogged}
-            auth={user}
-            allowedRoles={[
-              authRoles.user,
-              authRoles.admin,
-              authRoles.moderator,
-              authRoles.super_admin,
-            ]}
-          >
-            <EnvolveLayout
-              title="devices"
-              description="devices"
-              isLogged={isLogged}
-              profile={profile}
-              currentPathname={pathnameLocation}
-              publicRoute={false}
-              companies={companies}
-            >
-              <DevicesPage
-                subroutes={
-                  routesConfig.find((route) => route.name === "devices")
-                    ?.subroutes || []
-                }
-              />
-            </EnvolveLayout>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="all" element={<AllDevices />} />
-        <Route path="create" element={<UpdateDevicesPage />} />
-        <Route path="edit/:id" element={<UpdateDevicesPage />} />
       </Route>
 
       <Route
