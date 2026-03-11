@@ -75,9 +75,9 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
     ? profile.username.slice(0, 2).toUpperCase()
     : "U";
 
-  const roleLabel = profile?.roles
-    ? profile.roles.split(',')[0].trim().toUpperCase().replace('_', ' ')
-    : 'USER';
+  // const roleLabel = profile?.roles
+  //   ? profile.roles.split(',')[0].trim().toUpperCase().replace('_', ' ')
+  //   : 'USER';
 
   return (
     <div

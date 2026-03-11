@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getMainRoutesForRole, getUserRoles } from "../../routes/routesConfig";
 import { UserProfile } from "../../context/userProfileContext";
 import Images from "../../assets";
-import { Bell, Info, Menu, MessageCircle, Moon, Sun, TriangleAlert, X } from "lucide-react";
+import { AlertCircle, Bell, Info, Menu, MessageCircle, Moon, Sun, X } from "lucide-react";
 import useUser from "../../hook/useUser";
 import CompanySelectorComponent from "../selector/CompanySelectorComponent";
 import { useCompany } from "../../context/routerContext";
@@ -218,7 +218,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ profile }) => {
                           error: isDarkMode ? "text-red-400" : "text-red-600",
                         }[n.type];
                         const TypeIcon = n.type === "warning" || n.type === "error"
-                          ? TriangleAlert
+                          ? AlertCircle
                           : Info;
                         return (
                           <li
