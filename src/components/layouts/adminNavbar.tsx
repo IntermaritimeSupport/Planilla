@@ -1,452 +1,466 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getMainRoutesForRole, getUserRoles } from "../../routes/routesConfig";
 import { UserProfile } from "../../context/userProfileContext";
 import Images from "../../assets";
-import { LogOut, Menu, X, Search, Bell, Sun, Moon } from "lucide-react";
+import { Bell, Info, Menu, MessageCircle, Moon, Sun, TriangleAlert, X } from "lucide-react";
 import useUser from "../../hook/useUser";
 import CompanySelectorComponent from "../selector/CompanySelectorComponent";
 import { useCompany } from "../../context/routerContext";
 import SearchInput from "../selector/SearchInput";
 import { useSearch } from "../../context/searchContext";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/themeContext";
-
-interface CurrentPathname {
-  name: string;
-}
+import LanguageSwitcher from "../selector/LanguageSwitcher";
+import { useNotifications } from "../../context/notificationContext";
 
 interface AdminNavbarProps {
-  currentPathname?: CurrentPathname;
+  currentPathname?: { name: string };
   isLogged: boolean;
   profile: UserProfile | null;
 }
 
-const AdminNavbar: React.FC<AdminNavbarProps> = ({
-  profile,
-}) => {
+const AdminNavbar: React.FC<AdminNavbarProps> = ({ profile }) => {
   const { logout } = useUser();
   const { selectedCompany } = useCompany();
-  const { isDarkMode, toggleTheme } = useTheme(); // Usar el contexto
+  const { isDarkMode, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const { notifications, removeNotification } = useNotifications();
+  const navigate = useNavigate();
   const userRoles = profile?.roles ? getUserRoles(profile) : ["user"];
-  const { setSearch } = useSearch()
-  const location = useLocation()
+  const { setSearch } = useSearch();
+  const location = useLocation();
   const AppName = import.meta.env.VITE_APP_NAME || "Planilla";
-  
-  useEffect(() => {
-    setSearch("")
-  }, [location.pathname])
-  
-  const filteredNavLinks: { href: string; name: string; icon?: React.ReactNode }[] =
-    userRoles.flatMap((role: string) =>
-      getMainRoutesForRole(
-        role as "user" | "super_admin" | "admin" | "moderator"
-      ).map((route: any) => ({
-        href: typeof route === "string" ? route : route.href,
-        name: typeof route === "string" ? route : route.name,
-        icon: typeof route === "string"
-          ? undefined
-          : route.icon
-            ? <route.icon />
-            : undefined,
-      }))
-    ) || [];
+
+  const roleLabel = profile?.roles
+    ? profile.roles.split(",")[0].trim().toUpperCase().replace("_", " ")
+    : "USER";
+
+  const initials = profile?.username
+    ? profile.username.slice(0, 2).toUpperCase()
+    : "U";
 
   useEffect(() => {
-    const navbar = document.getElementById("navbar");
+    setSearch("");
+  }, [location.pathname]);
 
-    const handleScroll = () => {
-      if (window.scrollY > 0) {
-        navbar?.classList.add("scrolled");
-      } else {
-        navbar?.classList.remove("scrolled");
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
       }
     };
-    window.addEventListener("scroll", handleScroll);
-
-    const openButton = document?.getElementById("open-menu");
-    const side = document?.getElementById("sidebar");
-    const hiddenrelative = document?.getElementById("hidden-relative");
-
-    if (!openButton) return;
-    const openMenu = () => {
-      document.body.classList.add("overflow-hidden");
-      side?.classList.remove("invisible", "translate-x-full", "hidden");
-      hiddenrelative?.classList.remove("relative");
-    };
-    openButton.addEventListener("click", openMenu);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      openButton.removeEventListener("click", openMenu);
-    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsMenuOpen(false);
-      }
+    document.body.style.overflow = isMenuOpen ? "hidden" : "";
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMenuOpen(false);
     };
     document.addEventListener("keydown", handleEscape);
-
     return () => {
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isMenuOpen]);
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  const closeMenu = () => {
-    setIsMenuOpen(false);
-  };
+  const allLinks = userRoles.flatMap((role: string) =>
+    getMainRoutesForRole(
+      role as "user" | "super_admin" | "admin" | "moderator"
+    ).map((route: any) => ({
+      href: route.href,
+      name: route.name,
+      icon: route.icon,
+    }))
+  );
+  const seen = new Set<string>();
+  const mobileLinks = allLinks.filter(({ href }) => {
+    if (seen.has(href)) return false;
+    seen.add(href);
+    return true;
+  });
 
   return (
     <nav
       id="navbar"
-      className={`w-full z-20 top-0 transition-all duration-300 ${
+      className={`w-full z-20 transition-all duration-300 ${
         isDarkMode
-          ? "bg-slate-900 border-b border-slate-800"
+          ? "bg-slate-900 border-b border-slate-800/60"
           : "bg-white border-b border-gray-200"
       }`}
     >
-      <div className="w-full px-6 md:px-6 lg:px-8 py-3 md:py-0">
-        {/* Desktop Layout */}
-        <div className="hidden md:flex justify-between items-center h-16">
-          {/* Left Section */}
-          <div className="flex items-center gap-4 lg:gap-8">
+      <div className="w-full px-4 md:px-6">
+        {/* Desktop */}
+        <div className="hidden md:flex items-center h-14 gap-4">
+          {/* Left: Logo + App name + Company badge */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div className="flex items-center gap-2">
               <img
                 src={Images?.logo || "#"}
                 alt="logo"
-                width={40}
-                height={40}
-                className="w-10 h-10 bg-cover object-contain"
+                className="w-7 h-7 object-contain"
               />
               <span
-                className={`text-lg font-bold tracking-wider ${
+                className={`text-sm font-bold tracking-wide ${
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
                 {AppName}
               </span>
             </div>
+            {selectedCompany && selectedCompany.id !== "na" && (
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                  isDarkMode
+                    ? "bg-teal-500/10 border-teal-500/30 text-teal-400"
+                    : "bg-teal-50 border-teal-200 text-teal-700"
+                }`}
+              >
+                {selectedCompany.name}
+              </span>
+            )}
           </div>
 
-          {/* Right Section */}
-          <div className="flex items-center gap-4 lg:gap-6">
-            {/* Search Bar */}
-            <SearchInput/>
+          {/* Center: Search */}
+          <div className="flex-1 flex justify-center">
+            <SearchInput />
+          </div>
 
-            {/* Company Selector */}
-            <div className="flex items-center gap-2 w-56">
+          {/* Right */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="w-44">
               <CompanySelectorComponent isDarkMode={isDarkMode} />
             </div>
 
-            {/* Notifications */}
-            <button
-              className={`relative p-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? "text-slate-400 hover:text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <LanguageSwitcher />
 
-            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-lg transition-colors duration-300 ${
+              className={`p-2 rounded-lg transition-colors ${
                 isDarkMode
-                  ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
               aria-label="Toggle theme"
             >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
+            {/* Notifications */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotifications((v) => !v)}
+                className={`relative p-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Bell size={16} />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white">
+                    {notifications.length > 9 ? "9+" : notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div
+                  className={`absolute right-0 top-full mt-2 w-80 rounded-xl shadow-xl border z-50 ${
+                    isDarkMode
+                      ? "bg-slate-900 border-slate-700"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <div
+                    className={`flex items-center justify-between px-4 py-3 border-b ${
+                      isDarkMode ? "border-slate-700" : "border-gray-100"
+                    }`}
+                  >
+                    <span
+                      className={`text-sm font-semibold ${
+                        isDarkMode ? "text-slate-100" : "text-gray-800"
+                      }`}
+                    >
+                      Notificaciones
+                    </span>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded-full ${
+                        notifications.length > 0
+                          ? "bg-red-500 text-white"
+                          : isDarkMode
+                          ? "bg-slate-700 text-slate-400"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {notifications.length}
+                    </span>
+                  </div>
+
+                  {notifications.length === 0 ? (
+                    <div
+                      className={`px-4 py-8 text-center text-sm ${
+                        isDarkMode ? "text-slate-500" : "text-gray-400"
+                      }`}
+                    >
+                      Sin notificaciones pendientes
+                    </div>
+                  ) : (
+                    <ul className="max-h-80 overflow-y-auto divide-y divide-inherit">
+                      {notifications.map((n) => {
+                        const typeStyles = {
+                          info: isDarkMode ? "text-blue-400" : "text-blue-600",
+                          warning: isDarkMode ? "text-amber-400" : "text-amber-600",
+                          success: isDarkMode ? "text-emerald-400" : "text-emerald-600",
+                          error: isDarkMode ? "text-red-400" : "text-red-600",
+                        }[n.type];
+                        const TypeIcon = n.type === "warning" || n.type === "error"
+                          ? TriangleAlert
+                          : Info;
+                        return (
+                          <li
+                            key={n.id}
+                            className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors ${
+                              isDarkMode ? "hover:bg-slate-800/60 border-slate-800" : "hover:bg-gray-50 border-gray-100"
+                            }`}
+                            onClick={() => {
+                              if (n.href) navigate(n.href);
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <TypeIcon size={15} className={`mt-0.5 flex-shrink-0 ${typeStyles}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-semibold truncate ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>
+                                {n.title}
+                              </p>
+                              <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-slate-500" : "text-gray-500"}`}>
+                                {n.message}
+                              </p>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }}
+                              className={`flex-shrink-0 p-0.5 rounded ${isDarkMode ? "hover:bg-slate-700 text-slate-500" : "hover:bg-gray-200 text-gray-400"}`}
+                            >
+                              <X size={12} />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode
+                  ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <MessageCircle size={16} />
+            </button>
+
+            {/* User pill */}
+            <Link
+              to={`/${selectedCompany?.code || "account"}/profile/1`}
+              className={`flex items-center gap-2 pl-2 pr-3 py-1 rounded-full transition-colors ${
+                isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-100"
+              }`}
+            >
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                  isDarkMode
+                    ? "bg-teal-500/20 text-teal-400"
+                    : "bg-teal-100 text-teal-700"
+                }`}
+              >
+                {initials}
+              </div>
+              <div className="hidden lg:block text-left">
+                <p
+                  className={`text-xs font-semibold leading-none ${
+                    isDarkMode ? "text-slate-200" : "text-gray-800"
+                  }`}
+                >
+                  {profile?.username || "Usuario"}
+                </p>
+                <p
+                  className={`text-[10px] leading-none mt-0.5 ${
+                    isDarkMode ? "text-slate-500" : "text-gray-400"
+                  }`}
+                >
+                  {roleLabel}
+                </p>
+              </div>
+            </Link>
           </div>
         </div>
 
-        {/* Mobile Layout */}
-        <div className="md:hidden flex justify-between items-center h-14">
-          {/* Left - Logo */}
+        {/* Mobile */}
+        <div className="md:hidden flex justify-between items-center h-12">
           <div className="flex items-center gap-2">
             <img
               src={Images?.logo || "#"}
               alt="logo"
-              width={36}
-              height={36}
-              className="w-9 h-9 bg-cover object-contain"
+              className="w-7 h-7 object-contain"
             />
             <span
-              className={`text-base font-bold truncate ${
+              className={`text-sm font-bold ${
                 isDarkMode ? "text-white" : "text-gray-900"
               }`}
             >
               {AppName}
             </span>
           </div>
-
-          {/* Right - Icons */}
-          <div className="flex items-center gap-2">
-            {/* Search Icon */}
-            <button
-              className={`p-2 transition-colors ${
-                isDarkMode
-                  ? "text-slate-400 hover:text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            {/* Notifications */}
-            <button
-              className={`relative p-2 transition-colors ${
-                isDarkMode
-                  ? "text-slate-400 hover:text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {/* Theme Toggle */}
+          <div className="flex items-center gap-1">
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-2 rounded-lg ${
                 isDarkMode
                   ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-500 hover:bg-gray-100"
               }`}
-              aria-label="Toggle theme"
             >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-
-            {/* Menu Button */}
             <button
-              id="open-menu"
-              onClick={toggleMenu}
-              className={`inline-flex items-center justify-center p-2 rounded-md transition-colors ${
+              onClick={() => setIsMenuOpen(true)}
+              className={`p-2 rounded-lg ${
                 isDarkMode
                   ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  : "text-gray-500 hover:bg-gray-100"
               }`}
-              aria-expanded={isMenuOpen ? "true" : "false"}
             >
-              <span className="sr-only">
-                {isMenuOpen ? "Cerrar menú principal" : "Abrir menú principal"}
-              </span>
-              {isMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              <Menu size={18} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Overlay */}
-      <div
-        className={`fixed inset-0 h-screen z-40 transition-opacity duration-300 ${
-          isMenuOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        } ${isDarkMode ? "bg-black/50" : "bg-black/30"}`}
-        onClick={closeMenu}
-        aria-hidden={!isMenuOpen}
-      ></div>
+      {/* Mobile overlay */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile drawer */}
       <div
-        className={`fixed top-0 right-0 h-screen w-full sm:w-80 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-screen w-72 z-50 shadow-2xl transform transition-transform duration-300 ease-in-out ${
           isMenuOpen ? "translate-x-0" : "translate-x-full"
         } ${isDarkMode ? "bg-slate-900" : "bg-white"}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Menú principal"
       >
-        {/* Mobile Menu Header */}
         <div
-          className={`flex justify-between items-center p-4 h-16 ${
-            isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
+          className={`flex items-center justify-between px-4 h-12 border-b ${
+            isDarkMode ? "border-slate-800" : "border-gray-200"
           }`}
         >
-          <div className="flex items-center gap-2">
-            <img
-              src={Images?.logo || "#"}
-              alt="logo"
-              width={40}
-              height={40}
-              className="w-10 h-10"
-            />
-            <span
-              className={`font-bold tracking-wider ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              {AppName}
-            </span>
-          </div>
-          <button
-            onClick={closeMenu}
-            className={`p-2 rounded-md transition-colors ${
-              isDarkMode
-                ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          <span
+            className={`text-sm font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
             }`}
-            aria-label="Cerrar menú"
           >
-            <X className="w-6 h-6" />
+            Menú
+          </span>
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className={`p-1.5 rounded-lg ${
+              isDarkMode ? "text-slate-400 hover:text-white" : "text-gray-500"
+            }`}
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {/* Mobile Menu Content */}
-        <div className="flex flex-col h-[calc(100vh-4rem)] overflow-y-auto">
-          {/* Company Selector Mobile */}
+        <div className="flex flex-col h-[calc(100%-3rem)] overflow-y-auto">
           <div
-            className={`p-4 ${
-              isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
+            className={`p-4 border-b ${
+              isDarkMode ? "border-slate-800" : "border-gray-100"
             }`}
           >
             <CompanySelectorComponent isDarkMode={isDarkMode} />
           </div>
 
-          {/* Search Bar Mobile */}
-          <div
-            className={`p-4 ${
-              isDarkMode ? "border-b border-slate-800" : "border-b border-gray-200"
-            }`}
-          >
-            <div
-              className={`flex items-center rounded-full px-4 py-2 ${
-                isDarkMode
-                  ? "bg-slate-800 border border-slate-700"
-                  : "bg-gray-100 border border-gray-200"
-              }`}
-            >
-              <Search
-                className={`w-4 h-4 ${
-                  isDarkMode ? "text-slate-400" : "text-gray-400"
-                }`}
-              />
-              <input
-                type="text"
-                placeholder="Search"
-                className={`bg-transparent ml-2 outline-none text-sm w-full ${
-                  isDarkMode
-                    ? "text-white placeholder-slate-400"
-                    : "text-gray-700 placeholder-gray-500"
-                }`}
-              />
-            </div>
-          </div>
-
-          {/* Mobile Nav Links */}
-          <div className="px-2 py-3 space-y-1">
-            {filteredNavLinks.length > 0 ? (
-              filteredNavLinks.map((link, index) => (
+          <div className="px-2 py-3 space-y-0.5 flex-1">
+            {mobileLinks.map((link, index) => {
+              const IconComp = link.icon;
+              return (
                 <a
                   key={index}
-                  href={`/${selectedCompany?.code || 'code'}${link?.href}`}
-                  onClick={closeMenu}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                  href={`/${selectedCompany?.code || "account"}${link.href}`}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                     isDarkMode
-                      ? "text-slate-300 hover:bg-slate-800"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  {link.icon && (
-                    <span className={isDarkMode ? "text-slate-400" : "text-gray-600"}>
-                      {link.icon}
+                  {IconComp && (
+                    <span
+                      className={
+                        isDarkMode ? "text-slate-500" : "text-gray-400"
+                      }
+                    >
+                      <IconComp size={16} />
                     </span>
                   )}
-                  <span className="text-sm font-medium">{link.name}</span>
+                  <span>{link.name}</span>
                 </a>
-              ))
-            ) : (
-              <span
-                className={`text-sm px-4 py-2 ${
-                  isDarkMode ? "text-slate-400" : "text-gray-500"
-                }`}
-              >
-                No tienes acceso a ninguna ruta
-              </span>
-            )}
+              );
+            })}
           </div>
 
-          {/* Divider */}
-          <hr
-            className={`my-2 ${isDarkMode ? "border-slate-800" : "border-gray-200"}`}
-          />
-
-          {/* Mobile Profile Section */}
-          <div className="px-2 py-3 space-y-2 flex-1">
-            <div className="flex items-center gap-3 px-2 py-2">
-              <img
-                src={Images?.logo || "#"}
-                alt="profile"
-                width={32}
-                height={32}
-                className="w-8 h-8 rounded-full bg-gray-200 object-cover"
-              />
+          <div
+            className={`border-t ${
+              isDarkMode ? "border-slate-800" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                  isDarkMode
+                    ? "bg-teal-500/20 text-teal-400"
+                    : "bg-teal-100 text-teal-700"
+                }`}
+              >
+                {initials}
+              </div>
               <div>
                 <p
-                  className={`text-sm font-medium ${
-                    isDarkMode ? "text-white" : "text-gray-900"
+                  className={`text-sm font-semibold ${
+                    isDarkMode ? "text-slate-100" : "text-gray-800"
                   }`}
                 >
-                  {profile?.username || "user"}
+                  {profile?.username || "Usuario"}
                 </p>
                 <p
                   className={`text-xs ${
-                    isDarkMode ? "text-slate-400" : "text-gray-500"
+                    isDarkMode ? "text-slate-500" : "text-gray-400"
                   }`}
                 >
-                  {profile?.roles || "user"}
+                  {roleLabel}
                 </p>
               </div>
             </div>
-
-            <div className="px-2 pt-2 space-y-2 mt-4">
-              <button
-                onClick={() => {
-                  logout();
-                  closeMenu();
-                }}
-                className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors duration-300 ${
-                  isDarkMode
-                    ? "text-red-400 hover:bg-red-900/30"
-                    : "text-red-600 hover:bg-red-50"
-                }`}
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="text-sm font-medium">Cerrar sesión</span>
-              </button>
-
-            </div>
+            <button
+              onClick={() => {
+                logout();
+                setIsMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-sm border-t transition-colors ${
+                isDarkMode
+                  ? "border-slate-800 text-red-400 hover:bg-red-950/30"
+                  : "border-gray-100 text-red-500 hover:bg-red-50"
+              }`}
+            >
+              <span>Cerrar sesión</span>
+            </button>
           </div>
         </div>
       </div>

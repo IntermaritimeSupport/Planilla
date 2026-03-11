@@ -6,6 +6,8 @@ import { Toaster } from "sonner"
 import SlideBar, { Company } from "./slideBar";
 import AdminNavbar from "./adminNavbar";
 import { useTheme } from "../../context/themeContext";
+import ChatWidget from "../chat/ChatWidget";
+import { NotificationProvider } from "../../context/notificationContext";
 
 const SlideBarComponent: any = SlideBar;
 
@@ -52,6 +54,7 @@ const EnvolveLayout: React.FC<childLayoutProps> = ({
             {children}
           </div>
         ) : (
+          <NotificationProvider>
           <div className={`flex flex-col h-screen overflow-hidden transition-colors duration-300 ${
             isDarkMode 
               ? "bg-slate-900 text-white" 
@@ -84,7 +87,10 @@ const EnvolveLayout: React.FC<childLayoutProps> = ({
                 {children}
               </div>
             </div>
+            {/* AI Chat widget */}
+            <ChatWidget />
           </div>
+          </NotificationProvider>
         )}
       </main>
     </>

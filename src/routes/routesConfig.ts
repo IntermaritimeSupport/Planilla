@@ -2,212 +2,144 @@
 // import { TicketIcon } from "lucide-react";
 import { Banknote, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale, UserMinus } from "lucide-react";
 import { DashboardIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
-// import { DashboardIcon, DevicesIcon, InventoryIcon, MaintenanceIcon, NetworkIcon, ReportsIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
 import { authRoles } from "../diccionary/constants";
 
+export type RouteGroup = 'PRINCIPAL' | 'NÓMINA' | 'REPORTES' | 'CONFIGURACIÓN';
+
 const routesConfig = [
   {
-    disable:false,
+    disable: false,
     icon: DashboardIcon,
     name: "Dashboard",
     href: "/dashboard/all",
+    group: 'PRINCIPAL' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator, authRoles.user],
     subroutes: [
       { name: "Dashboard", href: "/dashboard/all" },
     ]
   },
-  // {
-  //   disable:false,
-  //   icon: InventoryIcon,
-  //   name: "Inventory",
-  //   href: "/inventory/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "View Certificates", href: "/inventory/view" },
-  //   ]
-  // },
-
-  // {
-  //   disable:false,
-  //   icon: DevicesIcon,
-  //   name: "Devices",
-  //   href: "/devices/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "All devices", href: "/devices/all" },
-  //   ]
-  // },
-  // {
-  //   disable:false,
-  //   icon: MaintenanceIcon,
-  //   name: "Maintenance",
-  //   href: "/maintenance/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "All maintenance", href: "/maintenance/all" },
-  //     { name: "Create maintenance", href: "/maintenance/create" },
-  //     { name: "Edit maintenance", href: "/maintenance/edit" },
-  //   ]
-  // },
-  // {
-  //   disable:false,
-  //   icon: NetworkIcon,
-  //   name: "Network",
-  //   href: "/network/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "All Clients", href: "/network/all" },
-  //   ]
-  // },
   {
-    disable:false,
+    disable: false,
     icon: UsersIcon,
     name: "Users",
     href: "/users/all",
-    roles: [authRoles.super_admin, authRoles.admin, ],
+    group: 'PRINCIPAL' as RouteGroup,
+    roles: [authRoles.super_admin, authRoles.admin],
     subroutes: [
       { name: "Create User", href: "/users/create" },
       { name: "Edit User", href: "/users/edit" },
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: LucideBookUser,
     name: "Employees",
     href: "/employees/all",
+    group: 'PRINCIPAL' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Create Employee", href: "/employees/create" },
       { name: "Edit Employee", href: "/employees/edit" },
     ]
   },
-  // {
-  //   disable:false,
-  //   icon: ReportsIcon,
-  //   name: "Reports",
-  //   href: "/reports/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "Sales Reports", href: "/reports/all" },
-  //   ]
-  // },
-  // {
-  //   disable:false,
-  //   icon: TicketIcon,
-  //   name: "Tickets",
-  //   href: "/tickets/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "Tickets", href: "/tickets/all" },
-  //   ]
-  // },
-  // {
-  //   disable:false,
-  //   icon: FaMoneyBill,
-  //   name: "Expenses",
-  //   href: "/expenses/all",
-  //   roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
-  //   subroutes: [
-  //     { name: "Expenses", href: "/expenses/all" },
-  //     { name: "Expense Detail", href: "/expenses/edit" },
-  //   ]
-  // },
-    {
-    disable:false,
+  {
+    disable: false,
     icon: ReceiptText,
     name: "Payrolls",
     href: "/payrolls/all",
+    group: 'PRINCIPAL' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Payrolls", href: "/payrolls/all" },
-
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: Banknote,
     name: "Sipe",
     href: "/sipe/all",
+    group: 'NÓMINA' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Sipe", href: "/sipe/all" },
-
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: PercentCircle,
     name: "ISR",
     href: "/isr/all",
+    group: 'NÓMINA' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "ISR", href: "/isr/all" },
-
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: HandCoins,
     name: "Decimo",
     href: "/decimo/all",
+    group: 'NÓMINA' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Decimo", href: "/decimo/all" },
-
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: Palmtree,
     name: "Vacaciones",
     href: "/vacaciones/all",
+    group: 'NÓMINA' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Vacaciones", href: "/vacaciones/all" },
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: UserMinus,
     name: "Liquidaciones",
     href: "/liquidaciones/all",
+    group: 'NÓMINA' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Liquidaciones", href: "/liquidaciones/all" },
     ]
   },
   {
-    disable:false,
+    disable: false,
     icon: Scale,
     name: "Legal",
     href: "/legal/all",
+    group: 'REPORTES' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Legal", href: "/legal/all" },
-
     ]
   },
-    {
-    disable:false,
+  {
+    disable: false,
     icon: Scale,
     name: "LegalDecimo",
     href: "/legaldecimo/all",
+    group: 'REPORTES' as RouteGroup,
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
-      { name: "Legal", href: "/legaldecimo/all" },
-
+      { name: "LegalDecimo", href: "/legaldecimo/all" },
     ]
   },
-    {
-    disable:false,
+  {
+    disable: false,
     icon: SettingsIcon,
     name: "Settings",
     href: "/settings/all",
-    roles: [authRoles.super_admin, authRoles.admin,],
+    group: 'CONFIGURACIÓN' as RouteGroup,
+    roles: [authRoles.super_admin, authRoles.admin],
     subroutes: [
       { name: "My Settings", href: "/settings/all" },
-
     ]
   },
 ];
@@ -258,9 +190,8 @@ export const getUserRoles = (profile: UserProfile) => {
 
   const validRoles = ["super_admin", "admin", "moderator", "user"];
 
-  // profile.roles es un string, convertir a minúsculas y dividir si contiene múltiples roles
   const rolesArray = profile.roles
-    .split(',') // Por si hay múltiples roles separados por comas
+    .split(',')
     .map((role) => role.trim().toLowerCase())
     .filter((role) => validRoles.includes(role));
 

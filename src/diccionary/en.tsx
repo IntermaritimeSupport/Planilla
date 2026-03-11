@@ -1,6 +1,39 @@
-// src/locales/es.ts
+// src/locales/en.ts
 const en = {
   translation: {
+    // ─── FlowPlanilla nav ────────────────────────────────────
+    "Dashboard": "Dashboard",
+    "Users": "Users",
+    "Employees": "Employees",
+    "Payrolls": "Payrolls",
+    "Sipe": "SIPE",
+    "ISR": "ISR",
+    "Decimo": "Thirteenth Month",
+    "Vacaciones": "Vacations",
+    "Liquidaciones": "Settlements",
+    "Legal": "Legal",
+    "LegalDecimo": "Legal 13th",
+    "Settings": "Settings",
+    // Groups
+    "PRINCIPAL": "MAIN",
+    "NÓMINA": "PAYROLL",
+    "REPORTES": "REPORTS",
+    "CONFIGURACIÓN": "SETTINGS",
+    // Common
+    "logout": "Logout",
+    "profile": "View profile",
+    "search": "Search",
+    "notifications": "Notifications",
+    "no_notifications": "No pending notifications",
+    "menu": "Menu",
+    "change_language": "Language",
+    // Chat
+    "chat_title": "FlowPlanilla Assistant",
+    "chat_placeholder": "Type your question...",
+    "chat_welcome": "Hi, I am your FlowPlanilla assistant. How can I help you?",
+    "chat_send": "Send",
+    "chat_thinking": "Thinking...",
+    // ─── Legacy (maritime) ────────────────────────────────────
     "Help Us Help You": "Ayúdanos a Ayudarte",
     "What information do you need?": "¿Qué información necesitas?",
     "Courses": "Cursos",

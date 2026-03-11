@@ -2,12 +2,12 @@
 
 import { UserProfile } from "../../context/userProfileContext";
 import useUser from "../../hook/useUser";
-import { getMainRoutesForRole, getUserRoles } from "../../routes/routesConfig";
-import { LogOut } from "lucide-react";
-import { InventoryIcon } from "../icons/icons";
+import { getMainRoutesForRole, getUserRoles, RouteGroup } from "../../routes/routesConfig";
+import { ChevronRight, LogOut, UserCircle } from "lucide-react";
 import { useCompany } from "../../context/routerContext";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../context/themeContext";
+import { useTranslation } from "react-i18next";
 
 export interface Company {
   id: string;
@@ -29,171 +29,197 @@ export interface Company {
   };
 }
 
-type Subroutes = {
-  name: string;
-  href: string;
-};
-
 type DashboardProps = {
-  subroutes?: Subroutes[];
+  subroutes?: { name: string; href: string }[];
   isLogged: boolean;
   profile: UserProfile | null;
   companies?: Company[];
 };
 
-const SlideBar: React.FC<DashboardProps> = ({
-  profile,
-}) => {
+const GROUP_ORDER: RouteGroup[] = ['PRINCIPAL', 'NÓMINA', 'REPORTES', 'CONFIGURACIÓN'];
+
+const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   const { logout } = useUser();
   const { selectedCompany } = useCompany();
-  const { isDarkMode } = useTheme(); // Usar el contexto
+  const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const location = useLocation();
+
   const currentPathSegments = location.pathname.split("/").filter(Boolean);
   const baseRoute = currentPathSegments.length > 1 ? currentPathSegments[1] : "";
+
   const userRoles = profile?.roles ? getUserRoles(profile) : ["user"];
-  const filteredNavLinks =
-    userRoles.flatMap((role) =>
-      getMainRoutesForRole(
-        role as "user" | "super_admin" | "admin" | "moderator"
-      ).map((route) => ({
-        href: typeof route === "string" ? route : route.href,
-        name: typeof route === "string" ? route : route.name,
-        icon:
-          typeof route === "string"
-            ? undefined
-            : route.icon
-            ? <route.icon />
-            : undefined,
-      }))
-    ) || [];
+  const allLinks = userRoles.flatMap((role) =>
+    getMainRoutesForRole(role as "user" | "super_admin" | "admin" | "moderator")
+  );
+
+  // Deduplicate by href
+  const seen = new Set<string>();
+  const filteredNavLinks = allLinks.filter((route) => {
+    if (seen.has(route.href)) return false;
+    seen.add(route.href);
+    return true;
+  });
+
+  // Group routes
+  const groupedLinks = GROUP_ORDER.reduce<Record<string, typeof filteredNavLinks>>(
+    (acc, group) => {
+      const items = filteredNavLinks.filter((r) => (r as any).group === group);
+      if (items.length > 0) acc[group] = items;
+      return acc;
+    },
+    {}
+  );
+
+  const initials = profile?.username
+    ? profile.username.slice(0, 2).toUpperCase()
+    : "U";
+
+  const roleLabel = profile?.roles
+    ? profile.roles.split(',')[0].trim().toUpperCase().replace('_', ' ')
+    : 'USER';
 
   return (
     <div
       className={`h-full w-56 border-r flex flex-col transition-colors duration-300 ${
         isDarkMode
-          ? "bg-slate-950 border-slate-800"
+          ? "bg-slate-950 border-slate-800/60"
           : "bg-white border-gray-200"
       }`}
     >
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4">
-        <ul className="space-y-1">
-          {filteredNavLinks?.length > 0 ? (
-            filteredNavLinks?.map((link, index) => {
-              const linkBase = link.href.split("/").filter(Boolean)[0] || "";
-              const isActive = baseRoute === linkBase;
-
-              return (
-                <li key={index}>
-                  <Link
-                    to={`/${selectedCompany?.code || 'code'}${link?.href}`}
-                    className={`flex items-center space-x-3 px-4 py-2.5 rounded-sm transition-all duration-300 group ${
-                      isActive
-                        ? isDarkMode
-                          ? "bg-blue-600/50 text-white shadow-lg shadow-blue-600/20"
-                          : "bg-blue-500/50 text-white shadow-lg shadow-blue-500/20"
-                        : isDarkMode
-                        ? "text-slate-300 hover:bg-slate-800 hover:text-white"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    }`}
-                  >
-                    <span
-                      className={`flex-shrink-0 ${
-                        isActive
-                          ? "text-white"
-                          : isDarkMode
-                          ? "text-slate-400 group-hover:text-slate-300"
-                          : "text-gray-500 group-hover:text-gray-600"
-                      }`}
-                    >
-                      {link?.icon || <InventoryIcon />}
-                    </span>
-                    <span className="text-sm font-medium">{link?.name}</span>
-                  </Link>
-                </li>
-              );
-            })
-          ) : (
-            <span
-              className={`text-sm ${
-                isDarkMode ? "text-slate-500" : "text-gray-500"
+      <nav className="flex-1 overflow-y-auto py-4 px-2">
+        {Object.entries(groupedLinks).map(([group, links]) => (
+          <div key={group} className="mb-4">
+            {/* Section label */}
+            <p
+              className={`px-3 mb-1 text-[10px] font-semibold tracking-widest uppercase ${
+                isDarkMode ? "text-slate-500" : "text-gray-400"
               }`}
             >
-              No tienes acceso a ninguna ruta
-            </span>
-          )}
-        </ul>
+              {t(group)}
+            </p>
+
+            <ul className="space-y-0.5">
+              {links.map((link, index) => {
+                const linkBase = link.href.split("/").filter(Boolean)[0] || "";
+                const isActive = baseRoute === linkBase;
+                const IconComp = (link as any).icon;
+
+                return (
+                  <li key={index}>
+                    <Link
+                      to={`/${selectedCompany?.code || "account"}${link.href}`}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 group relative ${
+                        isActive
+                          ? isDarkMode
+                            ? "bg-teal-500/10 text-teal-400"
+                            : "bg-teal-50 text-teal-700"
+                          : isDarkMode
+                          ? "text-slate-400 hover:bg-slate-800/70 hover:text-slate-100"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      }`}
+                    >
+                      {/* Active left bar */}
+                      {isActive && (
+                        <span
+                          className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full ${
+                            isDarkMode ? "bg-teal-400" : "bg-teal-600"
+                          }`}
+                        />
+                      )}
+
+                      {/* Icon */}
+                      {IconComp && (
+                        <span
+                          className={`flex-shrink-0 w-4 h-4 ${
+                            isActive
+                              ? isDarkMode ? "text-teal-400" : "text-teal-600"
+                              : isDarkMode
+                              ? "text-slate-500 group-hover:text-slate-300"
+                              : "text-gray-400 group-hover:text-gray-600"
+                          }`}
+                        >
+                          <IconComp size={16} />
+                        </span>
+                      )}
+
+                      <span className="flex-1 truncate">{t(link.name)}</span>
+
+                      {isActive && (
+                        <ChevronRight
+                          size={14}
+                          className={isDarkMode ? "text-teal-400/60" : "text-teal-500/60"}
+                        />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      {/* Footer Section */}
+      {/* Footer */}
       <div
-        className={`p-4 border-t ${
-          isDarkMode ? "border-slate-800" : "border-gray-200"
-        } flex flex-col space-y-2 flex-shrink-0`}
+        className={`border-t flex-shrink-0 ${
+          isDarkMode ? "border-slate-800/60" : "border-gray-200"
+        }`}
       >
-        {/* Profile Link */}
+        {/* User info */}
         <Link
-          to={`/${selectedCompany?.code || 'code'}/profile/1`}
-          className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-300 group ${
-            baseRoute === "profile"
-              ? isDarkMode
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                : "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-              : isDarkMode
-              ? "text-slate-300 hover:bg-slate-800 hover:text-white"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          to={`/${selectedCompany?.code || "account"}/profile/1`}
+          className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 group ${
+            isDarkMode
+              ? "hover:bg-slate-800/50"
+              : "hover:bg-gray-50"
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${
-              baseRoute === "profile"
-                ? "bg-blue-700 text-white"
-                : isDarkMode
-                ? "bg-slate-700 text-slate-200 group-hover:bg-slate-600"
-                : "bg-gray-200 text-gray-600 group-hover:bg-gray-300"
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+              isDarkMode
+                ? "bg-teal-500/20 text-teal-400"
+                : "bg-teal-100 text-teal-700"
             }`}
           >
-            {profile?.username ? profile.username[0].toUpperCase() : "U"}
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
             <p
-              className={`text-sm font-medium truncate ${
-                baseRoute === "profile"
-                  ? "text-white"
-                  : isDarkMode
-                  ? "text-slate-300"
-                  : "text-gray-600"
+              className={`text-sm font-semibold truncate ${
+                isDarkMode ? "text-slate-200" : "text-gray-800"
               }`}
             >
-              {profile?.username || "user"}
+              {profile?.username || "Usuario"}
             </p>
             <p
-              className={`text-xs truncate ${
-                isDarkMode ? "text-slate-500" : "text-gray-500"
+              className={`text-[10px] truncate ${
+                isDarkMode ? "text-slate-500" : "text-gray-400"
               }`}
             >
-              Perfil
+              {t("profile")}
             </p>
           </div>
-        </Link>
-
-        {/* Logout Button */}
-        <button
-          className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-300 group ${
-            isDarkMode
-              ? "text-slate-300 hover:bg-red-900/20 hover:text-red-400"
-              : "text-gray-600 hover:bg-red-50 hover:text-red-600"
-          }`}
-          onClick={logout}
-        >
-          <LogOut
-            className={`h-5 w-5 flex-shrink-0 ${
-              isDarkMode
-                ? "text-slate-400 group-hover:text-red-400"
-                : "text-gray-500 group-hover:text-red-600"
+          <UserCircle
+            size={14}
+            className={`flex-shrink-0 ${
+              isDarkMode ? "text-slate-600 group-hover:text-slate-400" : "text-gray-300 group-hover:text-gray-500"
             }`}
           />
-          <span className="text-sm font-medium">Cerrar sesión</span>
+        </Link>
+
+        {/* Logout */}
+        <button
+          onClick={logout}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors duration-150 border-t ${
+            isDarkMode
+              ? "border-slate-800/60 text-slate-500 hover:bg-red-950/30 hover:text-red-400"
+              : "border-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-600"
+          }`}
+        >
+          <LogOut size={15} />
+          <span>{t("logout")}</span>
         </button>
       </div>
     </div>

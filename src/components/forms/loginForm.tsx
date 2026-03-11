@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react"
 
 import useUser from "../../hook/useUser"
 import { useCompany } from "../../context/routerContext"
+import { useNavigate } from "react-router-dom"
 
 interface LoginFormProps {
   pending: boolean
@@ -23,8 +24,9 @@ export default function LoginForm({
   error,
   setError,
 }: LoginFormProps) {
-  const { selectedCompany } = useCompany()
+  const { selectedCompany, companies } = useCompany()
   const { login } = useUser()
+  const navigate = useNavigate()
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -41,7 +43,8 @@ export default function LoginForm({
 
     try {
       await login({ email, password })
-      window.location.href = `/${selectedCompany?.code || "code"}/select-company`
+      const code = selectedCompany?.code ?? companies.find(c => c.id !== "na")?.code ?? "go"
+      navigate(`/${code}/select-company`, { replace: true })
     } catch (error) {
       setError(new Error(error instanceof Error ? error.message : "Error al iniciar sesión."))
     } finally {
