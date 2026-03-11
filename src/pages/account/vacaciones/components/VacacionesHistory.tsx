@@ -6,7 +6,7 @@ import { authFetcher, apiPatch } from "../../../../services/api"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import {
-  Palmtree, Search, CheckCircle, XCircle, Clock, DollarSign,
+  Search, CheckCircle, XCircle, Clock, DollarSign,
   Loader2, Users, ChevronDown, ChevronUp, RefreshCw, Calendar,
   BadgeCheck, Ban,
 } from "lucide-react"
