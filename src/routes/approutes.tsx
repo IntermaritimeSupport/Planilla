@@ -54,7 +54,7 @@ import { UpdateDepartment } from "../pages/account/settings/components/updateDep
 import LegalDecimoPage from "../pages/account/legaldecimo/page";
 import { AllLegalDecimoParameters } from "../pages/account/legaldecimo/components/AllLegalDecimo";
 import VacacionesPage from "../pages/account/vacaciones/page";
-import { AllVacaciones } from "../pages/account/vacaciones/components/AllVacaciones";
+import { VacacionesMain } from "../pages/account/vacaciones/components/VacacionesMain";
 import LiquidacionesPage from "../pages/account/liquidaciones/page";
 import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllLiquidaciones";
 
@@ -622,7 +622,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
           </ProtectedRoute>
         }
       >
-        <Route path="all" element={<AllVacaciones />} />
+        <Route path="all" element={<VacacionesMain />} />
       </Route>
 
       <Route

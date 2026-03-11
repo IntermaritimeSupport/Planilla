@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
+import { useNotifications } from "../../../../context/notificationContext"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import { usePageName } from "../../../../hook/usePageName"
@@ -404,6 +405,17 @@ export const AllLiquidaciones: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
+  const { addNotification } = useNotifications()
+
+  useEffect(() => {
+    addNotification({
+      id: "liquidaciones-legal-warning",
+      type: "warning",
+      title: "Revisión legal requerida",
+      message: "Los cálculos de liquidación son estimados. Confirme con un abogado laboral antes de ejecutar pagos.",
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [search, setSearch] = useState("")
   // const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")

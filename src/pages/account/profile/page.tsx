@@ -3,594 +3,278 @@
 import { authFetcher } from "../../../services/api"
 import useSWR from "swr"
 import { useTheme } from "../../../context/themeContext"
-import { formatValue } from "../../../utils/formatNull"
 import { UsuarioFull } from "../../../utils/usuarioFull"
 import Loader from "../../../components/loaders/loader.tsx"
+import {
+  Building2, Calendar, Mail, Phone, Shield, User,
+  CheckCircle, XCircle, Clock, Hash, Briefcase,
+} from "lucide-react"
 
 const { VITE_API_URL } = import.meta.env
 
 interface ProfilePageProps {
-    userId : string
+  userId: string
 }
-// authFetcher from services/api (autenticado)
+
+const ROLE_CFG: Record<string, { label: string; color: string }> = {
+  SUPER_ADMIN: { label: "Super Admin", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+  ADMIN:       { label: "Admin",       color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  MODERATOR:   { label: "Moderador",   color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+  USER:        { label: "Usuario",     color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+}
+
+const fmtDate = (d?: string) => {
+  if (!d) return "—"
+  return new Date(d).toLocaleDateString("es-PA", { day: "2-digit", month: "long", year: "numeric" })
+}
+
+const daysSince = (d?: string) => {
+  if (!d) return 0
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000)
+}
+
 export default function ProfilePage({ userId }: ProfilePageProps) {
   const { isDarkMode } = useTheme()
-  const { data, error, isLoading } = useSWR<UsuarioFull>(`${VITE_API_URL}/api/users/profile/${userId}`, authFetcher)
-  if (isLoading) {
-    return (
-        <Loader/>
-    );
-  }
+  const { data, error, isLoading } = useSWR<UsuarioFull>(
+    userId ? `${VITE_API_URL}/api/users/profile/${userId}` : null,
+    authFetcher
+  )
+
+  if (isLoading) return <Loader />
 
   if (error || !data) {
     return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors ${
-        isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
-      }`}>
-        <span>Error al cargar el perfil.</span>
+      <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? "bg-slate-900 text-slate-400" : "bg-gray-50 text-gray-500"}`}>
+        <p className="text-sm">Error al cargar el perfil.</p>
       </div>
-    );
+    )
   }
 
-  const userData = data;
+  const u = data
+  const roleCfg = ROLE_CFG[u.role] ?? ROLE_CFG.USER
+  const initials = (u.person?.fullName || u.username || "U")
+    .split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)
+  const accountDays = daysSince(u.createdAt)
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-ES", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case "SUPER_ADMIN":
-        return isDarkMode ? "bg-red-600 text-red-100" : "bg-red-100 text-red-800"
-      case "ADMIN":
-        return isDarkMode ? "bg-orange-600 text-orange-100" : "bg-orange-100 text-orange-800"
-      case "USER":
-        return isDarkMode ? "bg-blue-600 text-blue-100" : "bg-blue-100 text-blue-800"
-      default:
-        return isDarkMode ? "bg-gray-600 text-gray-100" : "bg-gray-200 text-gray-800"
-    }
-  }
-
-  const getStatusBadge = (status: any, isActive: boolean) => {
-    if (!isActive) return isDarkMode ? "bg-red-600 text-red-100" : "bg-red-100 text-red-800"
-    switch (status) {
-      case "Activo":
-        return isDarkMode ? "bg-green-600 text-green-100" : "bg-green-100 text-green-800"
-      case "Inactivo":
-        return isDarkMode ? "bg-red-600 text-red-100" : "bg-red-100 text-red-800"
-      default:
-        return isDarkMode ? "bg-gray-600 text-gray-100" : "bg-gray-200 text-gray-800"
-    }
-  }
-
-  const getInitials = (fullName: string) => {
-    return fullName
-      .split(" ")
-      .map((name) => name[0])
-      .join("")
-      .toUpperCase()
-  }
+  const card = `rounded-xl border p-5 ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`
+  const label = `text-[10px] uppercase font-bold tracking-widest mb-1 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`
+  const val = `text-sm font-medium ${isDarkMode ? "text-slate-200" : "text-gray-800"}`
+  const sub = `text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`
 
   return (
-    <div className={`min-h-screen transition-colors ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      <div className="p-6">
-        {/* Profile Header */}
-        <div className={`rounded-lg p-8 border mb-8 transition-colors ${
-          isDarkMode
-            ? 'bg-gray-800 border-gray-700'
-            : 'bg-white border-gray-200'
-        }`}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-6">
-              {/* Avatar */}
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center font-bold text-2xl transition-colors ${
-                isDarkMode
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-500 text-white'
-              }`}>
-                {getInitials(formatValue(userData?.person?.fullName))}
-              </div>
+    <div className={`min-h-screen transition-colors ${isDarkMode ? "bg-slate-900" : "bg-gray-50"}`}>
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
 
-              {/* Basic Info */}
-              <div>
-                <h1 className={`text-3xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatValue(userData?.person?.fullName)}
-                </h1>
-                <p className={`text-lg mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {formatValue(userData?.person?.department?.name)}
-                </p>
-                <div className="flex items-center space-x-4">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${getRoleBadge(userData?.role)}`}
-                  >
-                    {userData?.role?.replace("_", " ")}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${getStatusBadge(userData?.person?.status, userData?.isActive)}`}
-                  >
-                    {userData?.isActive ? userData?.person?.status : "Inactivo"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-3">
-              <button className={`flex items-center space-x-2 text-white px-4 py-2 rounded-lg transition-colors ${
-                isDarkMode
-                  ? 'bg-gray-700 hover:bg-gray-600'
-                  : 'bg-gray-300 hover:bg-gray-400'
-              }`}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                <span>Editar Perfil</span>
-              </button>
-              <button className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                <span>Configuración</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Details Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Personal Information */}
-          <div className={`rounded-lg p-6 border transition-colors ${
-            isDarkMode
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-6 h-6">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`w-full h-full ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
-                >
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="m22 21-3-3m0 0a5.5 5.5 0 1 0-7.78-7.78 5.5 5.5 0 0 0 7.78 7.78Z" />
-                </svg>
-              </div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Información Personal
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Nombre
-                  </label>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(userData?.person?.firstName)}
-                  </p>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Apellido
-                  </label>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(userData?.person?.lastName)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Nombre Completo
-                </label>
-                <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  {formatValue(userData?.person?.fullName)}
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Código de Usuario
-                </label>
-                <p className={`font-mono ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatValue(userData?.person?.userCode)}
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  ID de Usuario
-                </label>
-                <p className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatValue(userData?.id)}
-                </p>
-              </div>
-            </div>
+        {/* ── HEADER ── */}
+        <div className={`${card} flex flex-col md:flex-row items-start md:items-center gap-5`}>
+          {/* Avatar */}
+          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-black flex-shrink-0 ${isDarkMode ? "bg-teal-500/20 text-teal-400" : "bg-teal-100 text-teal-700"}`}>
+            {initials}
           </div>
 
-          {/* Contact Information */}
-          <div className={`rounded-lg p-6 border transition-colors ${
-            isDarkMode
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-6 h-6">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`w-full h-full ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}
-                >
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-              </div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Información de Contacto
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Email Principal
-                </label>
-                <div className="flex items-center space-x-2">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(userData?.email)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Email de Contacto
-                </label>
-                <div className="flex items-center space-x-2">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(userData?.person?.contactEmail)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Teléfono
-                </label>
-                <div className="flex items-center space-x-2">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                  </svg>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(userData?.person?.phoneNumber)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Nombre de Usuario
-                </label>
-                <p className={`font-mono ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatValue(userData?.username)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Professional Information */}
-          <div className={`rounded-lg p-6 border transition-colors ${
-            isDarkMode
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-6 h-6">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`w-full h-full ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}
-                >
-                  <path d="M3 21h18" />
-                  <path d="M5 21V7l8-4v18" />
-                  <path d="M19 21V11l-6-4" />
-                </svg>
-              </div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Información Profesional
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Departamento
-                </label>
-                <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  {formatValue(userData?.person?.department?.name)}
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Posición
-                </label>
-                <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  {formatValue(userData?.person?.position)}
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Rol del Sistema
-                </label>
-                <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${getRoleBadge(userData?.role)}`}
-                >
-                  {userData?.role?.replace("_", " ")}
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <h1 className={`text-xl font-bold truncate ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              {u.person?.fullName || u.username}
+            </h1>
+            <p className={`text-sm mt-0.5 truncate ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              {u.person?.position || "Sin cargo asignado"} · {u.person?.department?.name || "Sin departamento"}
+            </p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${roleCfg.color}`}>
+                <Shield size={11} /> {roleCfg.label}
+              </span>
+              {u.isActive ? (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${isDarkMode ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"}`}>
+                  <CheckCircle size={11} /> Activo
                 </span>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Estado
-                </label>
-                <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${getStatusBadge(userData?.person?.status, userData?.isActive)}`}
-                >
-                  {userData?.isActive ? userData?.person?.status : "Inactivo"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Companies Information */}
-          <div className={`rounded-lg p-6 border transition-colors ${
-            isDarkMode
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-6 h-6">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`w-full h-full ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}
-                >
-                  <path d="M3 21h18" />
-                  <path d="M5 21V7l8-4v18" />
-                  <path d="M19 21V11l-6-4" />
-                  <path d="M9 9v.01" />
-                  <path d="M9 12v.01" />
-                  <path d="M9 15v.01" />
-                  <path d="M9 18v.01" />
-                </svg>
-              </div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Compañías Asignadas
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              {userData?.companies && userData.companies.length > 0 ? (
-                userData.companies.map((userCompany, index) => (
-                  <div 
-                    key={index} 
-                    className={`rounded-lg p-4 border transition-colors ${
-                      isDarkMode
-                        ? 'bg-gray-700 border-gray-600'
-                        : 'bg-gray-100 border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {userCompany.company.name}
-                      </h3>
-                      <span className={`text-xs font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {userCompany.company.code}
-                      </span>
-                    </div>
-                    <div className={`space-y-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {userCompany.company.address && (
-                        <p>📍 {userCompany.company.address}</p>
-                      )}
-                      {userCompany.company.phone && (
-                        <p>📞 {userCompany.company.phone}</p>
-                      )}
-                      {userCompany.company.email && (
-                        <p>✉️ {userCompany.company.email}</p>
-                      )}
-                      {userCompany.company.ruc && (
-                        <p>🆔 RUC: {userCompany.company.ruc}</p>
-                      )}
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                            userCompany.company.isActive
-                              ? isDarkMode
-                                ? 'bg-green-600 text-green-100'
-                                : 'bg-green-100 text-green-800'
-                              : isDarkMode
-                              ? 'bg-red-600 text-red-100'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {userCompany.company.isActive ? "Activa" : "Inactiva"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))
               ) : (
-                <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                  No tiene compañías asignadas
-                </p>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${isDarkMode ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-red-50 text-red-700 border-red-300"}`}>
+                  <XCircle size={11} /> Inactivo
+                </span>
               )}
             </div>
           </div>
 
-          {/* System Information */}
-          <div className={`rounded-lg p-6 border transition-colors ${
-            isDarkMode
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-6 h-6">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`w-full h-full ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}
-                >
-                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                  <line x1="8" y1="21" x2="16" y2="21" />
-                  <line x1="12" y1="17" x2="12" y2="21" />
-                </svg>
+          {/* Stats rápidas */}
+          <div className="flex gap-4 flex-shrink-0">
+            {[
+              { label: "Empresas",    value: u.companies?.length ?? 0,  accent: "text-teal-500"  },
+              { label: "Días activo", value: accountDays,                accent: isDarkMode ? "text-slate-200" : "text-gray-800" },
+            ].map(({ label: l, value, accent }) => (
+              <div key={l} className={`text-center p-3 rounded-xl ${isDarkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200"}`}>
+                <p className={`text-2xl font-black font-mono ${accent}`}>{value}</p>
+                <p className={`text-[10px] uppercase font-bold mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{l}</p>
               </div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Información del Sistema
-              </h2>
-            </div>
+            ))}
+          </div>
+        </div>
 
+        {/* ── GRID PRINCIPAL ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Información de cuenta */}
+          <div className={card}>
+            <div className={`flex items-center gap-2 mb-4 ${isDarkMode ? "text-teal-400" : "text-teal-600"}`}>
+              <User size={16} />
+              <h2 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Cuenta</h2>
+            </div>
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Fecha de Creación
-                </label>
-                <div className="flex items-center space-x-2">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(formatDate(userData?.createdAt))}
-                  </p>
+                <p className={label}>Usuario</p>
+                <p className={`${val} font-mono`}>@{u.username}</p>
+              </div>
+              <div>
+                <p className={label}>Código de usuario</p>
+                <p className={`${val} font-mono text-teal-500`}>{u.person?.userCode || "—"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className={label}>Nombre</p>
+                  <p className={val}>{u.person?.firstName || "—"}</p>
                 </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Última Actualización
-                </label>
-                <div className="flex items-center space-x-2">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                    <path d="M21 3v5h-5" />
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                    <path d="M8 16H3v5" />
-                  </svg>
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {formatValue(formatDate(userData?.updatedAt))}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  ID de Persona
-                </label>
-                <p className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatValue(userData?.person?.id)}
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Cuenta Activa
-                </label>
-                <div className="flex items-center space-x-2">
-                  {userData.isActive ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="w-4 h-4 text-green-400"
-                    >
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22,4 12,14.01 9,11.01" />
-                    </svg>
-                  ) : (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="w-4 h-4 text-red-400"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="15" y1="9" x2="9" y2="15" />
-                      <line x1="9" y1="9" x2="15" y2="15" />
-                    </svg>
-                  )}
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {userData?.isActive ? "Sí" : "No"}
-                  </p>
+                <div>
+                  <p className={label}>Apellido</p>
+                  <p className={val}>{u.person?.lastName || "—"}</p>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Contacto */}
+          <div className={card}>
+            <div className={`flex items-center gap-2 mb-4 ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>
+              <Mail size={16} />
+              <h2 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Contacto</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className={label}>Email principal</p>
+                <div className="flex items-center gap-2">
+                  <Mail size={12} className={isDarkMode ? "text-gray-500" : "text-gray-400"} />
+                  <p className={val}>{u.email || "—"}</p>
+                </div>
+              </div>
+              <div>
+                <p className={label}>Email de contacto</p>
+                <div className="flex items-center gap-2">
+                  <Mail size={12} className={isDarkMode ? "text-gray-500" : "text-gray-400"} />
+                  <p className={val}>{u.person?.contactEmail || "—"}</p>
+                </div>
+              </div>
+              <div>
+                <p className={label}>Teléfono</p>
+                <div className="flex items-center gap-2">
+                  <Phone size={12} className={isDarkMode ? "text-gray-500" : "text-gray-400"} />
+                  <p className={val}>{u.person?.phoneNumber || "—"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Profesional */}
+          <div className={card}>
+            <div className={`flex items-center gap-2 mb-4 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+              <Briefcase size={16} />
+              <h2 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Información Profesional</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className={label}>Posición</p>
+                <p className={val}>{u.person?.position || "—"}</p>
+              </div>
+              <div>
+                <p className={label}>Departamento</p>
+                <p className={val}>{u.person?.department?.name || "—"}</p>
+              </div>
+              <div>
+                <p className={label}>Rol del sistema</p>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${roleCfg.color}`}>
+                  <Shield size={11} /> {roleCfg.label}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sistema */}
+          <div className={card}>
+            <div className={`flex items-center gap-2 mb-4 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>
+              <Clock size={16} />
+              <h2 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Actividad del Sistema</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className={label}>Miembro desde</p>
+                <div className="flex items-center gap-2">
+                  <Calendar size={12} className={isDarkMode ? "text-gray-500" : "text-gray-400"} />
+                  <p className={val}>{fmtDate(u.createdAt)}</p>
+                </div>
+                <p className={`${sub} mt-0.5`}>{accountDays} días activo</p>
+              </div>
+              <div>
+                <p className={label}>Última actualización</p>
+                <p className={val}>{fmtDate(u.updatedAt)}</p>
+              </div>
+              <div>
+                <p className={label}>ID de cuenta</p>
+                <p className={`${val} font-mono text-xs truncate`}>{u.id}</p>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* ── EMPRESAS ── */}
+        {u.companies && u.companies.length > 0 && (
+          <div className={card}>
+            <div className={`flex items-center gap-2 mb-4 ${isDarkMode ? "text-teal-400" : "text-teal-600"}`}>
+              <Building2 size={16} />
+              <h2 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                Empresas asignadas <span className={`font-mono ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>({u.companies.length})</span>
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {u.companies.map((uc: any, i: number) => (
+                <div key={i} className={`p-4 rounded-xl border ${isDarkMode ? "bg-slate-700/40 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{uc.company.name}</p>
+                      <p className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? "text-teal-400" : "text-teal-600"}`}>{uc.company.code}</p>
+                    </div>
+                    <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      uc.company.isActive
+                        ? isDarkMode ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                        : isDarkMode ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-red-50 text-red-700 border-red-300"
+                    }`}>
+                      {uc.company.isActive ? <CheckCircle size={9} /> : <XCircle size={9} />}
+                      {uc.company.isActive ? "Activa" : "Inactiva"}
+                    </span>
+                  </div>
+                  <div className={`space-y-1 text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                    {uc.company.email && (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Mail size={10} className="flex-shrink-0" />
+                        <span className="truncate">{uc.company.email}</span>
+                      </div>
+                    )}
+                    {uc.company.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={10} className="flex-shrink-0" />
+                        <span>{uc.company.phone}</span>
+                      </div>
+                    )}
+                    {uc.company.ruc && (
+                      <div className="flex items-center gap-1.5">
+                        <Hash size={10} className="flex-shrink-0" />
+                        <span>RUC: {uc.company.ruc}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )

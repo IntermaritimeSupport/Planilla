@@ -1,8 +1,9 @@
 "use client"
 
 import { authFetcher } from "../../../../services/api"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
+import { useNotifications } from "../../../../context/notificationContext"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import { usePageName } from "../../../../hook/usePageName"
@@ -291,6 +292,18 @@ export const AllVacaciones: React.FC = () => {
   const { selectedCompany } = useCompany()
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
+  const { addNotification } = useNotifications()
+
+  useEffect(() => {
+    addNotification({
+      id: "vacaciones-legal-info",
+      type: "info",
+      title: "Base legal: Vacaciones",
+      message: "Art. 54-60 Código de Trabajo: 30 días por cada 11 meses. Deducciones: SS 9.75%, SE 1.25%, ISR.",
+      href: undefined,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState<"todos" | "disponible" | "parcial" | "pendiente">("todos")

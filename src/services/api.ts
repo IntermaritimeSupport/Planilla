@@ -138,6 +138,30 @@ export const apiPut = async <T = unknown>(
   return res.json() as Promise<T>
 }
 
+export const apiPatch = async <T = unknown>(
+  path: string,
+  body?: unknown
+): Promise<T> => {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    credentials: 'include',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+
+  if (res.status === 401) {
+    handleUnauthorized()
+    throw new Error('Sesión expirada.')
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.message || err?.error || `Error ${res.status}`)
+  }
+
+  return res.json() as Promise<T>
+}
+
 export const apiDelete = async (path: string): Promise<void> => {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'DELETE',

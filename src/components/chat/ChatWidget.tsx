@@ -9,8 +9,6 @@ interface Message {
   content: string;
 }
 
-const VITE_API_URL = import.meta.env.VITE_API_URL ?? "";
-
 const ChatWidget: React.FC = () => {
   const { t } = useTranslation();
   const { isDarkMode } = useTheme();
@@ -43,7 +41,7 @@ const ChatWidget: React.FC = () => {
 
     try {
       const data = await apiPost<{ message: string }>(
-        `${VITE_API_URL}/api/chat`,
+        "/api/chat",
         { messages: updated }
       );
       setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
