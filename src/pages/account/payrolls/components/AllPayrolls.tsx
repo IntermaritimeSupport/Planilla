@@ -18,7 +18,7 @@ import {
 } from "../../../../lib/payrollCalculation"
 import { Company, useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
-import { Calendar, Users, AlertCircle, Calculator, Eye, History, PlusCircle } from "lucide-react"
+import { Calendar, Users, AlertCircle, Calculator, Eye, EyeOff, History, PlusCircle, SlidersHorizontal, Mail } from "lucide-react"
 import PayrollHistory from "./PayrollHistory"
 import { exportToExcel } from "./ExportToExcel"
 import PagesHeader from "../../../../components/headers/pagesHeader"
@@ -27,6 +27,7 @@ import LoadingPayrollModal from "./LoadingPayroolModal"
 import DetailsModal from "./DetailsModal"
 import { PayrollInfo } from "./PayrollInfo"
 import { NotificationComponent } from "./Notification"
+import { PayslipEmailModal } from "./PayslipEmailModal"
 
 // fetcher autenticado centralizado (ver services/api.ts)
 
@@ -109,6 +110,8 @@ export const AllPayrolls: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"nueva" | "historial">("nueva")
   // const [duplicateWarning, setDuplicateWarning] = useState<{show: boolean; employeeName: string; existingId: string} | null>(null)
   const [isGeneratingPayrolls, setIsGeneratingPayrolls] = useState(false)
+  const [showCols, setShowCols] = useState({ hoursExtra: false, bonifications: false, otherIncome: false })
+  const [showEmailModal, setShowEmailModal] = useState(false)
   const [payrollProgress, setPayrollProgress] = useState({ success: 0, error: 0 })
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<string | null>(null)
 
@@ -129,7 +132,7 @@ export const AllPayrolls: React.FC = () => {
   }
 
   const { data: employees, isLoading: empLoading } = useSWR<Employee[]>(
-    selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null,
+    selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}&status=ACTIVE` : null,
     authFetcher
   )
 
@@ -512,19 +515,53 @@ export const AllPayrolls: React.FC = () => {
           </div>
         )}
 
-        <div className="flex justify-between items-center gap-2">
+        <div className="flex justify-between items-center gap-2 flex-wrap">
           <div className={`flex items-center gap-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
             <Users size={20} />
             <h3 className="text-lg font-semibold">Empleados Activos ({employeeCalculations.length})</h3>
           </div>
-          <button
-            onClick={generatePayrolls}
-            className="px-4 mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            disabled={employeeCalculations.length === 0}
-          >
-            <Calculator size={20} />
-            Guardar Nóminas
-          </button>
+
+          {/* Column visibility toggles */}
+          <div className={`flex items-center gap-1 p-1 rounded-lg ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+            <SlidersHorizontal size={14} className={isDarkMode ? "text-gray-400 ml-1" : "text-gray-500 ml-1"} />
+            {(["hoursExtra", "bonifications", "otherIncome"] as const).map(col => {
+              const labels: Record<string, string> = { hoursExtra: "H.Extra", bonifications: "Bonif.", otherIncome: "Otros" }
+              return (
+                <button
+                  key={col}
+                  onClick={() => setShowCols(prev => ({ ...prev, [col]: !prev[col] }))}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                    showCols[col]
+                      ? isDarkMode ? "bg-blue-600 text-white" : "bg-blue-600 text-white"
+                      : isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {showCols[col] ? <Eye size={11} /> : <EyeOff size={11} />}
+                  {labels[col]}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 mt-6">
+            <button
+              onClick={() => setShowEmailModal(true)}
+              disabled={employeeCalculations.length === 0}
+              className="px-4 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg flex items-center gap-2 transition-colors"
+              title="Enviar comprobantes por email"
+            >
+              <Mail size={18} />
+              Enviar Comprobantes
+            </button>
+            <button
+              onClick={generatePayrolls}
+              className="px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+              disabled={employeeCalculations.length === 0}
+            >
+              <Calculator size={20} />
+              Guardar Nóminas
+            </button>
+          </div>
         </div>
 
         <p className={`text-sm mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
@@ -576,15 +613,21 @@ export const AllPayrolls: React.FC = () => {
                   <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                     Salario Base
                   </th>
-                  <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    Horas Extras
-                  </th>
-                  <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    Bonificaciones
-                  </th>
-                  <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    Otros Ingresos
-                  </th>
+                  {showCols.hoursExtra && (
+                    <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Horas Extras
+                    </th>
+                  )}
+                  {showCols.bonifications && (
+                    <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Bonificaciones
+                    </th>
+                  )}
+                  {showCols.otherIncome && (
+                    <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Otros Ingresos
+                    </th>
+                  )}
                   <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                     Bruto
                   </th>
@@ -680,53 +723,59 @@ export const AllPayrolls: React.FC = () => {
                       />
                     </td>
 
-                    <td className="px-4 py-3 text-sm">
-                      <input
-                        type="number"
-                        value={calc.hoursExtra}
-                        onChange={(e) =>
-                          updateEmployeeCalc(calc.employeeId, "hoursExtra", parseFloat(e.target.value) || 0)
-                        }
-                        placeholder="0.00"
-                        className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                          isDarkMode
-                            ? "bg-gray-700 border border-gray-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-900"
-                        }`}
-                      />
-                    </td>
+                    {showCols.hoursExtra && (
+                      <td className="px-4 py-3 text-sm">
+                        <input
+                          type="number"
+                          value={calc.hoursExtra}
+                          onChange={(e) =>
+                            updateEmployeeCalc(calc.employeeId, "hoursExtra", parseFloat(e.target.value) || 0)
+                          }
+                          placeholder="0.00"
+                          className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                            isDarkMode
+                              ? "bg-gray-700 border border-gray-600 text-white"
+                              : "bg-white border border-gray-300 text-gray-900"
+                          }`}
+                        />
+                      </td>
+                    )}
 
-                    <td className="px-4 py-3 text-sm">
-                      <input
-                        type="number"
-                        value={calc.bonifications}
-                        onChange={(e) =>
-                          updateEmployeeCalc(calc.employeeId, "bonifications", parseFloat(e.target.value) || 0)
-                        }
-                        placeholder="0.00"
-                        className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                          isDarkMode
-                            ? "bg-gray-700 border border-gray-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-900"
-                        }`}
-                      />
-                    </td>
+                    {showCols.bonifications && (
+                      <td className="px-4 py-3 text-sm">
+                        <input
+                          type="number"
+                          value={calc.bonifications}
+                          onChange={(e) =>
+                            updateEmployeeCalc(calc.employeeId, "bonifications", parseFloat(e.target.value) || 0)
+                          }
+                          placeholder="0.00"
+                          className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                            isDarkMode
+                              ? "bg-gray-700 border border-gray-600 text-white"
+                              : "bg-white border border-gray-300 text-gray-900"
+                          }`}
+                        />
+                      </td>
+                    )}
 
-                    <td className="px-4 py-3 text-sm">
-                      <input
-                        type="number"
-                        value={calc.otherIncome}
-                        onChange={(e) =>
-                          updateEmployeeCalc(calc.employeeId, "otherIncome", parseFloat(e.target.value) || 0)
-                        }
-                        placeholder="0.00"
-                        className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                          isDarkMode
-                            ? "bg-gray-700 border border-gray-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-900"
-                        }`}
-                      />
-                    </td>
+                    {showCols.otherIncome && (
+                      <td className="px-4 py-3 text-sm">
+                        <input
+                          type="number"
+                          value={calc.otherIncome}
+                          onChange={(e) =>
+                            updateEmployeeCalc(calc.employeeId, "otherIncome", parseFloat(e.target.value) || 0)
+                          }
+                          placeholder="0.00"
+                          className={`w-20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                            isDarkMode
+                              ? "bg-gray-700 border border-gray-600 text-white"
+                              : "bg-white border border-gray-300 text-gray-900"
+                          }`}
+                        />
+                      </td>
+                    )}
 
                     <td className={`px-4 py-3 font-medium text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                       {formatCurrency(calc.grossSalary)}
@@ -790,9 +839,9 @@ export const AllPayrolls: React.FC = () => {
                     TOTALES
                   </td>
                   <td className="px-4 py-3">{formatCurrency(totalGrossSalary)}</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">-</td>
+                  {showCols.hoursExtra && <td className="px-4 py-3">-</td>}
+                  {showCols.bonifications && <td className="px-4 py-3">-</td>}
+                  {showCols.otherIncome && <td className="px-4 py-3">-</td>}
                   <td className="px-4 py-3">{formatCurrency(totalGrossSalary)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalSss)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalIsr)}</td>
@@ -818,6 +867,26 @@ export const AllPayrolls: React.FC = () => {
           calculation={employeeCalculations.find((c) => c.employeeId === selectedEmployeeForDetails)!}
           isOpen={true}
           onClose={() => setSelectedEmployeeForDetails(null)}
+        />
+      )}
+
+      {showEmailModal && (
+        <PayslipEmailModal
+          calculations={employeeCalculations}
+          companyName={selectedCompany?.name ?? "Empresa"}
+          payPeriod={(() => {
+            const d = new Date(payrollDate)
+            const monthYear = d.toLocaleDateString("es-PA", { month: "long", year: "numeric" })
+            if (payrollType === "Mensual") {
+              const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+              return `1 al ${lastDay} de ${monthYear}`
+            }
+            return quincenal === "Primera Quincena (1-15)"
+              ? `1 al 15 de ${monthYear}`
+              : `16 al 31 de ${monthYear}`
+          })()}
+          payrollType={payrollType}
+          onClose={() => setShowEmailModal(false)}
         />
       )}
 

@@ -13,7 +13,7 @@ import {
   Calendar, DollarSign, Clock, ShieldAlert,
 } from "lucide-react"
 import { ExportButtons } from "../../../../components/exports/ExportButtons"
-import { exportLiquidacionesExcel, exportLiquidacionesPDF } from "../../../../utils/exports/exportEngine"
+import { exportLiquidacionesExcel, exportLiquidacionesPDF, exportLiquidacionIndividualPDF } from "../../../../utils/exports/exportEngine"
 import {
   type LiquidacionEmployee,
   type LiquidacionLegalParam,
@@ -21,7 +21,10 @@ import {
   type TipoTerminacion,
   calcularLiquidacion,
 } from "./liquidacionesCalculation"
-import { authFetcher } from "../../../../services/api"
+import { authFetcher, apiPut } from "../../../../services/api"
+
+interface PaidLeave { employeeId: string; leaveType: string; isPaid: boolean; daysApproved: number | null; daysRequested: number }
+import { toast } from "sonner"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -132,14 +135,18 @@ const EmpleadoRow: React.FC<{
   employee: LiquidacionEmployee
   legalParams: LiquidacionLegalParam[]
   isDark: boolean
-}> = ({ employee, legalParams, isDark }) => {
+  companyName: string
+  diasVacPagadas: number
+  onTerminated: (id: string) => void
+}> = ({ employee, legalParams, isDark, companyName, diasVacPagadas, onTerminated }) => {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<TipoTerminacion>("DESPIDO_INJUSTIFICADO")
   const [fechaTerm, setFechaTerm] = useState(new Date().toISOString().split("T")[0])
+  const [terminating, setTerminating] = useState(false)
 
   const calc = useMemo<LiquidacionDesglose>(() => {
-    return calcularLiquidacion(employee, tipo, new Date(fechaTerm + "T12:00:00"), legalParams)
-  }, [employee, tipo, fechaTerm, legalParams])
+    return calcularLiquidacion(employee, tipo, new Date(fechaTerm + "T12:00:00"), legalParams, diasVacPagadas)
+  }, [employee, tipo, fechaTerm, legalParams, diasVacPagadas])
 
   const td = "px-4 py-3 text-sm"
 
@@ -291,7 +298,10 @@ const EmpleadoRow: React.FC<{
                 <ConceptoRow
                   label="Vacaciones Proporcionales"
                   value={calc.vacacionesBruto}
-                  sub={`${fmtDays(calc.diasVacaciones)} · Art. 54 CT`}
+                  sub={calc.diasVacYaPagados > 0
+                    ? `${fmtDays(calc.diasVacaciones)} netos · ${calc.diasVacYaPagados.toFixed(1)}d ya pagados · Art. 54 CT`
+                    : `${fmtDays(calc.diasVacaciones)} · Art. 54 CT`
+                  }
                   isDark={isDark}
                 />
                 <ConceptoRow
@@ -380,12 +390,66 @@ const EmpleadoRow: React.FC<{
                   </p>
                 </div>
 
-                {/* Botón guardar */}
+                {/* Botón descargar PDF */}
                 <button
-                  onClick={e => e.stopPropagation()}
+                  onClick={e => {
+                    e.stopPropagation()
+                    exportLiquidacionIndividualPDF({
+                      employee: { cedula: employee.cedula, firstName: employee.firstName, lastName: employee.lastName, position: employee.position },
+                      companyName,
+                      tipoTerminacion: tipo,
+                      fechaIngreso: calc.fechaIngreso,
+                      fechaTerminacion: calc.fechaTerminacion,
+                      anosTrabajados: calc.anosTrabajados,
+                      mesesTrabajados: calc.mesesTrabajados,
+                      diasTrabajados: calc.diasTrabajados,
+                      salarioMensual: calc.salarioMensual,
+                      salarioDiario: calc.salarioDiario,
+                      primaAntiguedadBruto: calc.primaAntiguedadBruto,
+                      semanasPrimaAntiguedad: calc.semanasPrimaAntiguedad,
+                      preaviso: calc.preaviso,
+                      semanasPreaviso: calc.semanasPreaviso,
+                      vacacionesBruto: calc.vacacionesBruto,
+                      diasVacaciones: calc.diasVacaciones,
+                      decimoProporcionalBruto: calc.decimoProporcionalBruto,
+                      mesesDecimoActual: calc.mesesDecimoActual,
+                      indemnizacionBruto: calc.indemnizacionBruto,
+                      totalBruto: calc.totalBruto,
+                      ss: calc.ss,
+                      se: calc.se,
+                      isr: calc.isr,
+                      totalDeducciones: calc.totalDeducciones,
+                      totalNeto: calc.totalNeto,
+                    })
+                  }}
                   className="w-full mt-2 py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <Download size={14} /> Descargar Carta de Liquidación
+                </button>
+
+                {/* Botón procesar liquidación */}
+                <button
+                  onClick={async e => {
+                    e.stopPropagation()
+                    if (!window.confirm(`¿Confirmar terminación laboral de ${employee.firstName} ${employee.lastName}?\n\nEsta acción cambiará su estado a TERMINADO y dejará de aparecer en nóminas futuras.`)) return
+                    setTerminating(true)
+                    try {
+                      await apiPut(`/api/payroll/employees/${employee.id}/status`, { status: "TERMINATED" })
+                      toast.success(`${employee.firstName} ${employee.lastName} marcado como TERMINADO`)
+                      onTerminated(employee.id)
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Error al procesar la liquidación")
+                    } finally {
+                      setTerminating(false)
+                    }
+                  }}
+                  disabled={terminating}
+                  className="w-full mt-2 py-2.5 px-4 bg-red-700 hover:bg-red-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {terminating
+                    ? <><Loader2 size={14} className="animate-spin" /> Procesando…</>
+                    : <><CheckCircle size={14} /> Procesar Liquidación</>
+                  }
                 </button>
               </div>
 
@@ -418,6 +482,7 @@ export const AllLiquidaciones: React.FC = () => {
   }, [])
 
   const [search, setSearch] = useState("")
+  const [terminatedIds, setTerminatedIds] = useState<Set<string>>(new Set())
   // const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")
 
   // ── DATA ──
@@ -439,9 +504,9 @@ export const AllLiquidaciones: React.FC = () => {
   const activeEmployees = useMemo(() => {
     if (!employees) return []
     return employees.filter(e =>
-      e.status === "ACTIVE" || e.status === "SUSPENDED"
+      (e.status === "ACTIVE" || e.status === "SUSPENDED") && !terminatedIds.has(e.id)
     )
-  }, [employees])
+  }, [employees, terminatedIds])
 
   const filtered = useMemo(() => {
     return activeEmployees.filter(emp => {
@@ -616,6 +681,8 @@ export const AllLiquidaciones: React.FC = () => {
                     employee={emp}
                     legalParams={legalParams || []}
                     isDark={isDarkMode}
+                    companyName={selectedCompany?.name ?? "Empresa"}
+                    onTerminated={id => setTerminatedIds(prev => new Set([...prev, id]))}
                   />
                 ))
               )}

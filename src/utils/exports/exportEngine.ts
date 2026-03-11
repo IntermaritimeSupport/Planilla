@@ -364,3 +364,161 @@ export const exportLiquidacionesPDF = (p: LiquidacionExportParams) => {
   addFooter(doc)
   doc.save(`Liquidaciones_${today().replace(/\//g,"-")}_${p.companyName}.pdf`)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5b. CARTA DE LIQUIDACIÓN INDIVIDUAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LiquidacionIndividualParams {
+  employee: { cedula: string; firstName: string; lastName: string; position?: string }
+  companyName: string
+  tipoTerminacion: string
+  fechaIngreso: Date
+  fechaTerminacion: Date
+  anosTrabajados: number
+  mesesTrabajados: number
+  diasTrabajados: number
+  salarioMensual: number
+  salarioDiario: number
+  // Conceptos brutos
+  primaAntiguedadBruto: number
+  semanasPrimaAntiguedad: number
+  preaviso: number
+  semanasPreaviso: number
+  vacacionesBruto: number
+  diasVacaciones: number
+  decimoProporcionalBruto: number
+  mesesDecimoActual: number
+  indemnizacionBruto: number
+  totalBruto: number
+  // Deducciones
+  ss: number
+  se: number
+  isr: number
+  totalDeducciones: number
+  totalNeto: number
+}
+
+export const exportLiquidacionIndividualPDF = (p: LiquidacionIndividualParams) => {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+  const W = doc.internal.pageSize.getWidth()
+  const fmtDate = (d: Date) => d.toLocaleDateString("es-PA", { day: "2-digit", month: "long", year: "numeric" })
+
+  // ── Encabezado ──
+  doc.setFillColor(...C.danger)
+  doc.rect(0, 0, W, 32, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(15); doc.setFont("helvetica", "bold")
+  doc.text("CARTA DE LIQUIDACIÓN LABORAL", 12, 13)
+  doc.setFontSize(8); doc.setFont("helvetica", "normal")
+  doc.text(`Art. 224-225 · Código de Trabajo de Panamá`, 12, 21)
+  doc.text(p.companyName, W - 12, 13, { align: "right" })
+  doc.text(`Generado: ${today()}`, W - 12, 21, { align: "right" })
+  doc.setTextColor(0, 0, 0)
+
+  let y = 40
+
+  // ── Info del empleado ──
+  doc.setFillColor(...C.alt)
+  doc.rect(10, y, W - 20, 28, "F")
+  doc.setFontSize(9); doc.setFont("helvetica", "bold")
+  doc.text("DATOS DEL COLABORADOR", 14, y + 7)
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8)
+  doc.text(`Nombre: ${p.employee.firstName} ${p.employee.lastName}`, 14, y + 14)
+  doc.text(`Cédula: ${p.employee.cedula}`, 14, y + 20)
+  doc.text(`Cargo: ${p.employee.position ?? "—"}`, 90, y + 14)
+  doc.text(`Causa: ${TIPO_LABEL[p.tipoTerminacion] ?? p.tipoTerminacion}`, 90, y + 20)
+  doc.text(`Fecha de Ingreso: ${fmtDate(p.fechaIngreso)}`, 14, y + 26)
+  doc.text(`Fecha de Terminación: ${fmtDate(p.fechaTerminacion)}`, 90, y + 26)
+  y += 36
+
+  // ── Antigüedad ──
+  doc.setFontSize(8); doc.setFont("helvetica", "bold")
+  doc.setTextColor(...C.secondary)
+  doc.text(`Antigüedad: ${p.anosTrabajados} año(s) y ${p.mesesTrabajados % 12} mes(es) · ${p.diasTrabajados.toLocaleString()} días trabajados · Salario mensual: ${fmt2(p.salarioMensual)} · Salario diario: ${fmt2(p.salarioDiario)}`, 10, y)
+  doc.setTextColor(0, 0, 0)
+  y += 8
+
+  // ── Tabla de conceptos ──
+  const conceptos: [string, string, string][] = []
+  conceptos.push(["Prima de Antigüedad (Art. 224)", `${p.semanasPrimaAntiguedad} sem.`, fmt2(p.primaAntiguedadBruto)])
+  if (p.tipoTerminacion === "DESPIDO_INJUSTIFICADO") {
+    conceptos.push(["Preaviso (Art. 683)", `${p.semanasPreaviso} sem.`, fmt2(p.preaviso)])
+    conceptos.push(["Indemnización (Art. 225)", `${p.anosTrabajados} año(s)`, fmt2(p.indemnizacionBruto)])
+  }
+  conceptos.push(["Vacaciones Proporcionales (Art. 54)", `${p.diasVacaciones.toFixed(1)} días`, fmt2(p.vacacionesBruto)])
+  conceptos.push(["Décimo Proporcional (Ley 44/1995)", `${p.mesesDecimoActual} meses`, fmt2(p.decimoProporcionalBruto)])
+
+  doc.setFontSize(9); doc.setFont("helvetica", "bold")
+  doc.text("CONCEPTOS A PAGAR", 10, y)
+  y += 5
+
+  drawTable({
+    doc, startY: y, marginX: 10,
+    headerColor: C.danger,
+    cols: [
+      { header: "Concepto", width: 110 },
+      { header: "Base / Detalle", width: 40, align: "center" },
+      { header: "Monto", width: 30, align: "right" },
+    ],
+    rows: [
+      ...conceptos,
+      ["TOTAL BRUTO", "", fmt2(p.totalBruto)],
+    ],
+    rowHeight: 7,
+  })
+  y += (conceptos.length + 2) * 7 + 12
+
+  // ── Deducciones ──
+  doc.setFontSize(9); doc.setFont("helvetica", "bold")
+  doc.text("DEDUCCIONES", 10, y)
+  y += 5
+
+  drawTable({
+    doc, startY: y, marginX: 10,
+    headerColor: C.secondary,
+    cols: [
+      { header: "Concepto", width: 110 },
+      { header: "Base", width: 40, align: "right" },
+      { header: "Monto", width: 30, align: "right" },
+    ],
+    rows: [
+      ["Seguro Social empleado (9.75%) — Art. 63 Ley 51/2005", fmt2(p.totalBruto), fmt2(p.ss)],
+      ["Seguro Educativo empleado (1.25%) — D.L. 14 de 1994", fmt2(p.totalBruto), fmt2(p.se)],
+      ["ISR — Código Fiscal Art. 700", fmt2(p.totalBruto), fmt2(p.isr)],
+      ["TOTAL DEDUCCIONES", "", fmt2(p.totalDeducciones)],
+    ],
+    rowHeight: 7,
+  })
+  y += 5 * 7 + 14
+
+  // ── Neto final ──
+  doc.setFillColor(...C.success)
+  doc.rect(10, y, W - 20, 16, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(11); doc.setFont("helvetica", "bold")
+  doc.text("TOTAL NETO A PAGAR", 14, y + 10)
+  doc.text(fmt2(p.totalNeto), W - 14, y + 10, { align: "right" })
+  doc.setTextColor(0, 0, 0)
+  y += 26
+
+  // ── Firmas ──
+  if (y + 40 < doc.internal.pageSize.getHeight() - 20) {
+    doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.secondary)
+    doc.text("El presente documento certifica el pago de las prestaciones laborales correspondientes a la terminación de la relación laboral.", 10, y, { maxWidth: W - 20 })
+    y += 10
+
+    const midX = W / 2
+    doc.setDrawColor(...C.secondary); doc.setLineWidth(0.3)
+    doc.line(14, y + 20, midX - 8, y + 20)
+    doc.line(midX + 8, y + 20, W - 14, y + 20)
+    doc.setFontSize(7.5)
+    doc.text("Firma del Empleador", 14, y + 25)
+    doc.text(`${p.employee.firstName} ${p.employee.lastName}`, midX + 8, y + 25)
+    doc.text("C.I.: " + p.employee.cedula, midX + 8, y + 30)
+    doc.setTextColor(0, 0, 0)
+  }
+
+  addFooter(doc)
+  doc.save(`Liquidacion_${p.employee.cedula}_${p.employee.lastName}.pdf`)
+}

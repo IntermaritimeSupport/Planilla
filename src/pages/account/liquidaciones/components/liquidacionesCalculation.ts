@@ -93,6 +93,7 @@ export interface LiquidacionDesglose {
   semanasPrimaAntiguedad: number
   semanasPreaviso: number
   diasVacaciones: number
+  diasVacYaPagados: number           // días de vacaciones ya pagados vía permisos
   mesesDecimoActual: number
   tipoTerminacion: TipoTerminacion
   fechaIngreso: Date
@@ -293,7 +294,7 @@ export const calcISRLiquidacion = (
     }
   }
 
-  const monthlyISR = annualISR / 13
+  const monthlyISR = annualISR / 12
 
   // ISR proporcional = (liquidación / salario mensual) × ISR mensual
   // Si la liquidación es mayor que un mes se aplica el ISR mensual completo
@@ -309,7 +310,8 @@ export const calcularLiquidacion = (
   employee: LiquidacionEmployee,
   tipoTerminacion: TipoTerminacion,
   fechaTerminacion: Date,
-  legalParams: LiquidacionLegalParam[]
+  legalParams: LiquidacionLegalParam[],
+  diasVacPagadas?: number
 ): LiquidacionDesglose => {
   const fechaIngreso = new Date(employee.hireDate)
   const diasTrabajados = calcDaysLiq(fechaIngreso, fechaTerminacion)
@@ -327,8 +329,14 @@ export const calcularLiquidacion = (
   // 2. Preaviso (solo despido injustificado)
   const preaviso = calcPreaviso(mesesTrabajados, salarioSemanal, tipoTerminacion)
 
-  // 3. Vacaciones proporcionales (siempre)
-  const vacaciones = calcVacacionesProporcionales(diasTrabajados, salarioDiario)
+  // 3. Vacaciones proporcionales (siempre) — descontando días ya pagados vía permisos
+  const diasVacYaPagados = Math.max(0, diasVacPagadas ?? 0)
+  const vacRaw = calcVacacionesProporcionales(diasTrabajados, salarioDiario)
+  const vacMontoYaPagado = Number(Math.min(diasVacYaPagados * salarioDiario, vacRaw.monto).toFixed(2))
+  const vacaciones = {
+    dias: Number(Math.max(0, vacRaw.dias - diasVacYaPagados).toFixed(2)),
+    monto: Number(Math.max(0, vacRaw.monto - vacMontoYaPagado).toFixed(2)),
+  }
 
   // 4. Décimo proporcional (siempre)
   const decimo = calcDecimoProporcional(fechaTerminacion, salarioMensual)
@@ -377,6 +385,7 @@ export const calcularLiquidacion = (
     semanasPrimaAntiguedad: prima.semanas,
     semanasPreaviso: preaviso.semanas,
     diasVacaciones: vacaciones.dias,
+    diasVacYaPagados,
     mesesDecimoActual: decimo.mesesEnPeriodo,
     tipoTerminacion,
     fechaIngreso,
