@@ -23,7 +23,7 @@ import {
 } from "./liquidacionesCalculation"
 import { authFetcher, apiPut } from "../../../../services/api"
 
-interface PaidLeave { employeeId: string; leaveType: string; isPaid: boolean; daysApproved: number | null; daysRequested: number }
+// interface PaidLeave { employeeId: string; leaveType: string; isPaid: boolean; daysApproved: number | null; daysRequested: number }
 import { toast } from "sonner"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -677,6 +677,7 @@ export const AllLiquidaciones: React.FC = () => {
               ) : (
                 filtered.map(emp => (
                   <EmpleadoRow
+                    diasVacPagadas={0}
                     key={emp.id}
                     employee={emp}
                     legalParams={legalParams || []}
