@@ -5,6 +5,7 @@ import { X, Edit2, Trash2 } from "lucide-react"
 import { useTheme } from "../../../../context/themeContext"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { useCompany } from "../../../../context/routerContext"
+import { authFetcher, apiPost, apiPut, apiDelete } from "../../../../services/api"
 
 /* ============================ 
    TYPES 
@@ -56,28 +57,24 @@ export const AllLegalDecimoParameters: React.FC = () => {
 
   // Fetch de llaves disponibles
   useEffect(() => {
-    fetch(`${API_URL}/api/system/legal-decimo-parameters/keys`)
-      .then(res => res.json())
+    authFetcher<{ key: string; name: string; category: string }[]>(
+      `${API_URL}/api/system/legal-decimo-parameters/keys`
+    )
       .then(data => {
-        const mapped = data.map((k: any) => ({
-          value: k.key,
-          label: k.name,
-          category: k.category,
-        }))
-        setAvailableKeys(mapped)
+        setAvailableKeys(data.map(k => ({ value: k.key, label: k.name, category: k.category })))
       })
+      .catch(() => {})
   }, [])
 
   const fetchParameters = useCallback(async () => {
     if (!selectedCompany?.id) return
     try {
       setIsLoading(true)
-      const url = `${API_URL}/api/system/legal-decimo-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Error al cargar parámetros")
-      const data = await response.json()
+      const data = await authFetcher<LegalDecimoParameter[]>(
+        `${API_URL}/api/system/legal-decimo-parameters?category=${activeTab}&companyId=${selectedCompany.id}`
+      )
       setParameters(data || [])
-    } catch (err: any) {
+    } catch {
       setParameters([])
     } finally {
       setIsLoading(false)
@@ -135,36 +132,27 @@ export const AllLegalDecimoParameters: React.FC = () => {
     }
 
     try {
-      const url = isEditing
-        ? `${API_URL}/api/system/legal-decimo-parameters/${modal.parameter?.id}`
-        : `${API_URL}/api/system/legal-decimo-parameters?category=${activeTab}&companyId=${selectedCompany?.id}`
-      
-      const response = await fetch(url, {
-        method: isEditing ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Error al guardar")
-
+      if (isEditing) {
+        await apiPut(`/api/system/legal-decimo-parameters/${modal.parameter?.id}`, payload)
+      } else {
+        await apiPost(`/api/system/legal-decimo-parameters`, payload)
+      }
       showNotification("success", "Guardado correctamente")
       fetchParameters()
       closeModal()
-    } catch (err: any) {
-      showNotification("error", err.message)
+    } catch (err: unknown) {
+      showNotification("error", err instanceof Error ? err.message : "Error al guardar")
     }
   }
 
   const deleteParameter = async (id: string) => {
     if (!confirm("¿Eliminar este parámetro?")) return
     try {
-      const response = await fetch(`${API_URL}/api/system/legal-decimo-parameters/${id}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Error al eliminar")
+      await apiDelete(`/api/system/legal-decimo-parameters/${id}`)
       setParameters(prev => prev.filter(p => p.id !== id))
       showNotification("success", "Parámetro eliminado")
-    } catch (err: any) {
-      showNotification("error", err.message)
+    } catch (err: unknown) {
+      showNotification("error", err instanceof Error ? err.message : "Error al eliminar")
     }
   }
 

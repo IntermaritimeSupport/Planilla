@@ -70,14 +70,9 @@ export function UserProfileProvider({ children }: UserProfileProviderProps) {
     }
   }, []);
 
-  // Mientras se inicializa, no renderizar nada
-  if (!isInitialized) {
-    return null;
-  }
-
   return (
     <UserProfileContext.Provider value={{ profile, setProfile }}>
-      {children}
+      {isInitialized ? children : null}
     </UserProfileContext.Provider>
   );
 }

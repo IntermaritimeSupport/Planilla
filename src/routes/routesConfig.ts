@@ -1,6 +1,6 @@
 
 // import { TicketIcon } from "lucide-react";
-import { Banknote, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale } from "lucide-react";
+import { Banknote, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale, UserMinus } from "lucide-react";
 import { DashboardIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 // import { DashboardIcon, DevicesIcon, InventoryIcon, MaintenanceIcon, NetworkIcon, ReportsIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
@@ -165,6 +165,16 @@ const routesConfig = [
     roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
     subroutes: [
       { name: "Vacaciones", href: "/vacaciones/all" },
+    ]
+  },
+  {
+    disable:false,
+    icon: UserMinus,
+    name: "Liquidaciones",
+    href: "/liquidaciones/all",
+    roles: [authRoles.super_admin, authRoles.admin, authRoles.moderator],
+    subroutes: [
+      { name: "Liquidaciones", href: "/liquidaciones/all" },
     ]
   },
   {

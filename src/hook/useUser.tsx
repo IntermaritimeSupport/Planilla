@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import Context from '../context/userContext';
 import { authServices } from '../actions/authentication';
 
@@ -28,16 +28,12 @@ export default function useUser(): UseUserReturn {
 
       try {
         const token = await authServices.login(email, password);
-        
-        // Guardar token en storage
-        window.localStorage.setItem('jwt', token);
-        window.sessionStorage.setItem('jwt', token);
-        
+
+        // authServices.login ya guarda en localStorage ('jwt')
         setState({ loading: false, error: false });
         setJWT(token);
       } catch (err) {
         window.localStorage.removeItem('jwt');
-        window.sessionStorage.removeItem('jwt');
         setState({ loading: false, error: true });
         setJWT(null);
         console.error(err);

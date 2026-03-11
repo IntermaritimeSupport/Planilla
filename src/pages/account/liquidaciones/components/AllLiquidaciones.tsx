@@ -20,10 +20,9 @@ import {
   type TipoTerminacion,
   calcularLiquidacion,
 } from "./liquidacionesCalculation"
+import { authFetcher } from "../../../../services/api"
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 const fmt = (n: number) =>
   `$${(Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -414,14 +413,14 @@ export const AllLiquidaciones: React.FC = () => {
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
       : null,
-    fetcher
+    authFetcher
   )
 
   const { data: legalParams, isLoading: loadingParams } = useSWR<LiquidacionLegalParam[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany.id}`
       : null,
-    fetcher
+    authFetcher
   )
 
   // ── EMPLEADOS ACTIVOS FILTRADOS ──

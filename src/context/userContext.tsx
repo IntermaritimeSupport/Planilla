@@ -15,8 +15,7 @@ interface UserContextProps {
 
 export function UserContextProvider({ children }: UserContextProps) {
   const [jwt, setJWT] = useState<string | null>(() => {
-    const currentUser = authServices.getCurrentUser();
-    return currentUser ? JSON.stringify(currentUser) : null;
+    return authServices.getCurrentUser() ?? null;
   });
   return (
     <Context.Provider value={{ jwt, setJWT }}>

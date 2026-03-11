@@ -16,7 +16,7 @@ interface RoutesProps {
   isLogged: boolean;
 }
 
-const fetcher = (url: string) => 
+const fetcher = (url: string) =>
   fetch(url, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('jwt') || ''}`,
@@ -39,10 +39,6 @@ const fallbackCompanies = [
   },
 ];
 
-export interface CurrentPathname {
-  name: string;
-}
-
 const Layout: React.FC<RoutesProps> = () => {
   const [pathnameLocation, setCurrentPathname] = useState<CurrentPathname>({ name: '' });
   const [, setShowError] = useState(false);
@@ -54,7 +50,7 @@ const Layout: React.FC<RoutesProps> = () => {
   }, []);
 
   const { data, error } = useSWR(
-    isLogged ? `${VITE_API_URL}/api/companies/${profile?.id}/my-companies` : null,
+    isLogged && profile?.id ? `${VITE_API_URL}/api/companies/${profile.id}/my-companies` : null,
     fetcher,
     {
       fallbackData: fallbackCompanies,

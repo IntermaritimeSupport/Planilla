@@ -371,7 +371,7 @@ export default function PayrollHistory() {
           <span className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
             <span className="font-bold text-lg">{filtered.length}</span> registros
           </span>
-          {summaryData && (
+          {summaryData?.months && (
             <span className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
               <span className="font-bold text-lg">{summaryData.months.length}</span> meses con actividad
             </span>
