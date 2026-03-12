@@ -88,7 +88,8 @@ export const exportToExcel = (params: ExportParams) => {
   const totalBonifications = payrollData.reduce((sum, row) => sum + (row["Bonificaciones"] || 0), 0)
   const totalOtherIncome = payrollData.reduce((sum, row) => sum + (row["Otros Ingresos"] || 0), 0)
   const totalGrossSalary = payrollData.reduce((sum, row) => sum + (row["Salario Bruto"] || 0), 0)
-  const totalSss = payrollData.reduce((sum, row) => sum + (row["SSS (8.75%)"] || 0), 0)
+  const totalSss = payrollData.reduce((sum, row) => sum + (row["SS Empleado (9.75%)"] || 0), 0)
+  const totalSe  = payrollData.reduce((sum, row) => sum + (row["Seg. Educativo (1.25%)"] || 0), 0)
   const totalIsr = payrollData.reduce((sum, row) => sum + (row["ISR"] || 0), 0)
   const totalDescuentos = payrollData.reduce((sum, row) => sum + (row["Descuentos fijos"] || 0), 0)
   const totalOtherDeductions = payrollData.reduce((sum, row) => sum + (row["Otras Retenciones"] || 0), 0)
@@ -107,7 +108,8 @@ export const exportToExcel = (params: ExportParams) => {
     "Bonificaciones": totalBonifications,
     "Otros Ingresos": totalOtherIncome,
     "Salario Bruto": totalGrossSalary,
-    "SSS (8.75%)": totalSss,
+    "SS Empleado (9.75%)": totalSss,
+    "Seg. Educativo (1.25%)": totalSe,
     "ISR": totalIsr,
     "Total Descuentos": totalDescuentos,
     "Otras Retenciones": totalOtherDeductions,
