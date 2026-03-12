@@ -14,7 +14,7 @@ import { authFetcher } from "../../../../services/api"
 
 export type UserRole = 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPER_ADMIN';
 export type SalaryType = 'MONTHLY' | 'BIWEEKLY';
-export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED' | 'MATERNITY_LEAVE';
 
 export interface User {
     id: string;
@@ -46,6 +46,9 @@ export interface Employee {
     user?: User | null;
     company?: Company;
     createdAt: string | Date;
+    maternityStartDate?: string | null;
+    maternityEndDate?: string | null;
+    inactivityReason?: string | null;
 }
 
 // fetcher unificado con auth (ver services/api.ts)
@@ -58,12 +61,21 @@ const getAvatarColor = (nombre: string) => {
     return colors[index]
 }
 
+const STATUS_LABEL: Record<EmployeeStatus, string> = {
+    ACTIVE: "Activo",
+    INACTIVE: "Inactivo",
+    TERMINATED: "Terminado",
+    SUSPENDED: "Suspendido",
+    MATERNITY_LEAVE: "Mat. Maternidad",
+}
+
 const getStatusBadge = (status: EmployeeStatus) => {
     switch (status) {
         case 'ACTIVE': return "bg-green-600 text-green-100";
         case 'INACTIVE': return "bg-gray-600 text-gray-100";
         case 'TERMINATED': return "bg-red-600 text-red-100";
         case 'SUSPENDED': return "bg-orange-600 text-orange-100";
+        case 'MATERNITY_LEAVE': return "bg-pink-600 text-pink-100";
         default: return "bg-blue-600 text-blue-100";
     }
 }
@@ -85,6 +97,8 @@ export const AllEmployees: React.FC = () => {
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 25;
     const [importModalOpen, setImportModalOpen] = useState(false)
+    const [maternityModal, setMaternityModal] = useState<{ show: boolean; employee: Employee | null; saving: boolean }>({ show: false, employee: null, saving: false })
+    const [maternityForm, setMaternityForm] = useState({ maternityStartDate: "", maternityEndDate: "", inactivityReason: "Licencia de Maternidad — CSS cubre subsidio" })
 
     const showNotification = (type: "success" | "error", message: string) => {
         setNotification({ type, message, show: true })
@@ -116,6 +130,52 @@ export const AllEmployees: React.FC = () => {
         } catch (error: any) {
             showNotification("error", error.message || "Error al eliminar")
             setDeleteConfirmation((prev) => ({ ...prev, isDeleting: false }))
+        }
+    }
+
+    const openMaternityModal = (employee: Employee) => {
+        setMaternityForm({
+            maternityStartDate: employee.maternityStartDate ? new Date(employee.maternityStartDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+            maternityEndDate: employee.maternityEndDate ? new Date(employee.maternityEndDate).toISOString().split("T")[0] : "",
+            inactivityReason: employee.inactivityReason || "Licencia de Maternidad — CSS cubre subsidio",
+        })
+        setMaternityModal({ show: true, employee, saving: false })
+    }
+
+    const saveMaternityLeave = async () => {
+        if (!maternityModal.employee || !maternityForm.maternityStartDate) return
+        setMaternityModal(p => ({ ...p, saving: true }))
+        try {
+            const token = localStorage.getItem('jwt')
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payroll/employees/${maternityModal.employee.id}/status`, {
+                method: "PUT",
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: "MATERNITY_LEAVE", ...maternityForm }),
+            })
+            if (!res.ok) throw new Error("Error al actualizar estado")
+            mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
+            showNotification("success", `Licencia de maternidad registrada para ${maternityModal.employee.firstName}`)
+            setMaternityModal({ show: false, employee: null, saving: false })
+        } catch (error: any) {
+            showNotification("error", error.message || "Error al guardar")
+            setMaternityModal(p => ({ ...p, saving: false }))
+        }
+    }
+
+    const reactivateEmployee = async (employee: Employee) => {
+        if (!window.confirm(`¿Reactivar a ${employee.firstName} ${employee.lastName}?`)) return
+        try {
+            const token = localStorage.getItem('jwt')
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payroll/employees/${employee.id}/status`, {
+                method: "PUT",
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: "ACTIVE" }),
+            })
+            if (!res.ok) throw new Error("Error al reactivar empleado")
+            mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
+            showNotification("success", `${employee.firstName} reactivado exitosamente`)
+        } catch (error: any) {
+            showNotification("error", error.message || "Error al reactivar")
         }
     }
 
@@ -168,9 +228,33 @@ export const AllEmployees: React.FC = () => {
             </div>
         ),
         "Estado": (item: Employee) => (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(item.status)}`}>
-                {item.status}
-            </span>
+            <div className="flex flex-col gap-1">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${getStatusBadge(item.status)}`}>
+                    {STATUS_LABEL[item.status] ?? item.status}
+                </span>
+                {item.status === 'MATERNITY_LEAVE' && item.maternityStartDate && (
+                    <span className="text-[10px] text-gray-400">
+                        Desde {new Date(item.maternityStartDate).toLocaleDateString("es-PA")}
+                        {item.maternityEndDate ? ` · Hasta ${new Date(item.maternityEndDate).toLocaleDateString("es-PA")}` : ""}
+                    </span>
+                )}
+                {(item.status === 'ACTIVE' || item.status === 'INACTIVE') && (
+                    <button
+                        onClick={e => { e.stopPropagation(); openMaternityModal(item) }}
+                        className="text-[10px] text-pink-400 hover:text-pink-300 underline text-left"
+                    >
+                        + Licencia Maternidad
+                    </button>
+                )}
+                {item.status === 'MATERNITY_LEAVE' && (
+                    <button
+                        onClick={e => { e.stopPropagation(); reactivateEmployee(item) }}
+                        className="text-[10px] text-green-400 hover:text-green-300 underline text-left"
+                    >
+                        Reactivar
+                    </button>
+                )}
+            </div>
         ),
     }
 
@@ -299,6 +383,74 @@ export const AllEmployees: React.FC = () => {
                     currentSalaryType={salaryHistoryEmployee.salaryType}
                     onClose={() => setSalaryHistoryEmployee(null)}
                 />
+            )}
+
+            {/* Modal de Licencia de Maternidad */}
+            {maternityModal.show && maternityModal.employee && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <div className={`rounded-xl border max-w-md w-full p-6 shadow-2xl ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                        <h3 className="text-lg font-bold mb-1">Licencia de Maternidad</h3>
+                        <p className={`text-sm mb-5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                            {maternityModal.employee.firstName} {maternityModal.employee.lastName}
+                        </p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className={`block text-xs font-bold uppercase mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                    Fecha inicio *
+                                </label>
+                                <input
+                                    type="date"
+                                    value={maternityForm.maternityStartDate}
+                                    onChange={e => setMaternityForm(p => ({ ...p, maternityStartDate: e.target.value }))}
+                                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-pink-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                                />
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-bold uppercase mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                    Fecha fin estimada (3 meses)
+                                </label>
+                                <input
+                                    type="date"
+                                    value={maternityForm.maternityEndDate}
+                                    onChange={e => setMaternityForm(p => ({ ...p, maternityEndDate: e.target.value }))}
+                                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-pink-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                                />
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-bold uppercase mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                    Notas / Motivo
+                                </label>
+                                <input
+                                    type="text"
+                                    value={maternityForm.inactivityReason}
+                                    onChange={e => setMaternityForm(p => ({ ...p, inactivityReason: e.target.value }))}
+                                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-pink-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                                />
+                            </div>
+
+                            <div className={`p-3 rounded-lg text-xs ${isDarkMode ? "bg-pink-900/20 border border-pink-500/20 text-pink-300" : "bg-pink-50 border border-pink-200 text-pink-700"}`}>
+                                <b>Nota legal:</b> Durante la licencia de maternidad (98 días / ~3 meses), la CSS paga el subsidio al empleado. La empresa sigue acumulando décimo tercer mes proporcional que se pagará en la siguiente partida.
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => setMaternityModal({ show: false, employee: null, saving: false })}
+                                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold ${isDarkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={saveMaternityLeave}
+                                disabled={maternityModal.saving || !maternityForm.maternityStartDate}
+                                className="flex-1 px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold"
+                            >
+                                {maternityModal.saving ? "Guardando..." : "Registrar Licencia"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

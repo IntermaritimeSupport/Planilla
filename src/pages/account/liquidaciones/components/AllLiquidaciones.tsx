@@ -38,6 +38,7 @@ const TIPO_LABELS: Record<TipoTerminacion, { label: string; color: string; icon:
   RENUNCIA: { label: "Renuncia Voluntaria", color: "amber", icon: <Clock size={13} /> },
   MUTUO_ACUERDO: { label: "Mutuo Acuerdo", color: "blue", icon: <CheckCircle size={13} /> },
   DESPIDO_JUSTIFICADO: { label: "Despido Justificado", color: "purple", icon: <AlertTriangle size={13} /> },
+  TERMINACION_CONTRATO: { label: "Terminación de Contrato", color: "orange", icon: <FileText size={13} /> },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ const TipoBadge: React.FC<{ tipo: TipoTerminacion; isDark: boolean }> = ({ tipo,
     amber: isDark ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-amber-100 text-amber-700 border-amber-300",
     blue: isDark ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-blue-100 text-blue-700 border-blue-300",
     purple: isDark ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-purple-100 text-purple-700 border-purple-300",
+    orange: isDark ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-orange-100 text-orange-700 border-orange-300",
   }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${colorMap[cfg.color]}`}>
@@ -107,6 +109,7 @@ const TipoSelector: React.FC<{
         amber: "border-amber-500 bg-amber-500/10 text-amber-400",
         blue: "border-blue-500 bg-blue-500/10 text-blue-400",
         purple: "border-purple-500 bg-purple-500/10 text-purple-400",
+        orange: "border-orange-500 bg-orange-500/10 text-orange-400",
       }
       return (
         <button
@@ -143,10 +146,12 @@ const EmpleadoRow: React.FC<{
   const [tipo, setTipo] = useState<TipoTerminacion>("DESPIDO_INJUSTIFICADO")
   const [fechaTerm, setFechaTerm] = useState(new Date().toISOString().split("T")[0])
   const [terminating, setTerminating] = useState(false)
+  const [diasPendienteOverride, setDiasPendienteOverride] = useState<string>("")
 
   const calc = useMemo<LiquidacionDesglose>(() => {
-    return calcularLiquidacion(employee, tipo, new Date(fechaTerm + "T12:00:00"), legalParams, diasVacPagadas)
-  }, [employee, tipo, fechaTerm, legalParams, diasVacPagadas])
+    const diasOverride = diasPendienteOverride !== "" ? Number(diasPendienteOverride) : undefined
+    return calcularLiquidacion(employee, tipo, new Date(fechaTerm + "T12:00:00"), legalParams, diasVacPagadas, diasOverride)
+  }, [employee, tipo, fechaTerm, legalParams, diasVacPagadas, diasPendienteOverride])
 
   const td = "px-4 py-3 text-sm"
 
@@ -250,6 +255,32 @@ const EmpleadoRow: React.FC<{
                   />
                 </div>
 
+                {/* Días de salario pendiente — solo en Terminación de Contrato */}
+                {tipo === "TERMINACION_CONTRATO" && (
+                  <div>
+                    <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                      Días pendientes de pago (ajuste manual)
+                    </p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={31}
+                      placeholder={`Auto: ${calc.diasPendientes} días`}
+                      value={diasPendienteOverride}
+                      onChange={e => setDiasPendienteOverride(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-orange-500 transition-colors ${
+                        isDark
+                          ? "bg-slate-800 border-slate-700 text-white"
+                          : "bg-white border-gray-300 text-gray-900"
+                      }`}
+                    />
+                    <p className={`text-[10px] mt-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+                      Dejar vacío para calcular automáticamente
+                    </p>
+                  </div>
+                )}
+
                 {/* Datos de cálculo */}
                 <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
                   <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
@@ -293,7 +324,7 @@ const EmpleadoRow: React.FC<{
                   value={calc.preaviso}
                   sub={`${calc.semanasPreaviso} sem. · Art. 683 CT`}
                   isDark={isDark}
-                  disabled={tipo !== "DESPIDO_INJUSTIFICADO"}
+                  disabled={tipo !== "DESPIDO_INJUSTIFICADO" && tipo !== "TERMINACION_CONTRATO"}
                 />
                 <ConceptoRow
                   label="Vacaciones Proporcionales"
@@ -315,7 +346,14 @@ const EmpleadoRow: React.FC<{
                   value={calc.indemnizacionBruto}
                   sub={`${calc.anosTrabajados} años · Art. 225 CT`}
                   isDark={isDark}
-                  disabled={tipo !== "DESPIDO_INJUSTIFICADO"}
+                  disabled={tipo !== "DESPIDO_INJUSTIFICADO" && tipo !== "TERMINACION_CONTRATO"}
+                />
+                <ConceptoRow
+                  label="Salarios Pendientes"
+                  value={calc.salariosPendientes}
+                  sub={`${calc.diasPendientes} días sin pagar del período actual`}
+                  isDark={isDark}
+                  disabled={tipo !== "TERMINACION_CONTRATO"}
                 />
 
                 {/* Subtotal bruto */}

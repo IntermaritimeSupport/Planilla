@@ -41,6 +41,7 @@ export type TipoTerminacion =
   | "RENUNCIA"                // → prima + vacaciones + décimo (sin preaviso ni indemnización)
   | "MUTUO_ACUERDO"           // → prima + vacaciones + décimo (negociable)
   | "DESPIDO_JUSTIFICADO"     // → prima + vacaciones + décimo (sin preaviso ni indemnización)
+  | "TERMINACION_CONTRATO"    // → todos los conceptos + salarios pendientes del período
 
 export interface LiquidacionEmployee {
   id: string
@@ -71,6 +72,8 @@ export interface LiquidacionDesglose {
   vacacionesBruto: number            // Art. 54-60
   decimoProporcionalBruto: number    // Ley 44/1995
   indemnizacionBruto: number         // Art. 225 (solo despido injust.)
+  salariosPendientes: number         // Días trabajados no pagados del último período
+  diasPendientes: number             // Cantidad de días pendientes de pago
   totalBruto: number
 
   // ── Deducciones ──
@@ -266,6 +269,33 @@ export const calcIndemnizacion = (
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SALARIOS PENDIENTES — días trabajados del último período no pagado
+// Aplica cuando el empleado tiene días trabajados sin cobrar en el período actual
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const calcSalariosPendientes = (
+  fechaTerminacion: Date,
+  salarioDiario: number,
+  diasYaPagadosEnPeriodo?: number
+): { dias: number; monto: number } => {
+  // Determinar inicio del período actual (quincena o mes)
+  const dia = fechaTerminacion.getDate()
+
+  // Período quincenal: del 1 al 15 o del 16 al fin de mes
+  let diasEnPeriodo: number
+  if (dia <= 15) {
+    diasEnPeriodo = dia  // trabajó del 1 al día actual
+  } else {
+    diasEnPeriodo = dia - 15  // trabajó del 16 al día actual
+  }
+
+  const diasPendientes = Math.max(0, diasEnPeriodo - (diasYaPagadosEnPeriodo ?? 0))
+  const monto = Number((diasPendientes * salarioDiario).toFixed(2))
+
+  return { dias: diasPendientes, monto }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ISR SOBRE LIQUIDACIÓN
 // Se anualiza el total bruto para ubicar tramo y se aplica proporcional
 // ─────────────────────────────────────────────────────────────────────────────
@@ -311,7 +341,8 @@ export const calcularLiquidacion = (
   tipoTerminacion: TipoTerminacion,
   fechaTerminacion: Date,
   legalParams: LiquidacionLegalParam[],
-  diasVacPagadas?: number
+  diasVacPagadas?: number,
+  diasSalarioPendiente?: number  // días del período actual sin pagar (override manual)
 ): LiquidacionDesglose => {
   const fechaIngreso = new Date(employee.hireDate)
   const diasTrabajados = calcDaysLiq(fechaIngreso, fechaTerminacion)
@@ -341,15 +372,30 @@ export const calcularLiquidacion = (
   // 4. Décimo proporcional (siempre)
   const decimo = calcDecimoProporcional(fechaTerminacion, salarioMensual)
 
-  // 5. Indemnización (solo despido injustificado)
-  const indemnizacion = calcIndemnizacion(mesesTrabajados, salarioSemanal, tipoTerminacion)
+  // 5. Indemnización (solo despido injustificado o terminación de contrato sin causa)
+  const tipoParaIndem: TipoTerminacion =
+    tipoTerminacion === "TERMINACION_CONTRATO" ? "DESPIDO_INJUSTIFICADO" : tipoTerminacion
+  const indemnizacion = calcIndemnizacion(mesesTrabajados, salarioSemanal, tipoParaIndem)
+
+  // 6. Salarios pendientes del período actual (siempre en Terminación de Contrato)
+  const salariosPendientesResult =
+    tipoTerminacion === "TERMINACION_CONTRATO"
+      ? calcSalariosPendientes(fechaTerminacion, salarioDiario, diasSalarioPendiente !== undefined ? 0 : undefined)
+      : { dias: 0, monto: 0 }
+
+  // Si se pasó override manual de días pendientes, recalcular
+  const salariosPendientesFinal =
+    diasSalarioPendiente !== undefined
+      ? { dias: diasSalarioPendiente, monto: Number((diasSalarioPendiente * salarioDiario).toFixed(2)) }
+      : salariosPendientesResult
 
   const totalBruto = Number((
     prima.monto +
     preaviso.monto +
     vacaciones.monto +
     decimo.monto +
-    indemnizacion.monto
+    indemnizacion.monto +
+    salariosPendientesFinal.monto
   ).toFixed(2))
 
   // Deducciones
@@ -369,6 +415,8 @@ export const calcularLiquidacion = (
     vacacionesBruto: vacaciones.monto,
     decimoProporcionalBruto: decimo.monto,
     indemnizacionBruto: indemnizacion.monto,
+    salariosPendientes: salariosPendientesFinal.monto,
+    diasPendientes: salariosPendientesFinal.dias,
     totalBruto,
     ss,
     se,

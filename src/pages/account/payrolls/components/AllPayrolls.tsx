@@ -137,6 +137,12 @@ export const AllPayrolls: React.FC = () => {
     authFetcher
   )
 
+  // Empleados en licencia de maternidad — se incluyen solo en el pago de décimo tercer mes
+  const { data: maternityEmployees } = useSWR<Employee[]>(
+    selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}&status=MATERNITY_LEAVE` : null,
+    authFetcher
+  )
+
   const { data: legalParams = [], isLoading } = useSWR<LegalParameter[]>(
     selectedCompany?.id ? `${import.meta.env.VITE_API_URL}/api/system/legal-parameters?companyId=${selectedCompany?.id}` : null,
     authFetcher,
@@ -163,15 +169,24 @@ export const AllPayrolls: React.FC = () => {
   // ── Cálculos usando lib/payrollCalculation (fuente única) ──
   const employeeCalculations = useMemo<PayrollCalculation[]>(() => {
     if (!legalParams?.length || !employees?.length) return []
+
+    const d = new Date(payrollDate)
+    const isPeriodDecimo = d.getMonth() === 3 || d.getMonth() === 7 || d.getMonth() === 11
+
+    // En meses de décimo, incluir empleados en maternidad (solo se les calcula el décimo)
+    const allEmployees = isPeriodDecimo && maternityEmployees?.length
+      ? [...employees, ...maternityEmployees]
+      : employees
+
     return calcAllPayrolls(
-      employees as any,
+      allEmployees as any,
       legalParams,
       payrollType as PayrollPeriodType,
       quincenal as QuincenaType,
       payrollDate,
       overrides
     )
-  }, [employees, legalParams, payrollType, quincenal, payrollDate, overrides])
+  }, [employees, maternityEmployees, legalParams, payrollType, quincenal, payrollDate, overrides])
 
   const updateEmployeeCalc = useCallback(
     (employeeId: string, field: keyof PayrollOverrides[string], value: number) => {
