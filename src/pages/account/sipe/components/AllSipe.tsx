@@ -161,21 +161,22 @@ export const AllSipe: React.FC = () => {
       const sePatRate = Number(getParam("se_patrono")?.percentage ?? 1.5)
       const riesgoRate = Number(getParam("riesgo_profesional")?.percentage ?? 0.98)
 
-      const ssEmp  = Number((gross * (ssEmpRate  / 100)).toFixed(2))
-      const ssPat  = Number((gross * (ssPatRate  / 100)).toFixed(2))
-      const eduEmp = Number((gross * (seEmpRate  / 100)).toFixed(2))
-      const eduPat = Number((gross * (sePatRate  / 100)).toFixed(2))
-      const riesgo = Number((gross * (riesgoRate / 100)).toFixed(2))
+      // Mantener precisión completa en cada valor — redondeo solo al mostrar/totalizar
+      const ssEmp  = gross * (ssEmpRate  / 100)
+      const ssPat  = gross * (ssPatRate  / 100)
+      const eduEmp = gross * (seEmpRate  / 100)
+      const eduPat = gross * (sePatRate  / 100)
+      const riesgo = gross * (riesgoRate / 100)
 
-      const isr = Number(calculateISR(gross).toFixed(2))
+      const isr = calculateISR(gross)
 
       let decCSS = 0
       if (payrollPeriod.isApr || payrollPeriod.isAug || payrollPeriod.isDec) {
         const decRate = Number(getParam("decimo_css")?.percentage ?? 7.25)
-        decCSS = Number((((gross * 3) / 12) * (decRate / 100)).toFixed(2))
+        decCSS = ((gross * 3) / 12) * (decRate / 100)
       }
 
-      const totalSipe = Number((ssEmp + ssPat + eduEmp + eduPat + riesgo + isr + decCSS).toFixed(2))
+      const totalSipe = ssEmp + ssPat + eduEmp + eduPat + riesgo + isr + decCSS
 
       return {
         ...emp,
@@ -208,20 +209,19 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
         riesgo: acc.riesgo + c.riesgo,
         isr:    acc.isr    + c.isr,
         decCSS: acc.decCSS + c.decCSS,
-        total:  acc.total  + c.totalSipe,
       }),
-      { ssEmp: 0, ssPat: 0, eduEmp: 0, eduPat: 0, riesgo: 0, isr: 0, decCSS: 0, total: 0 }
+      { ssEmp: 0, ssPat: 0, eduEmp: 0, eduPat: 0, riesgo: 0, isr: 0, decCSS: 0 }
     )
-    return {
-      ssEmp:  Number(raw.ssEmp.toFixed(2)),
-      ssPat:  Number(raw.ssPat.toFixed(2)),
-      eduEmp: Number(raw.eduEmp.toFixed(2)),
-      eduPat: Number(raw.eduPat.toFixed(2)),
-      riesgo: Number(raw.riesgo.toFixed(2)),
-      isr:    Number(raw.isr.toFixed(2)),
-      decCSS: Number(raw.decCSS.toFixed(2)),
-      total:  Number(raw.total.toFixed(2)),
-    }
+    const ssEmp  = Number(raw.ssEmp.toFixed(2))
+    const ssPat  = Number(raw.ssPat.toFixed(2))
+    const eduEmp = Number(raw.eduEmp.toFixed(2))
+    const eduPat = Number(raw.eduPat.toFixed(2))
+    const riesgo = Number(raw.riesgo.toFixed(2))
+    const isr    = Number(raw.isr.toFixed(2))
+    const decCSS = Number(raw.decCSS.toFixed(2))
+    // El total se calcula sobre los valores ya redondeados para que cuadre con la suma visible
+    const total  = Number((ssEmp + ssPat + eduEmp + eduPat + riesgo + isr + decCSS).toFixed(2))
+    return { ssEmp, ssPat, eduEmp, eduPat, riesgo, isr, decCSS, total }
   }, [employeeCalculations])
 
   const format = (n: number) =>
