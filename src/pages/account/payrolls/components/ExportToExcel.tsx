@@ -63,7 +63,7 @@ export const exportToExcel = (params: ExportParams) => {
   // Crear workbook
   const wb = XLSX.utils.book_new()
 
-  // ==================== HOJA 1: PLANILLA ====================
+  // =================== HOJA 1: PLANILLA ====================
   const payrollData = employeeCalculations.map((calc) => ({
     "Cédula": calc.employee.cedula,
     "Nombre": `${calc.employee.firstName} ${calc.employee.lastName}`,
