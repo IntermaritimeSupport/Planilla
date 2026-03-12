@@ -128,7 +128,11 @@ export const AllSipe: React.FC = () => {
       let annualISR = 0
 
       for (const rate of isrRates) {
-        const min = Number(rate.minRange) || 0
+        if (Number(rate.percentage) === 0) continue
+        // El piso real del tramo = maxRange del tramo anterior (exento)
+        // Para tramo 15%: min efectivo = 11000 (no 11001), para 25%: min efectivo = 50000
+        const rawMin = Number(rate.minRange) || 0
+        const min = rawMin > 0 ? rawMin - 1 : 0  // ajuste: 11001 → 11000, 50001 → 50000
         const max = rate.maxRange ? Number(rate.maxRange) : Infinity
         const percent = Number(rate.percentage) / 100
 

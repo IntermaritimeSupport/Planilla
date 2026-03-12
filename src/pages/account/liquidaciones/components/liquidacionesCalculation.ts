@@ -316,11 +316,13 @@ export const calcISRLiquidacion = (
   let annualISR = 0
 
   for (const rate of isrRates) {
-    const min = Number(rate.minRange ?? 0)
+    if (Number(rate.percentage) === 0) continue
+    const rawMin = Number(rate.minRange ?? 0)
+    const piso = rawMin > 0 ? rawMin - 1 : 0  // 11001→11000, 50001→50000
     const max = rate.maxRange ? Number(rate.maxRange) : Infinity
     const pct = Number(rate.percentage) / 100
-    if (annualBase > min) {
-      annualISR += (Math.min(annualBase, max) - min) * pct
+    if (annualBase > piso) {
+      annualISR += (Math.min(annualBase, max) - piso) * pct
     }
   }
 

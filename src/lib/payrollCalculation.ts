@@ -185,9 +185,13 @@ export const calcISRAnual = (baseAnual: number, tramos: ISRTramo[]): number => {
   if (!tramos.length) return 0
   let tax = 0
   for (const t of tramos) {
+    if (t.percentage === 0) continue
     const upper = t.maxRange ?? 999_999_999
-    const gravable = Math.min(baseAnual, upper) - t.minRange
-    if (gravable > 0 && t.percentage > 0) {
+    // El piso efectivo = minRange - 1 para corregir el desfase de 1 unidad
+    // que produce almacenar 11001 en vez de 11000 en BD (el tramo aplica al excedente de 11000)
+    const piso = t.minRange > 0 ? t.minRange - 1 : 0
+    const gravable = Math.min(baseAnual, upper) - piso
+    if (gravable > 0) {
       tax += gravable * (t.percentage / 100)
     }
   }
