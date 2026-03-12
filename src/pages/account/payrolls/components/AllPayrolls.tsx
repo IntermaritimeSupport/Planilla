@@ -68,6 +68,7 @@ export interface PayrollCalculation {
   otherIncome: number
   grossSalary: number
   sss: number
+  se: number
   isr: number
   otherDeductions: number
   totalDeductions: number
@@ -229,6 +230,12 @@ export const AllPayrolls: React.FC = () => {
                   amount: calc.sss,
                   isFixed: true,
                 },
+                {
+                  type: "SE",
+                  description: "Seguro Educativo",
+                  amount: calc.se,
+                  isFixed: true,
+                },
                 ...(calc.isr > 0
                   ? [
                       {
@@ -346,7 +353,7 @@ export const AllPayrolls: React.FC = () => {
         : ""
 
   const totals = calcPayrollTotals(employeeCalculations, isPeriodThirteenthMonth)
-  const { totalGross: totalGrossSalary, totalSss, totalIsr, totalDeductions,
+  const { totalGross: totalGrossSalary, totalSss, totalSe, totalIsr, totalDeductions,
           totalNetMonthly: totalNetSalaryMonthly, totalNetBiweekly: totalNetSalaryBiweekly,
           totalThirteenth: totalThirteenthMonth } = totals
 
@@ -632,10 +639,13 @@ export const AllPayrolls: React.FC = () => {
                     Bruto
                   </th>
                   <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    SSS
+                    SS (9.75%)
                   </th>
                   <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    ISR Retenido
+                    Seg. Educ. (1.25%)
+                  </th>
+                  <th className={`text-left px-2 py-2 font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    ISR
                   </th>
                   <th className={`text-right py-3 px-2 font-medium ${isDarkMode ? "text-orange-400" : "text-orange-600"}`}>
                     Dctos. Fijos
@@ -782,6 +792,7 @@ export const AllPayrolls: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-3 text-sm">{formatCurrency(calc.sss)}</td>
+                    <td className="px-4 py-3 text-sm">{formatCurrency(calc.se)}</td>
                     <td className="px-4 py-3 text-sm">{formatCurrency(calc.isr)}</td>
 
                     <td className={`py-3 px-2 text-right font-medium ${
@@ -844,6 +855,7 @@ export const AllPayrolls: React.FC = () => {
                   {showCols.otherIncome && <td className="px-4 py-3">-</td>}
                   <td className="px-4 py-3">{formatCurrency(totalGrossSalary)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalSss)}</td>
+                  <td className="px-4 py-3">{formatCurrency(totalSe)}</td>
                   <td className="px-4 py-3">{formatCurrency(totalIsr)}</td>
                   <td className="px-4 py-3">-</td>
                   <td className="px-4 py-3">-</td>

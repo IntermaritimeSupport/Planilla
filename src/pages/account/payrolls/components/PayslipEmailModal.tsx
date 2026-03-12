@@ -85,6 +85,7 @@ export const PayslipEmailModal: React.FC<Props> = ({
           otherIncome: c.otherIncome,
           grossSalary: c.grossSalary,
           sss: c.sss,
+          se: (c as any).se ?? 0,
           isr: c.isr,
           recurringAmount: c.recurringAmount,
           otherDeductions: c.otherDeductions,

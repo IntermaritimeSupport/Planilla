@@ -90,7 +90,8 @@ export interface PayrollCalculation {
   bonifications: number
   otherIncome: number
   grossSalary: number
-  sss: number          // SS empleado
+  sss: number          // SS empleado 9.75%
+  se: number           // Seguro Educativo empleado 1.25%
   isr: number          // ISR del período
   recurringAmount: number
   otherDeductions: number
@@ -138,6 +139,14 @@ export const getSSSRate = (legalParams: LegalParameter[]): number => {
     p => (p.key === 'ss_empleado' || (p.category === 'social_security' && p.type === 'employee')) && p.status === 'active'
   )
   return p?.percentage ?? 9.75
+}
+
+export const getSERate = (legalParams: LegalParameter[]): number => {
+  if (!legalParams?.length) return 1.25
+  const p = legalParams.find(
+    p => (p.key === 'se_empleado' || (p.category === 'educational_insurance' && p.type === 'employee')) && p.status === 'active'
+  )
+  return p?.percentage ?? 1.25
 }
 
 export const getSSDecimoRate = (legalParams: LegalParameter[]): number => {
@@ -315,6 +324,7 @@ export const calcEmployeePayroll = (
   payrollMonth: number   // 0-based de Date.getMonth()
 ): PayrollCalculation => {
   const sssRate = getSSSRate(legalParams)
+  const seRate  = getSERate(legalParams)
   const ssDecimoRate = getSSDecimoRate(legalParams)
   const tramos = getISRTramos(legalParams)
   const isMensual = periodType === 'Mensual'
@@ -331,11 +341,15 @@ export const calcEmployeePayroll = (
 
   const grossSalary = Number((baseSalary + hoursExtra + bonifications + otherIncome).toFixed(2))
 
-  // SS empleado
+  // SS empleado (9.75%)
   const sss = Number((grossSalary * (sssRate / 100)).toFixed(2))
 
-  // ISR retenido en este período (quincena o mes) — ver calcISRPorPeriodo
-  const isr = calcISRPorPeriodo(grossSalary, periodType, tramos)
+  // Seguro Educativo empleado (1.25%)
+  const se = Number((grossSalary * (seRate / 100)).toFixed(2))
+
+  // ISR del período: base gravable = bruto − SS − SE (igual que SIPE/CSS)
+  const grossNetOfSSSE = Number((grossSalary - sss - se).toFixed(2))
+  const isr = calcISRPorPeriodo(grossNetOfSSSE, periodType, tramos)
 
   // Deducciones recurrentes según frecuencia y período
   const recurringAmount = (employee.recurringDeductions || []).reduce((acc, d) => {
@@ -351,7 +365,7 @@ export const calcEmployeePayroll = (
     return acc
   }, 0)
 
-  const totalDeductions = Number((sss + isr + otherDeductions + recurringAmount).toFixed(2))
+  const totalDeductions = Number((sss + se + isr + otherDeductions + recurringAmount).toFixed(2))
   const netSalary = Number((grossSalary - totalDeductions).toFixed(2))
 
   // Ambas vistas consistentes con el período calculado
@@ -367,6 +381,7 @@ export const calcEmployeePayroll = (
     otherIncome,
     grossSalary,
     sss,
+    se,
     isr,
     recurringAmount,
     otherDeductions,
@@ -422,6 +437,7 @@ export const calcAllPayrolls = (
 export interface PayrollTotals {
   totalGross: number
   totalSss: number
+  totalSe: number
   totalIsr: number
   totalRecurring: number
   totalOtherDeductions: number
@@ -441,6 +457,7 @@ export const calcPayrollTotals = (
   return {
     totalGross:          sum(c => c.grossSalary),
     totalSss:            sum(c => c.sss),
+    totalSe:             sum(c => c.se),
     totalIsr:            sum(c => c.isr),
     totalRecurring:      sum(c => c.recurringAmount),
     totalOtherDeductions: sum(c => c.otherDeductions),

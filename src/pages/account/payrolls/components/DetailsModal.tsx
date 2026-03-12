@@ -37,21 +37,22 @@ const DetailsModal: React.FC<{
   const totals = useMemo(() => {
     const recurring = calculation.employee.recurringDeductions?.filter(d => d.isActive) || []
     
-    // Aseguramos que ISR y SSS sean números (o 0 si son undefined)
     const sss = Number(calculation.sss) || 0
+    const se  = Number((calculation as any).se) || 0
     const isr = Number(calculation.isr) || 0
-    
-    const monthlyRecurringTotal = recurring.reduce((acc, d) => 
+
+    const monthlyRecurringTotal = recurring.reduce((acc, d) =>
       acc + getDeductionAmount(d, false), 0)
-    
-    const biweeklyRecurringTotal = recurring.reduce((acc, d) => 
+
+    const biweeklyRecurringTotal = recurring.reduce((acc, d) =>
       acc + getDeductionAmount(d, true), 0)
 
     return {
-      monthlyDeductions: preciseRound(sss + isr + monthlyRecurringTotal),
-      biweeklyDeductions: preciseRound((sss / 2) + (isr / 2) + biweeklyRecurringTotal),
+      monthlyDeductions: preciseRound(sss + se + isr + monthlyRecurringTotal),
+      biweeklyDeductions: preciseRound((sss / 2) + (se / 2) + (isr / 2) + biweeklyRecurringTotal),
       recurringItems: recurring,
       sss,
+      se,
       isr,
       thirteenthMonth: Number(calculation.thirteenthMonth) || 0
     }
@@ -167,7 +168,8 @@ const DetailsModal: React.FC<{
     }
     y += 8
     renderRow("Salario Base Bruto", isMonthly ? calculation.baseSalary : calculation.baseSalary / 2)
-    renderRow("Seguro Social (SSS)", isMonthly ? -totals.sss : -(totals.sss / 2))
+    renderRow("Seguro Social (9.75%)", isMonthly ? -totals.sss : -(totals.sss / 2))
+    renderRow("Seguro Educativo (1.25%)", isMonthly ? -totals.se : -(totals.se / 2))
     if (totals.isr > 0) renderRow("Impuesto sobre la Renta (ISR)", isMonthly ? -totals.isr : -(totals.isr / 2))
     
     totals.recurringItems.forEach(d => {
@@ -298,8 +300,9 @@ const DetailsModal: React.FC<{
                 <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded-lg">30 DÍAS</span>
               </div>
               <div className={`rounded-2xl p-5 border space-y-4 ${isDarkMode ? "bg-slate-800/30 border-slate-800" : "bg-gray-50 border-gray-200"}`}>
-                <DeductionRow label="Seguro Social (SSS)" value={totals.sss} />
-                {totals.isr > 0 && <DeductionRow label="Impuesto Renta (ISR)" value={totals.isr} />}
+                <DeductionRow label="Seguro Social (9.75%)" value={totals.sss} />
+                <DeductionRow label="Seguro Educativo (1.25%)" value={totals.se} />
+                {totals.isr > 0 && <DeductionRow label="ISR" value={totals.isr} />}
                 {totals.recurringItems.map((d, i) => (
                   <DeductionRow key={i} label={d.name} value={getDeductionAmount(d, false)} sublabel={d.frequency} />
                 ))}
@@ -316,8 +319,9 @@ const DetailsModal: React.FC<{
                 <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs font-semibold rounded-lg">15 DÍAS</span>
               </div>
               <div className={`rounded-2xl p-5 border space-y-4 ${isDarkMode ? "bg-slate-800/30 border-slate-800" : "bg-gray-50 border-gray-200"}`}>
-                <DeductionRow label="Seguro Social" value={totals.sss / 2} />
-                {totals.isr > 0 && <DeductionRow label="ISR Retenido (período)" value={totals.isr / 2} />}
+                <DeductionRow label="Seguro Social (9.75%)" value={totals.sss / 2} />
+                <DeductionRow label="Seguro Educativo (1.25%)" value={totals.se / 2} />
+                {totals.isr > 0 && <DeductionRow label="ISR" value={totals.isr / 2} />}
                 {totals.recurringItems.map((d, i) => (
                   <DeductionRow key={i} label={d.name} value={getDeductionAmount(d, true)} />
                 ))}

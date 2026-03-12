@@ -138,7 +138,7 @@ export const AllSipe: React.FC = () => {
         }
       }
 
-      return annualISR / 13
+      return annualISR / 12
     },
     [legalParams]
   )
@@ -353,7 +353,7 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
               <th className="p-4">Seg. Educ. Emp.</th>
               <th className="p-4">Seg. Educ. Patr.</th>
               <th className="p-4">Riesgo ({getParam('riesgo_profesional')?.percentage || '0.98'}%)</th>
-              <th className="p-4">ISR Retenido (mensual)</th>
+              <th className="p-4">ISR (mensual)</th>
               {totals.decCSS > 0 && <th className="p-4 text-yellow-400">Décimo CSS</th>}
               <th className="p-4 text-green-400">Total SIPE</th>
               <th className="p-4">Acciones</th>

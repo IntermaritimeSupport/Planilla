@@ -29,6 +29,7 @@ interface PayrollCalculation {
   otherIncome: number
   grossSalary: number
   sss: number
+  se: number
   isr: number
   otherDeductions: number
   totalDeductions: number
@@ -71,7 +72,8 @@ export const exportToExcel = (params: ExportParams) => {
     "Bonificaciones": calc.bonifications,
     "Otros Ingresos": calc.otherIncome,
     "Salario Bruto": calc.grossSalary,
-    "SSS (8.75%)": calc.sss,
+    "SS Empleado (9.75%)": calc.sss,
+    "Seg. Educativo (1.25%)": calc.se,
     "ISR": calc.isr,
     "Descuentos fijos":calc.recurringAmount,
     "Otras Retenciones": calc.otherDeductions,
