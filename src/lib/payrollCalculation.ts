@@ -197,16 +197,20 @@ export const calcISRAnual = (baseAnual: number, tramos: ISRTramo[]): number => {
 /**
  * Calcula la RETENCIÓN de ISR para un período de pago.
  *
- * El ISR se retiene en la fuente en cada pago al empleado:
- *   - Nómina MENSUAL:   1 retención/mes  → ISR anual ÷ 12
- *   - Nómina QUINCENAL: 1 retención/quincena → ISR anual ÷ 24
- *     La suma de las 2 quincenas = pago mensual que el empleador
- *     declara y entrega a la DGI.
+ * Fórmula oficial DGI Panamá (Art. 700 Código Fiscal):
+ *   Base anual = salario mensual × 12
+ *   Tramos:
+ *     < B/. 11,000          → 0%
+ *     B/. 11,001 – 50,000   → 15% sobre el excedente de 11,000
+ *     > B/. 50,000          → 25% sobre el excedente de 50,000
  *
- * @param grossSalaryPeriod  Bruto del período (quincena o mes según periodType)
+ *   Retención mensual  = ISR anual ÷ 12
+ *   Retención quincenal = ISR anual ÷ 24
+ *
+ * @param grossSalaryPeriod  Bruto del período (quincena o mes)
  * @param periodType         'Mensual' | 'Quincenal (cada 15 días)'
  * @param tramos             Tramos ISR desde legal-parameters
- * @returns Monto a RETENER al empleado en ESTE período de pago
+ * @returns Monto a retener al empleado en este período
  */
 export const calcISRPorPeriodo = (
   grossSalaryPeriod: number,
@@ -215,19 +219,16 @@ export const calcISRPorPeriodo = (
 ): number => {
   if (!tramos.length) return 0
 
-  // Normalizar a salario mensual equivalente para anualizar
+  // Normalizar a salario mensual
   const mensualEquivalente =
     periodType === 'Mensual' ? grossSalaryPeriod : grossSalaryPeriod * 2
 
-  // Base anual gravable = 13 salarios (12 regulares + 1 décimo tercer mes)
-  const baseAnual = mensualEquivalente * 13
+  // Base anual gravable = salario mensual × 12 (Art. 700 CF)
+  const baseAnual = mensualEquivalente * 12
 
   const isrAnual = calcISRAnual(baseAnual, tramos)
 
-  // Retención por período:
-  //   Mensual:   ISR anual ÷ 12  (una retención al mes)
-  //   Quincenal: ISR anual ÷ 24  (una retención por quincena; 2 quincenas = 1 mes)
-  //   El empleador suma Q1 + Q2 y paga mensualmente a la DGI.
+  // Retención por período
   const divisor = periodType === 'Mensual' ? 12 : 24
   return Number((isrAnual / divisor).toFixed(2))
 }
@@ -347,9 +348,8 @@ export const calcEmployeePayroll = (
   // Seguro Educativo empleado (1.25%)
   const se = Number((grossSalary * (seRate / 100)).toFixed(2))
 
-  // ISR del período: base gravable = bruto − SS − SE (igual que SIPE/CSS)
-  const grossNetOfSSSE = Number((grossSalary - sss - se).toFixed(2))
-  const isr = calcISRPorPeriodo(grossNetOfSSSE, periodType, tramos)
+  // ISR del período: base gravable = bruto (Art. 700 CF)
+  const isr = calcISRPorPeriodo(grossSalary, periodType, tramos)
 
   // Deducciones recurrentes según frecuencia y período
   const recurringAmount = (employee.recurringDeductions || []).reduce((acc, d) => {

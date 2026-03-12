@@ -119,7 +119,7 @@ export const AllSipe: React.FC = () => {
     (monthlyTaxable: number) => {
       if (!legalParams) return 0
 
-      const annualTaxable = monthlyTaxable * 13
+      const annualTaxable = monthlyTaxable * 12
 
       const isrRates = legalParams
         .filter(p => p.category === "isr" && p.status === "active")
@@ -167,8 +167,7 @@ export const AllSipe: React.FC = () => {
       const eduPat = gross * (sePatRate / 100)
       const riesgo = gross * (riesgoRate / 100)
 
-      const baseISR = gross - ssEmp - eduEmp
-      const isr = calculateISR(baseISR)
+      const isr = calculateISR(gross)
 
       let decCSS = 0
       if (payrollPeriod.isApr || payrollPeriod.isAug || payrollPeriod.isDec) {
