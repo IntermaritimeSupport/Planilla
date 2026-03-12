@@ -119,7 +119,7 @@ export const AllSipe: React.FC = () => {
     (monthlyTaxable: number) => {
       if (!legalParams) return 0
 
-      const annualTaxable = monthlyTaxable * 12
+      const annualTaxable = monthlyTaxable * 13
 
       const isrRates = legalParams
         .filter(p => p.category === "isr" && p.status === "active")
@@ -138,7 +138,7 @@ export const AllSipe: React.FC = () => {
         }
       }
 
-      return annualISR / 12
+      return annualISR / 13
     },
     [legalParams]
   )

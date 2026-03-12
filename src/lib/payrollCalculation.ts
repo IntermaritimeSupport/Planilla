@@ -10,8 +10,8 @@
  *
  *   2. RETENCIÓN: el ISR NO se paga en un solo momento anual.
  *      Se RETIENE EN LA FUENTE en cada período de pago:
- *        - Nómina MENSUAL   → se retiene 1 vez/mes   → ISR anual ÷ 12
- *        - Nómina QUINCENAL → se retiene cada 15 días → ISR anual ÷ 24
+ *        - Nómina MENSUAL   → se retiene 1 vez/mes   → ISR anual ÷ 13
+ *        - Nómina QUINCENAL → se retiene cada 15 días → ISR anual ÷ 26
  *          (quincena 1 retenida + quincena 2 retenida = pago mensual a la DGI)
  *
  *   3. PAGO A LA DGI: el empleador declara y PAGA MENSUALMENTE
@@ -198,14 +198,14 @@ export const calcISRAnual = (baseAnual: number, tramos: ISRTramo[]): number => {
  * Calcula la RETENCIÓN de ISR para un período de pago.
  *
  * Fórmula oficial DGI Panamá (Art. 700 Código Fiscal):
- *   Base anual = salario mensual × 12
+ *   Base anual = salario mensual × 13  (incluye décimo tercer mes)
  *   Tramos:
  *     < B/. 11,000          → 0%
  *     B/. 11,001 – 50,000   → 15% sobre el excedente de 11,000
  *     > B/. 50,000          → 25% sobre el excedente de 50,000
  *
- *   Retención mensual  = ISR anual ÷ 12
- *   Retención quincenal = ISR anual ÷ 24
+ *   Retención mensual  = ISR anual ÷ 13
+ *   Retención quincenal = ISR anual ÷ 26
  *
  * @param grossSalaryPeriod  Bruto del período (quincena o mes)
  * @param periodType         'Mensual' | 'Quincenal (cada 15 días)'
@@ -223,13 +223,13 @@ export const calcISRPorPeriodo = (
   const mensualEquivalente =
     periodType === 'Mensual' ? grossSalaryPeriod : grossSalaryPeriod * 2
 
-  // Base anual gravable = salario mensual × 12 (Art. 700 CF)
-  const baseAnual = mensualEquivalente * 12
+  // Base anual gravable = salario mensual × 13 (incluye décimo, Art. 700 CF)
+  const baseAnual = mensualEquivalente * 13
 
   const isrAnual = calcISRAnual(baseAnual, tramos)
 
-  // Retención por período
-  const divisor = periodType === 'Mensual' ? 12 : 24
+  // Retención por período (13 meses o 26 quincenas)
+  const divisor = periodType === 'Mensual' ? 13 : 26
   return Number((isrAnual / divisor).toFixed(2))
 }
 
