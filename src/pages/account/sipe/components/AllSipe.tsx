@@ -161,19 +161,21 @@ export const AllSipe: React.FC = () => {
       const sePatRate = Number(getParam("se_patrono")?.percentage ?? 1.5)
       const riesgoRate = Number(getParam("riesgo_profesional")?.percentage ?? 0.98)
 
-      const ssEmp = gross * (ssEmpRate / 100)
-      const ssPat = gross * (ssPatRate / 100)
-      const eduEmp = gross * (seEmpRate / 100)
-      const eduPat = gross * (sePatRate / 100)
-      const riesgo = gross * (riesgoRate / 100)
+      const ssEmp  = Number((gross * (ssEmpRate  / 100)).toFixed(2))
+      const ssPat  = Number((gross * (ssPatRate  / 100)).toFixed(2))
+      const eduEmp = Number((gross * (seEmpRate  / 100)).toFixed(2))
+      const eduPat = Number((gross * (sePatRate  / 100)).toFixed(2))
+      const riesgo = Number((gross * (riesgoRate / 100)).toFixed(2))
 
-      const isr = calculateISR(gross)
+      const isr = Number(calculateISR(gross).toFixed(2))
 
       let decCSS = 0
       if (payrollPeriod.isApr || payrollPeriod.isAug || payrollPeriod.isDec) {
         const decRate = Number(getParam("decimo_css")?.percentage ?? 7.25)
-        decCSS = ((gross * 3) / 12) * (decRate / 100)
+        decCSS = Number((((gross * 3) / 12) * (decRate / 100)).toFixed(2))
       }
+
+      const totalSipe = Number((ssEmp + ssPat + eduEmp + eduPat + riesgo + isr + decCSS).toFixed(2))
 
       return {
         ...emp,
@@ -185,7 +187,7 @@ export const AllSipe: React.FC = () => {
         riesgo,
         isr,
         decCSS,
-        totalSipe: ssEmp + ssPat + eduEmp + eduPat + riesgo + decCSS,
+        totalSipe,
       }
     },
     [calculateISR, getParam, payrollPeriod]
@@ -197,23 +199,33 @@ const employeeCalculations = useMemo<SipeEmployeeCalc[]>(() => {
 }, [employees, legalParams, calculateSipeForEmployee])
 
   const totals = useMemo(() => {
-    return employeeCalculations.reduce(
+    const raw = employeeCalculations.reduce(
       (acc, c) => ({
-        ssEmp: acc.ssEmp + c.ssEmp,
-        ssPat: acc.ssPat + c.ssPat,
+        ssEmp:  acc.ssEmp  + c.ssEmp,
+        ssPat:  acc.ssPat  + c.ssPat,
         eduEmp: acc.eduEmp + c.eduEmp,
         eduPat: acc.eduPat + c.eduPat,
         riesgo: acc.riesgo + c.riesgo,
-        isr: acc.isr + c.isr,
+        isr:    acc.isr    + c.isr,
         decCSS: acc.decCSS + c.decCSS,
-        total: acc.total + c.totalSipe,
+        total:  acc.total  + c.totalSipe,
       }),
       { ssEmp: 0, ssPat: 0, eduEmp: 0, eduPat: 0, riesgo: 0, isr: 0, decCSS: 0, total: 0 }
     )
+    return {
+      ssEmp:  Number(raw.ssEmp.toFixed(2)),
+      ssPat:  Number(raw.ssPat.toFixed(2)),
+      eduEmp: Number(raw.eduEmp.toFixed(2)),
+      eduPat: Number(raw.eduPat.toFixed(2)),
+      riesgo: Number(raw.riesgo.toFixed(2)),
+      isr:    Number(raw.isr.toFixed(2)),
+      decCSS: Number(raw.decCSS.toFixed(2)),
+      total:  Number(raw.total.toFixed(2)),
+    }
   }, [employeeCalculations])
 
   const format = (n: number) =>
-    `USD ${n.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+    `USD ${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   /* ============================
      LOADING / ERROR
