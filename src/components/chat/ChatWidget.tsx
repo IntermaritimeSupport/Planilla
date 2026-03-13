@@ -18,6 +18,7 @@ const ChatWidget: React.FC = () => {
   const [minimized, setMinimized] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tokensUsed, setTokensUsed] = useState(0);
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: t("chat_welcome") },
   ]);
@@ -42,11 +43,12 @@ const ChatWidget: React.FC = () => {
     setLoading(true);
 
     try {
-      const data = await apiPost<{ message: string }>(
+      const data = await apiPost<{ message: string; usage?: { total_tokens: number } }>(
         "/api/chat",
         { messages: updated, companyId: selectedCompany?.id }
       );
       setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+      if (data.usage) setTokensUsed((prev) => prev + data.usage!.total_tokens);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -167,6 +169,20 @@ const ChatWidget: React.FC = () => {
                 )}
                 <div ref={bottomRef} />
               </div>
+
+              {/* Token counter */}
+              {tokensUsed > 0 && (
+                <div className={`flex-shrink-0 px-4 py-1 flex items-center justify-end gap-1.5 text-xs ${
+                  isDarkMode ? "text-slate-500" : "text-gray-400"
+                }`}>
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full ${
+                      tokensUsed > 400000 ? "bg-red-400" : tokensUsed > 200000 ? "bg-yellow-400" : "bg-green-400"
+                    }`}
+                  />
+                  {tokensUsed.toLocaleString()} / 500,000 tokens diarios
+                </div>
+              )}
 
               {/* Input */}
               <div
