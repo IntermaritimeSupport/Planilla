@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Minimize2, Send, Sparkles, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../../context/themeContext";
+import { useCompany } from "../../context/routerContext";
 import { apiPost } from "../../services/api";
 
 interface Message {
@@ -12,6 +13,7 @@ interface Message {
 const ChatWidget: React.FC = () => {
   const { t } = useTranslation();
   const { isDarkMode } = useTheme();
+  const { selectedCompany } = useCompany();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [input, setInput] = useState("");
@@ -42,7 +44,7 @@ const ChatWidget: React.FC = () => {
     try {
       const data = await apiPost<{ message: string }>(
         "/api/chat",
-        { messages: updated }
+        { messages: updated, companyId: selectedCompany?.id }
       );
       setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
     } catch {
@@ -68,7 +70,7 @@ const ChatWidget: React.FC = () => {
       {open && (
         <div
           className={`flex flex-col rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300 ${
-            minimized ? "h-12 w-72" : "h-[480px] w-80 sm:w-96"
+            minimized ? "h-12 w-80" : "h-[600px] w-[420px] sm:w-[480px]"
           } ${
             isDarkMode
               ? "bg-slate-900 border-slate-700"
