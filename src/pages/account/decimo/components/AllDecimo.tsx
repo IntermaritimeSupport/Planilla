@@ -68,31 +68,35 @@ export const AllDecimo: React.FC = () => {
     return decimoHistory.partidas.find(p => p.partida === currentPartida) || null
   }, [decimoHistory, currentPartida])
 
-  const calculateISRForDecimo = useCallback((annualSalary: number, annualISR: number, decimoAmount: number) => {
+  const calcISRAnual = useCallback((annualIncome: number): number => {
     if (!legalParams) return 0
     const brackets = legalParams.filter((p) => p.category === "isr" && p.status === "active").sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
-    const newAnnualIncome = annualSalary + decimoAmount
-    let newAnnualISR = 0
+    let isr = 0
     for (const b of brackets) {
       const min = b.minRange ?? 0; const max = b.maxRange ?? Infinity; const rate = b.percentage / 100
-      if (newAnnualIncome > min) newAnnualISR += (Math.min(newAnnualIncome, max) - min) * rate
+      if (annualIncome > min) isr += (Math.min(annualIncome, max) - min) * rate
     }
-    return Math.max(0, newAnnualISR - annualISR)
+    return Math.max(0, isr)
   }, [legalParams])
 
-  const calculateThirteenth = useCallback((totalPaidInPeriod: number, annualSalary: number, annualISR: number) => {
-    const grossThirteenth = totalPaidInPeriod / 12
+  const calculateThirteenth = useCallback((monthlySalary: number) => {
+    // Bruto décimo = salario mensual * 4 meses / 12
+    const grossThirteenth = (monthlySalary * 4) / 12
     const ssRate = getParam("ss_decimo")?.percentage ?? 7.25
     const ss = grossThirteenth * (ssRate / 100)
-    const isr = calculateISRForDecimo(annualSalary, annualISR, grossThirteenth)
+    // ISR marginal: ISR anual con décimo - ISR anual sin décimo
+    const annualSalary = monthlySalary * 12
+    const isrSinDecimo = calcISRAnual(annualSalary)
+    const isrConDecimo = calcISRAnual(annualSalary + grossThirteenth)
+    const isr = Math.max(0, isrConDecimo - isrSinDecimo)
     return { grossThirteenth, ss, isr, net: grossThirteenth - ss - isr }
-  }, [getParam, calculateISRForDecimo])
+  }, [getParam, calcISRAnual])
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
     return employees.map((emp) => {
       const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary * 4, monthlySalary * 13, 0) }
+      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary) }
     })
   }, [employees, calculateThirteenth])
 
