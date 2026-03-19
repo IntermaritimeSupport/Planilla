@@ -10,7 +10,7 @@ import PagesHeader from "../../../../components/headers/pagesHeader"
 import {
   FileText, Search, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Info, Loader2, Calculator, Download, Users,
-  Calendar, DollarSign, Clock, ShieldAlert,
+  Calendar, DollarSign, Clock, ShieldAlert, RotateCcw, History,
 } from "lucide-react"
 import { ExportButtons } from "../../../../components/exports/ExportButtons"
 import { exportLiquidacionesExcel, exportLiquidacionesPDF, exportLiquidacionIndividualPDF } from "../../../../utils/exports/exportEngine"
@@ -21,12 +21,41 @@ import {
   type TipoTerminacion,
   calcularLiquidacion,
 } from "./liquidacionesCalculation"
-import { authFetcher, apiPut } from "../../../../services/api"
+import { authFetcher, apiPut, apiPost } from "../../../../services/api"
 
 // interface PaidLeave { employeeId: string; leaveType: string; isPaid: boolean; daysApproved: number | null; daysRequested: number }
 import { toast } from "sonner"
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface LiquidacionRecord {
+  id: string
+  employeeId: string
+  tipoTerminacion: string
+  fechaTerminacion: string
+  previousStatus: string
+  salarioMensual: number
+  anosTrabajados: number
+  mesesTrabajados: number
+  diasTrabajados: number
+  primaAntiguedad: number
+  preaviso: number
+  vacaciones: number
+  decimo: number
+  indemnizacion: number
+  salariosPendientes: number
+  totalBruto: number
+  ss: number
+  se: number
+  isr: number
+  totalDeducciones: number
+  totalNeto: number
+  revertedAt: string | null
+  revertedBy: string | null
+  notes: string | null
+  createdAt: string
+  employee: { id: string; firstName: string; lastName: string; cedula: string; position: string }
+}
 
 const fmt = (n: number) =>
   `$${(Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -140,8 +169,9 @@ const EmpleadoRow: React.FC<{
   isDark: boolean
   companyName: string
   diasVacPagadas: number
+  companyId: string
   onTerminated: (id: string) => void
-}> = ({ employee, legalParams, isDark, companyName, diasVacPagadas, onTerminated }) => {
+}> = ({ employee, legalParams, isDark, companyName, diasVacPagadas, companyId, onTerminated }) => {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<TipoTerminacion>("DESPIDO_INJUSTIFICADO")
   const [fechaTerm, setFechaTerm] = useState(new Date().toISOString().split("T")[0])
@@ -472,8 +502,30 @@ const EmpleadoRow: React.FC<{
                     if (!window.confirm(`¿Confirmar terminación laboral de ${employee.firstName} ${employee.lastName}?\n\nEsta acción cambiará su estado a TERMINADO y dejará de aparecer en nóminas futuras.`)) return
                     setTerminating(true)
                     try {
-                      await apiPut(`/api/payroll/employees/${employee.id}/status`, { status: "TERMINATED" })
-                      toast.success(`${employee.firstName} ${employee.lastName} marcado como TERMINADO`)
+                      await apiPost("/api/payroll/liquidaciones", {
+                        employeeId: employee.id,
+                        companyId,
+                        tipoTerminacion: tipo,
+                        fechaTerminacion: new Date(fechaTerm + "T12:00:00").toISOString(),
+                        previousStatus: employee.status,
+                        salarioMensual: calc.salarioMensual,
+                        anosTrabajados: calc.anosTrabajados,
+                        mesesTrabajados: calc.mesesTrabajados,
+                        diasTrabajados: calc.diasTrabajados,
+                        primaAntiguedad: calc.primaAntiguedadBruto,
+                        preaviso: calc.preaviso,
+                        vacaciones: calc.vacacionesBruto,
+                        decimo: calc.decimoProporcionalBruto,
+                        indemnizacion: calc.indemnizacionBruto,
+                        salariosPendientes: calc.salariosPendientes,
+                        totalBruto: calc.totalBruto,
+                        ss: calc.ss,
+                        se: calc.se,
+                        isr: calc.isr,
+                        totalDeducciones: calc.totalDeducciones,
+                        totalNeto: calc.totalNeto,
+                      })
+                      toast.success(`${employee.firstName} ${employee.lastName} liquidado exitosamente`)
                       onTerminated(employee.id)
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : "Error al procesar la liquidación")
@@ -521,10 +573,12 @@ export const AllLiquidaciones: React.FC = () => {
 
   const [search, setSearch] = useState("")
   const [terminatedIds, setTerminatedIds] = useState<Set<string>>(new Set())
+  const [revertingId, setRevertingId] = useState<string | null>(null)
+  const [revertingStatusId, setRevertingStatusId] = useState<string | null>(null)
   // const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")
 
   // ── DATA ──
-  const { data: employees, isLoading: loadingEmps } = useSWR<LiquidacionEmployee[]>(
+  const { data: employees, isLoading: loadingEmps, mutate: mutateEmployees } = useSWR<LiquidacionEmployee[]>(
     selectedCompany
       ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}`
       : null,
@@ -538,6 +592,13 @@ export const AllLiquidaciones: React.FC = () => {
     authFetcher
   )
 
+  const { data: liquidacionesHistory, mutate: mutateLiquidaciones } = useSWR<LiquidacionRecord[]>(
+    selectedCompany
+      ? `${import.meta.env.VITE_API_URL}/api/payroll/liquidaciones?companyId=${selectedCompany.id}`
+      : null,
+    authFetcher
+  )
+
   // ── EMPLEADOS ACTIVOS FILTRADOS ──
   const activeEmployees = useMemo(() => {
     if (!employees) return []
@@ -545,6 +606,12 @@ export const AllLiquidaciones: React.FC = () => {
       (e.status === "ACTIVE" || e.status === "SUSPENDED") && !terminatedIds.has(e.id)
     )
   }, [employees, terminatedIds])
+
+  // ── EMPLEADOS TERMINADOS (para revertir error) ──
+  const terminatedEmployees = useMemo(() => {
+    if (!employees) return []
+    return employees.filter(e => e.status === "TERMINATED")
+  }, [employees])
 
   const filtered = useMemo(() => {
     return activeEmployees.filter(emp => {
@@ -721,7 +788,8 @@ export const AllLiquidaciones: React.FC = () => {
                     legalParams={legalParams || []}
                     isDark={isDarkMode}
                     companyName={selectedCompany?.name ?? "Empresa"}
-                    onTerminated={id => setTerminatedIds(prev => new Set([...prev, id]))}
+                    companyId={selectedCompany?.id ?? ""}
+                    onTerminated={id => { setTerminatedIds(prev => new Set([...prev, id])); mutateLiquidaciones() }}
                   />
                 ))
               )}
@@ -768,6 +836,192 @@ export const AllLiquidaciones: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* ── EMPLEADOS TERMINADOS (revertir error) ── */}
+      {terminatedEmployees.length > 0 && (
+        <div className={`mt-8 rounded-xl border overflow-hidden shadow-xl ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className={`p-4 border-b flex items-center gap-3 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
+            <RotateCcw className="text-amber-500" size={18} />
+            <div>
+              <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                Empleados Terminados
+              </h3>
+              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                Usa "Revertir" si liquidaste a alguien por error — restaura su estado a ACTIVO
+              </p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className={`w-full text-left text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+              <thead className={`text-[10px] uppercase font-bold tracking-wider ${isDarkMode ? "bg-slate-900/50 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
+                <tr>
+                  <th className="px-5 py-3">Colaborador</th>
+                  <th className="px-4 py-3">Cargo</th>
+                  <th className="px-4 py-3">Salario</th>
+                  <th className="px-4 py-3 pr-5 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isDarkMode ? "divide-slate-700" : "divide-gray-100"}`}>
+                {terminatedEmployees.map(emp => (
+                  <tr key={emp.id} className={isDarkMode ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDarkMode ? "bg-slate-700 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                          {emp.firstName[0]}{emp.lastName[0]}
+                        </div>
+                        <div>
+                          <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                            {emp.firstName} {emp.lastName}
+                          </p>
+                          <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                            {emp.cedula}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={`px-4 py-3 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {emp.position || "—"}
+                    </td>
+                    <td className={`px-4 py-3 font-mono text-xs ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      {fmt(Number(emp.salary))}
+                    </td>
+                    <td className="px-4 py-3 pr-5 text-right">
+                      <button
+                        disabled={revertingStatusId === emp.id}
+                        onClick={async () => {
+                          if (!window.confirm(`¿Revertir terminación de ${emp.firstName} ${emp.lastName}?\n\nEl empleado volverá a estado ACTIVO.`)) return
+                          setRevertingStatusId(emp.id)
+                          try {
+                            await apiPut(`/api/payroll/employees/${emp.id}/status`, { status: "ACTIVE" })
+                            toast.success(`${emp.firstName} ${emp.lastName} restaurado a ACTIVO`)
+                            mutateEmployees()
+                            mutateLiquidaciones()
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Error al revertir")
+                          } finally {
+                            setRevertingStatusId(null)
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          isDarkMode
+                            ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                            : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {revertingStatusId === emp.id
+                          ? <Loader2 size={12} className="animate-spin" />
+                          : <RotateCcw size={12} />
+                        }
+                        Revertir a Activo
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── HISTORIAL DE LIQUIDACIONES ── */}
+      {liquidacionesHistory && liquidacionesHistory.length > 0 && (
+        <div className={`mt-8 rounded-xl border overflow-hidden shadow-xl ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className={`p-4 border-b flex items-center gap-3 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
+            <History className="text-orange-500" size={18} />
+            <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Historial de Liquidaciones
+            </h3>
+            <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+              ({liquidacionesHistory.length})
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className={`w-full text-left text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+              <thead className={`text-[10px] uppercase font-bold tracking-wider ${isDarkMode ? "bg-slate-900/50 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
+                <tr>
+                  <th className="px-5 py-3">Colaborador</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Fecha</th>
+                  <th className="px-4 py-3">Bruto</th>
+                  <th className="px-4 py-3 text-emerald-500">Neto</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3 pr-5" />
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isDarkMode ? "divide-slate-700" : "divide-gray-100"}`}>
+                {liquidacionesHistory.map(liq => (
+                  <tr key={liq.id} className={`${isDarkMode ? "hover:bg-slate-700/20" : "hover:bg-gray-50"} ${liq.revertedAt ? "opacity-50" : ""}`}>
+                    <td className="px-5 py-3">
+                      <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                        {liq.employee.firstName} {liq.employee.lastName}
+                      </p>
+                      <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                        {liq.employee.cedula} · {liq.employee.position}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-semibold ${isDarkMode ? "text-orange-400" : "text-orange-600"}`}>
+                        {TIPO_LABELS[liq.tipoTerminacion as TipoTerminacion]?.label ?? liq.tipoTerminacion}
+                      </span>
+                    </td>
+                    <td className={`px-4 py-3 font-mono text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {new Date(liq.fechaTerminacion).toLocaleDateString("es-PA")}
+                    </td>
+                    <td className={`px-4 py-3 font-mono ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>
+                      {fmt(liq.totalBruto)}
+                    </td>
+                    <td className="px-4 py-3 font-mono font-bold text-emerald-500">
+                      {fmt(liq.totalNeto)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {liq.revertedAt ? (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${isDarkMode ? "bg-slate-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}>
+                          Revertida · {new Date(liq.revertedAt).toLocaleDateString("es-PA")}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${isDarkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"}`}>
+                          Procesada
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 pr-5 text-right">
+                      {!liq.revertedAt && (
+                        <button
+                          disabled={revertingId === liq.id}
+                          onClick={async () => {
+                            if (!window.confirm(`¿Revertir liquidación de ${liq.employee.firstName} ${liq.employee.lastName}?\n\nEl empleado volverá al estado "${liq.previousStatus}".`)) return
+                            setRevertingId(liq.id)
+                            try {
+                              await apiPost(`/api/payroll/liquidaciones/${liq.id}/revert`, {})
+                              toast.success("Liquidación revertida. El empleado fue restaurado.")
+                              mutateLiquidaciones()
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Error al revertir")
+                            } finally {
+                              setRevertingId(null)
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            isDarkMode
+                              ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {revertingId === liq.id
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : <RotateCcw size={12} />
+                          }
+                          Revertir
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── NOTA LEGAL ── */}
       <div className={`mt-4 p-4 rounded-xl border flex items-start gap-4 ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-blue-50 border-blue-200"}`}>
