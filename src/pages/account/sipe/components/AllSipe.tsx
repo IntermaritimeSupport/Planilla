@@ -231,57 +231,64 @@ export const AllSipe: React.FC = () => {
       const monthName = MONTHS_ES[selectedMonth - 1]
       const isDecimo  = selectedMonthData.isDecimo
 
-      // ── Filas de datos ───────────────────────────────────────────────
-      const dataRows = modalCalcs.map((c, i) => ({
-        "#":            i + 1,
-        "Colaborador":  `${c.firstName} ${c.lastName}`,
-        "Cédula":       c.cedula,
-        "Salario Bruto":      c.gross,
-        "SS Empleado (9.75%)": c.ssEmp,
-        "SS Patrono (12.25%)": c.ssPat,
-        "Educ. Empleado (1.25%)": c.eduEmp,
-        "Educ. Patrono (1.5%)":   c.eduPat,
-        "Riesgo Prof.":  c.riesgo,
-        "ISR Mensual":   c.isr,
-        ...(isDecimo ? { "Décimo CSS": c.decCSS } : {}),
-        "TOTAL SIPE":    c.totalSipe,
+      // ── Formato oficial SIPE (CSS/DGI Panamá — 25 columnas) ─────────
+      const dataRows = modalCalcs.map(c => ({
+        "Tipo de Documento":                         "Cédula",
+        "Numero de Documento":                       c.cedula,
+        "Numero de Seguro Social":                   "",
+        "Nombre":                                    c.firstName,
+        "Apellido":                                  c.lastName,
+        "Sueldo":                                    parseFloat(c.gross.toFixed(2)),
+        "HorasExtras":                               0,
+        "ImpuestoSobreRenta":                        parseFloat(c.isr.toFixed(2)),
+        "DecimoTercerMes":                           isDecimo ? parseFloat(c.decCSS.toFixed(2)) : 0,
+        "Vacaciones":                                0,
+        "Comisiones":                                0,
+        "Bonificaciones":                            0,
+        "Combustible":                               0,
+        "Dieta":                                     0,
+        "SalarioEnEspecie":                          0,
+        "Viaticos":                                  0,
+        "GastedeRepresentacion":                     0,
+        "ImpuestoSobreRentaGastoRepresentacion":     0,
+        "DecimoTercerMesGastoRepresentacion":        0,
+        "PrimadeProduccion":                         0,
+        "Dividendo":                                 0,
+        "ParticipacionBeneficioIngresos":            0,
+        "GratificacionAguinaldo":                    0,
+        "Preaviso":                                  0,
+        "Indemnizacion":                             0,
       }))
-
-      // ── Fila de totales ──────────────────────────────────────────────
-      const sum = (key: keyof SipeEmployeeCalc) =>
-        modalCalcs.reduce((s, c) => s + (c[key] as number), 0)
-
-      dataRows.push({
-        "#":            "",
-        "Colaborador":  "TOTAL",
-        "Cédula":       "",
-        "Salario Bruto":           sum("gross"),
-        "SS Empleado (9.75%)":     sum("ssEmp"),
-        "SS Patrono (12.25%)":     sum("ssPat"),
-        "Educ. Empleado (1.25%)":  sum("eduEmp"),
-        "Educ. Patrono (1.5%)":    sum("eduPat"),
-        "Riesgo Prof.":            sum("riesgo"),
-        "ISR Mensual":             sum("isr"),
-        ...(isDecimo ? { "Décimo CSS": sum("decCSS") } : {}),
-        "TOTAL SIPE":              sum("totalSipe"),
-      } as any)
 
       const ws = XLSX.utils.json_to_sheet(dataRows)
 
       // ── Ancho de columnas ────────────────────────────────────────────
       ws["!cols"] = [
-        { wch: 4  },  // #
-        { wch: 26 },  // Colaborador
-        { wch: 14 },  // Cédula
-        { wch: 16 },  // Bruto
-        { wch: 20 },  // SS Emp
-        { wch: 20 },  // SS Pat
-        { wch: 22 },  // Educ Emp
-        { wch: 22 },  // Educ Pat
-        { wch: 14 },  // Riesgo
-        { wch: 14 },  // ISR
-        ...(isDecimo ? [{ wch: 14 }] : []),  // Décimo
-        { wch: 14 },  // Total
+        { wch: 20 },  // Tipo de Documento
+        { wch: 20 },  // Numero de Documento
+        { wch: 24 },  // Numero de Seguro Social
+        { wch: 18 },  // Nombre
+        { wch: 18 },  // Apellido
+        { wch: 14 },  // Sueldo
+        { wch: 14 },  // HorasExtras
+        { wch: 22 },  // ImpuestoSobreRenta
+        { wch: 18 },  // DecimoTercerMes
+        { wch: 12 },  // Vacaciones
+        { wch: 14 },  // Comisiones
+        { wch: 14 },  // Bonificaciones
+        { wch: 14 },  // Combustible
+        { wch: 10 },  // Dieta
+        { wch: 18 },  // SalarioEnEspecie
+        { wch: 12 },  // Viaticos
+        { wch: 24 },  // GastedeRepresentacion
+        { wch: 40 },  // ImpuestoSobreRentaGastoRepresentacion
+        { wch: 36 },  // DecimoTercerMesGastoRepresentacion
+        { wch: 20 },  // PrimadeProduccion
+        { wch: 12 },  // Dividendo
+        { wch: 32 },  // ParticipacionBeneficioIngresos
+        { wch: 24 },  // GratificacionAguinaldo
+        { wch: 12 },  // Preaviso
+        { wch: 14 },  // Indemnizacion
       ]
 
       const wb = XLSX.utils.book_new()
