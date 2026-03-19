@@ -420,7 +420,9 @@ export const calcAllPayrolls = (
 ): PayrollCalculation[] => {
   if (!employees?.length || !legalParams?.length) return []
 
-  const payrollMonth = new Date(payrollDate).getMonth()
+  // Parsear como local para evitar desfase UTC en zonas UTC-N
+  const [_y, _m] = payrollDate.split("-").map(Number)
+  const payrollMonth = _m - 1  // 0-indexed
 
   return employees.map(emp =>
     calcEmployeePayroll(

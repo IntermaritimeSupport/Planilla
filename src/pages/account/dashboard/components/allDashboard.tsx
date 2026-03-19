@@ -117,7 +117,7 @@ export default function AllDashboard() {
     const monthlyActivity = payrollSummary?.months || []
 
     // Décimo
-    const decimoPaid    = decimoHistory?.totalPaid || 0
+    const decimoPaid    = decimoHistory?.paidCount ?? 0
     const decimoPartidas = decimoHistory?.partidas || []
 
     // Distribución por departamento

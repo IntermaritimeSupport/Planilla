@@ -155,8 +155,17 @@ export const AllPayrolls: React.FC = () => {
   }, [legalParams, isLoading])
 
   // ✅ Este selector ahora sí afecta los cálculos del período
+  // Parsea "YYYY-MM-DD" como fecha local (evita el desfase UTC que retrocede un mes en UTC-5)
+  const parseLocal = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number)
+    return new Date(y, m - 1, d)
+  }
+
   const [payrollType, setPayrollType] = useState<"Quincenal (cada 15 días)" | "Mensual">("Quincenal (cada 15 días)")
-  const [payrollDate, setPayrollDate] = useState(new Date().toISOString().split("T")[0])
+  const [payrollDate, setPayrollDate] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`
+  })
   const [quincenal, setQuincenal] = useState("Primera Quincena (1-15)")
 
   // ✅ Overrides ahora sí se usan
@@ -170,7 +179,7 @@ export const AllPayrolls: React.FC = () => {
   const employeeCalculations = useMemo<PayrollCalculation[]>(() => {
     if (!legalParams?.length || !employees?.length) return []
 
-    const d = new Date(payrollDate)
+    const d = parseLocal(payrollDate)
     const isPeriodDecimo = d.getMonth() === 3 || d.getMonth() === 7 || d.getMonth() === 11
 
     // En meses de décimo, incluir empleados en maternidad (solo se les calcula el décimo)
@@ -341,9 +350,9 @@ export const AllPayrolls: React.FC = () => {
       payrollType,
       quincenal,
       isPeriodThirteenthMonth:
-        new Date(payrollDate).getMonth() === 3 ||
-        new Date(payrollDate).getMonth() === 7 ||
-        new Date(payrollDate).getMonth() === 11,
+        parseLocal(payrollDate).getMonth() === 3 ||
+        parseLocal(payrollDate).getMonth() === 7 ||
+        parseLocal(payrollDate).getMonth() === 11,
     })
   }
 
@@ -354,9 +363,9 @@ export const AllPayrolls: React.FC = () => {
       </div>
     )
 
-  const isDecember = new Date(payrollDate).getMonth() === 11
-  const isApril = new Date(payrollDate).getMonth() === 3
-  const isAugust = new Date(payrollDate).getMonth() === 7
+  const isDecember = parseLocal(payrollDate).getMonth() === 11
+  const isApril = parseLocal(payrollDate).getMonth() === 3
+  const isAugust = parseLocal(payrollDate).getMonth() === 7
   const isPeriodThirteenthMonth = isDecember || isApril || isAugust
 
   const thirteenthMonthPeriod = isApril
@@ -505,10 +514,10 @@ export const AllPayrolls: React.FC = () => {
             <span className={isDarkMode ? "text-white" : "text-gray-900"}>Período:</span>
             <span className="font-medium text-blue-400">
               {payrollType === "Mensual"
-                ? `${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
+                ? `${parseLocal(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
                 : quincenal === "Primera Quincena (1-15)"
-                  ? `1 - 15 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
-                  : `16 - 31 de ${new Date(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`}
+                  ? `1 - 15 de ${parseLocal(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`
+                  : `16 - 31 de ${parseLocal(payrollDate).toLocaleDateString("es-PA", { month: "long", year: "numeric" })}`}
             </span>
             {payrollType !== "Mensual" && <span className={isDarkMode ? "text-gray-500" : "text-gray-600"}>(15 días)</span>}
             <span className={`text-xs px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-900/40 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
@@ -902,7 +911,7 @@ export const AllPayrolls: React.FC = () => {
           calculations={employeeCalculations}
           companyName={selectedCompany?.name ?? "Empresa"}
           payPeriod={(() => {
-            const d = new Date(payrollDate)
+            const d = parseLocal(payrollDate)
             const monthYear = d.toLocaleDateString("es-PA", { month: "long", year: "numeric" })
             if (payrollType === "Mensual") {
               const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()

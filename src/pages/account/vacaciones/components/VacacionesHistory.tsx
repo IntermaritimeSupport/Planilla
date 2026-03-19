@@ -292,25 +292,48 @@ const LeaveRow: React.FC<{
         <tr className={isDark ? "bg-slate-900/40" : "bg-teal-50/40"}>
           <td colSpan={compact ? 6 : 7} className="px-6 py-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              {/* Fecha de salida */}
               <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Motivo</p>
-                <p className={isDark ? "text-slate-300" : "text-gray-700"}>{leave.reason || "—"}</p>
+                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-teal-500" : "text-teal-600"}`}>Fecha de Salida</p>
+                <p className={`font-mono font-semibold ${isDark ? "text-slate-200" : "text-gray-800"}`}>{fmtDate(leave.startDate)}</p>
+                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Inicio del permiso</p>
               </div>
+              {/* Fecha de regreso */}
               <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Aprobado por</p>
-                <p className={isDark ? "text-slate-300" : "text-gray-700"}>{leave.approvedBy || "—"}</p>
-                {leave.approvalDate && (
-                  <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>{fmtDate(leave.approvalDate)}</p>
+                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-blue-500" : "text-blue-600"}`}>Fecha de Ingreso</p>
+                <p className={`font-mono font-semibold ${isDark ? "text-slate-200" : "text-gray-800"}`}>{fmtDate(leave.endDate)}</p>
+                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                  {leave.daysApproved ?? leave.daysRequested} días tomados
+                </p>
+              </div>
+              {/* Pago */}
+              <div className={`p-3 rounded-lg border ${
+                leave.isPaid
+                  ? isDark ? "bg-emerald-900/20 border-emerald-700/50" : "bg-emerald-50 border-emerald-200"
+                  : isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
+              }`}>
+                <p className={`text-[10px] uppercase font-bold mb-1 ${leave.isPaid ? (isDark ? "text-emerald-400" : "text-emerald-600") : isDark ? "text-gray-500" : "text-gray-500"}`}>
+                  Pago
+                </p>
+                {leave.isPaid ? (
+                  <>
+                    <p className={`font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>✓ Pagado</p>
+                    {leave.paidAt && (
+                      <p className={`font-mono text-[10px] mt-0.5 ${isDark ? "text-emerald-500" : "text-emerald-600"}`}>{fmtDate(leave.paidAt)}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className={isDark ? "text-slate-400" : "text-gray-500"}>Pendiente</p>
                 )}
               </div>
+              {/* Observaciones */}
               <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Comentarios</p>
-                <p className={isDark ? "text-slate-300" : "text-gray-700"}>{leave.comments || "—"}</p>
-              </div>
-              <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Fecha de pago</p>
-                <p className={isDark ? "text-slate-300" : "text-gray-700"}>{leave.paidAt ? fmtDate(leave.paidAt) : "—"}</p>
-                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Observaciones</p>
+                <p className={isDark ? "text-slate-300" : "text-gray-700"}>{leave.reason || "—"}</p>
+                {leave.comments && (
+                  <p className={`text-[10px] mt-1 italic ${isDark ? "text-gray-500" : "text-gray-400"}`}>{leave.comments}</p>
+                )}
+                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
                   Solicitud: {fmtDate(leave.createdAt)}
                 </p>
               </div>
@@ -437,7 +460,7 @@ const EmployeeDetailView: React.FC<{
             <thead className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? "bg-slate-900/50 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
               <tr>
                 <th className="px-3 py-3">Tipo</th>
-                <th className="px-3 py-3">Período</th>
+                <th className="px-3 py-3">Salida / Regreso</th>
                 <th className="px-3 py-3 text-center">Días</th>
                 <th className="px-3 py-3">Estado</th>
                 <th className="px-3 py-3">Pago</th>
@@ -814,7 +837,7 @@ export const VacacionesHistory: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3">Colaborador</th>
                     <th className="px-4 py-3">Tipo</th>
-                    <th className="px-4 py-3">Período</th>
+                    <th className="px-4 py-3">Salida / Regreso</th>
                     <th className="px-4 py-3 text-center">Días</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Pago</th>
