@@ -20,7 +20,7 @@ const routesConfig = [
     ]
   },
   {
-    disable: false,
+    disable: true,
     icon: UsersIcon,
     name: "Users",
     href: "/users/all",
@@ -175,7 +175,7 @@ const getMainRoutesForRole = (roleKey: keyof typeof authRoles) => {
     return [];
   }
 
-  const filteredRoutes = routesConfig.filter((route) => route.roles.includes(role));
+  const filteredRoutes = routesConfig.filter((route) => route.roles.includes(role) && !route.disable);
 
   return filteredRoutes;
 };
