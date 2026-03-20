@@ -44,6 +44,18 @@ interface Employee {
   status: string
 }
 
+interface LeaveRecord {
+  id: string
+  leaveType: string
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
+  startDate: string
+  endDate: string
+  daysRequested: number
+  daysApproved: number | null
+  isPaid: boolean
+  paidAt: string | null
+}
+
 interface LiquidacionResult {
   employee: Employee
   fechaIngreso: Date
@@ -69,6 +81,10 @@ interface LiquidacionResult {
   diasPreaviso: number
   diasAntiguedad: number
   diasVacaciones: number
+  // Vacaciones ya tomadas/pagadas (para desglose)
+  diasVacTomados: number
+  diasVacPagados: number
+  diasVacNetos: number
 }
 
 // ── Cálculos ──────────────────────────────────────────────────────────────────
@@ -141,10 +157,35 @@ function calcDecimoProporcional(mensual: number, fechaSalida: Date) {
 /**
  * Vacaciones proporcionales (Art. 54 CT)
  * 30 días por cada 11 meses. Proporcional al tiempo trabajado.
+ * Se descuentan los días ya tomados (APPROVED) y los ya pagados (isPaid).
  */
-function calcVacaciones(meses: number, salarioDiario: number) {
-  const diasVac = Number(((meses / 11) * 30).toFixed(2))
-  return { dias: diasVac, monto: Number((diasVac * salarioDiario).toFixed(2)) }
+function calcVacaciones(meses: number, salarioDiario: number, leaves: LeaveRecord[]) {
+  const diasGanados = Number(((meses / 11) * 30).toFixed(2))
+
+  // Días APROBADOS de vacaciones (tomados o en proceso de tomar)
+  const diasTomados = leaves
+    .filter(l => l.leaveType === "VACATION" && l.status === "APPROVED")
+    .reduce((s, l) => s + (l.daysApproved ?? l.daysRequested), 0)
+
+  // De esos aprobados, cuáles ya fueron pagados (no incluir en la liquidación)
+  const diasPagados = leaves
+    .filter(l => l.leaveType === "VACATION" && l.status === "APPROVED" && l.isPaid)
+    .reduce((s, l) => s + (l.daysApproved ?? l.daysRequested), 0)
+
+  // Días netos a pagar en liquidación = ganados - tomados (los tomados ya se pagaron o se compensaron en especie)
+  // Si hubo días tomados pero no pagados aún, esos sí se incluyen
+  const diasNoRemunerados = diasTomados - diasPagados
+  const diasVacNetos = Math.max(0, Number((diasGanados - diasTomados).toFixed(2)))
+  // También sumamos los tomados pero pendientes de pago
+  const diasFinalLiquidacion = Number((diasVacNetos + diasNoRemunerados).toFixed(2))
+
+  return {
+    dias: diasGanados,
+    diasTomados,
+    diasPagados,
+    diasNetos: diasFinalLiquidacion,
+    monto: Number((diasFinalLiquidacion * salarioDiario).toFixed(2)),
+  }
 }
 
 function calcLiquidacion(
@@ -152,6 +193,7 @@ function calcLiquidacion(
   fechaSalida: Date,
   otrosIngresos: number,
   otrosDescuentos: number,
+  leaves: LeaveRecord[],
   ssRate: number = 9.75,
   isrRate: number = 0
 ): LiquidacionResult {
@@ -163,7 +205,7 @@ function calcLiquidacion(
   const preaviso = calcPreaviso(anos, meses, salarioDiario)
   const antiguedad = calcAntiguedad(anos, meses, salarioDiario)
   const decimoProp = calcDecimoProporcional(mensual, fechaSalida)
-  const vacaciones = calcVacaciones(meses, salarioDiario)
+  const vacaciones = calcVacaciones(meses, salarioDiario, leaves)
 
   const totalBruto = Number(
     (preaviso.monto + antiguedad.monto + decimoProp + vacaciones.monto + otrosIngresos).toFixed(2)
@@ -195,6 +237,9 @@ function calcLiquidacion(
     diasPreaviso: preaviso.dias,
     diasAntiguedad: antiguedad.dias,
     diasVacaciones: vacaciones.dias,
+    diasVacTomados: vacaciones.diasTomados,
+    diasVacPagados: vacaciones.diasPagados,
+    diasVacNetos: vacaciones.diasNetos,
   }
 }
 
@@ -253,7 +298,7 @@ function generarPDF(res: LiquidacionResult, companyName: string) {
   row(`Preaviso (${res.diasPreaviso} días)`, formatCurrency(res.preaviso))
   row(`Antigüedad (${res.diasAntiguedad.toFixed(1)} días)`, formatCurrency(res.antiguedad))
   row("Décimo Tercer Mes (proporcional)", formatCurrency(res.decimoProporcional))
-  row(`Vacaciones (${res.diasVacaciones.toFixed(1)} días)`, formatCurrency(res.vacacionesProporcionales))
+  row(`Vacaciones (${res.diasVacNetos.toFixed(1)} días netos / ${res.diasVacaciones.toFixed(1)} ganados)`, formatCurrency(res.vacacionesProporcionales))
   if (res.otrosIngresos > 0) row("Otros Ingresos", formatCurrency(res.otrosIngresos))
   line()
   row("TOTAL BRUTO", formatCurrency(res.totalBruto), true)
@@ -300,6 +345,13 @@ export const AllLiquidacion: React.FC = () => {
     authFetcher
   )
 
+  const { data: employeeLeaves = [] } = useSWR<LeaveRecord[]>(
+    selectedCompany && selectedEmployee
+      ? `${API}/api/payroll/leaves?companyId=${selectedCompany.id}&employeeId=${selectedEmployee.id}`
+      : null,
+    authFetcher
+  )
+
   const filteredEmployees = useMemo(() => {
     if (!employees.length) return []
     const q = search.toLowerCase()
@@ -317,7 +369,7 @@ export const AllLiquidacion: React.FC = () => {
   const handleCalcular = () => {
     if (!selectedEmployee) return
     const salida = new Date(fechaSalida + "T12:00:00")
-    const res = calcLiquidacion(selectedEmployee, salida, otrosIngresos, otrosDescuentos)
+    const res = calcLiquidacion(selectedEmployee, salida, otrosIngresos, otrosDescuentos, employeeLeaves)
     setResultado(res)
     setShowDetalle(true)
   }
@@ -542,7 +594,11 @@ export const AllLiquidacion: React.FC = () => {
                           { label: `Preaviso (${resultado.diasPreaviso} días)`, value: resultado.preaviso, note: resultado.anosTrabajados < 2 ? "Art. 224 CT — < 2 años" : "Art. 224 CT — ≥ 2 años" },
                           { label: `Antigüedad (${resultado.diasAntiguedad.toFixed(1)} días)`, value: resultado.antiguedad, note: resultado.anosTrabajados >= 10 ? "Art. 225 CT — 1.5 sem/año" : "Art. 225 CT — 1 sem/año" },
                           { label: "Décimo Tercer Mes (proporcional)", value: resultado.decimoProporcional, note: "Art. 259 CT" },
-                          { label: `Vacaciones (${resultado.diasVacaciones.toFixed(1)} días)`, value: resultado.vacacionesProporcionales, note: "Art. 54 CT — 30 días / 11 meses" },
+                          {
+                            label: `Vacaciones (${resultado.diasVacNetos.toFixed(1)} días netos)`,
+                            value: resultado.vacacionesProporcionales,
+                            note: `Art. 54 CT — Ganados: ${resultado.diasVacaciones.toFixed(1)}d · Tomados: ${resultado.diasVacTomados}d · Pagados prev: ${resultado.diasVacPagados}d`
+                          },
                           ...(resultado.otrosIngresos > 0 ? [{ label: "Otros Ingresos", value: resultado.otrosIngresos, note: "" }] : []),
                         ].map(({ label, value, note }) => (
                           <div key={label} className={`flex justify-between items-center py-2 border-b ${dark ? "border-gray-700/50" : "border-gray-100"}`}>

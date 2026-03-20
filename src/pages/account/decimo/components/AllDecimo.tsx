@@ -25,8 +25,9 @@ const PAGE_SIZE = 15
 type SalaryType = "MONTHLY" | "BIWEEKLY"
 interface EmployeeBase { id: string; firstName: string; lastName: string; cedula: string; salary: number; salaryType: SalaryType }
 interface LegalParameter { id: string; key: string; percentage: number; category: string; minRange: number | null; maxRange: number | null; status: string }
-interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: { grossThirteenth: number; ss: number; isr: number; net: number } }
-interface ThirteenthTotals { gross: number; ss: number; net: number }
+interface DecimoCalc { grossThirteenth: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
+interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: DecimoCalc }
+interface ThirteenthTotals { gross: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
 interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDING"; paymentId: string | null; amount: number | null; ssAmount: number | null; netAmount: number | null; paymentDate: string | null; notes: string | null }
 
 const fmt = (n: number) => new Intl.NumberFormat("es-PA", { style: "currency", currency: "USD" }).format(n)
@@ -68,28 +69,49 @@ export const AllDecimo: React.FC = () => {
     return decimoHistory.partidas.find(p => p.partida === currentPartida) || null
   }, [decimoHistory, currentPartida])
 
+  // ISR progresivo sobre ingreso anual (mismos tramos que nómina)
   const calcISRAnual = useCallback((annualIncome: number): number => {
     if (!legalParams) return 0
-    const brackets = legalParams.filter((p) => p.category === "isr" && p.status === "active").sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
+    const brackets = legalParams
+      .filter(p => p.category === "isr" && p.status === "active")
+      .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
     let isr = 0
     for (const b of brackets) {
-      const min = b.minRange ?? 0; const max = b.maxRange ?? Infinity; const rate = b.percentage / 100
+      const min = b.minRange ?? 0
+      const max = b.maxRange ?? Infinity
+      const rate = b.percentage / 100
       if (annualIncome > min) isr += (Math.min(annualIncome, max) - min) * rate
     }
     return Math.max(0, isr)
   }, [legalParams])
 
-  const calculateThirteenth = useCallback((monthlySalary: number) => {
-    // Bruto décimo = salario mensual * 4 meses / 12
-    const grossThirteenth = (monthlySalary * 4) / 12
-    const ssRate = getParam("ss_decimo")?.percentage ?? 7.25
-    const ss = grossThirteenth * (ssRate / 100)
-    // ISR marginal: ISR anual con décimo - ISR anual sin décimo
-    const annualSalary = monthlySalary * 12
-    const isrSinDecimo = calcISRAnual(annualSalary)
-    const isrConDecimo = calcISRAnual(annualSalary + grossThirteenth)
-    const isr = Math.max(0, isrConDecimo - isrSinDecimo)
-    return { grossThirteenth, ss, isr, net: grossThirteenth - ss - isr }
+  const calculateThirteenth = useCallback((monthlySalary: number): DecimoCalc => {
+    // Cada partida cubre 4 meses → bruto partida = salario × 4 ÷ 12
+    // Ejemplo: $1,000/mes → $333.33 por partida
+    const grossThirteenth = Number(((monthlySalary * 4) / 12).toFixed(2))
+
+    // SS EMPLEADO: 7.25% sobre el bruto de la partida
+    const ssEmpRate = getParam("ss_decimo")?.percentage ?? 7.25
+    const ssEmp = Number((grossThirteenth * (ssEmpRate / 100)).toFixed(2))
+
+    // SS PATRONO: 10.75% sobre el bruto de la partida (costo del empleador)
+    const ssPatRate = getParam("ss_decimo_patrono")?.percentage ?? 10.75
+    const ssPat = Number((grossThirteenth * (ssPatRate / 100)).toFixed(2))
+
+    // ISR: base anual = salario × 13 (el décimo es el mes 13)
+    // Diferencia marginal entre ISR(13 meses) e ISR(12 meses) ÷ 3 partidas
+    const isrAnualTotal    = calcISRAnual(monthlySalary * 13)
+    const isrAnualSinDecimo = calcISRAnual(monthlySalary * 12)
+    const isr = Number((Math.max(0, isrAnualTotal - isrAnualSinDecimo) / 3).toFixed(2))
+
+    // Seguro Educativo: EXENTO en el décimo tercer mes por ley
+
+    // Neto empleado = bruto − SS empleado − ISR
+    const net = Number((grossThirteenth - ssEmp - isr).toFixed(2))
+    // Costo total patrono = bruto + SS patrono (lo que le cuesta a la empresa por partida)
+    const totalCostPatrono = Number((grossThirteenth + ssPat).toFixed(2))
+
+    return { grossThirteenth, ssEmp, ssPat, isr, net, totalCostPatrono }
   }, [getParam, calcISRAnual])
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
@@ -101,7 +123,14 @@ export const AllDecimo: React.FC = () => {
   }, [employees, calculateThirteenth])
 
   const totals = useMemo<ThirteenthTotals>(() =>
-    employeeData.reduce((acc, c) => ({ gross: acc.gross + c.calc.grossThirteenth, ss: acc.ss + c.calc.ss, net: acc.net + c.calc.net }), { gross: 0, ss: 0, net: 0 })
+    employeeData.reduce((acc, c) => ({
+      gross:            acc.gross            + c.calc.grossThirteenth,
+      ssEmp:            acc.ssEmp            + c.calc.ssEmp,
+      ssPat:            acc.ssPat            + c.calc.ssPat,
+      isr:              acc.isr              + c.calc.isr,
+      net:              acc.net              + c.calc.net,
+      totalCostPatrono: acc.totalCostPatrono + c.calc.totalCostPatrono,
+    }), { gross: 0, ssEmp: 0, ssPat: 0, isr: 0, net: 0, totalCostPatrono: 0 })
   , [employeeData])
 
   const pagedEmployees = useMemo(() => employeeData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [employeeData, page])
@@ -114,7 +143,7 @@ export const AllDecimo: React.FC = () => {
       const res = await fetch(`${API_URL}/api/payroll/decimo/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ companyId: selectedCompany.id, year, partida: currentPartida, amount: totals.gross, ssAmount: totals.ss, netAmount: totals.net, paymentDate: new Date().toISOString().split("T")[0], notes: payNotes || null }),
+        body: JSON.stringify({ companyId: selectedCompany.id, year, partida: currentPartida, amount: totals.gross, ssAmount: totals.ssEmp, netAmount: totals.net, paymentDate: new Date().toISOString().split("T")[0], notes: payNotes || null }),
       })
       const data = await res.json()
       if (!res.ok) { notify("error", res.status === 409 ? "Esta partida ya est\u00e1 registrada como pagada" : data.error || "Error al registrar"); return }
@@ -206,18 +235,27 @@ export const AllDecimo: React.FC = () => {
             {partidaStatus?.status === "PAID" && <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDarkMode ? "text-green-400" : "text-green-700"}`}><CheckCircle2 size={12} /> Pagada el {new Date(partidaStatus.paymentDate!).toLocaleDateString("es-PA")}</p>}
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-6 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
           <div>
             <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Bruto</p>
-            <p className={`text-xl font-bold font-mono ${isDarkMode ? "text-white" : "text-gray-900"}`}>{fmt(totals.gross)}</p>
+            <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-white" : "text-gray-900"}`}>{fmt(totals.gross)}</p>
           </div>
           <div>
-            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>S.S.</p>
-            <p className={`text-xl font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>-{fmt(totals.ss)}</p>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>SS Emp. (7.25%)</p>
+            <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>-{fmt(totals.ssEmp)}</p>
           </div>
           <div>
-            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-green-400" : "text-green-600"}`}>Neto a Pagar</p>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-blue-400" : "text-blue-500"}`}>ISR</p>
+            <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>-{fmt(totals.isr)}</p>
+          </div>
+          <div>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-green-400" : "text-green-600"}`}>Neto Empleado</p>
             <p className={`text-2xl font-bold font-mono ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</p>
+          </div>
+          <div>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>SS Pat. (10.75%)</p>
+            <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>{fmt(totals.ssPat)}</p>
+            <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>costo patrono</p>
           </div>
         </div>
       </div>
@@ -264,39 +302,45 @@ export const AllDecimo: React.FC = () => {
           <table className={`w-full text-sm text-left ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
             <thead className={`uppercase text-[10px] font-bold ${isDarkMode ? "bg-slate-900/50 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
               <tr>
-                <th className="px-6 py-3">Empleado</th>
-                <th className="px-6 py-3">Salario Mensual</th>
-                <th className="px-6 py-3">Bruto</th>
-                <th className="px-6 py-3 text-red-400">S.S. ({getParam("ss_decimo")?.percentage ?? 7.25}%)</th>
-                <th className="px-6 py-3 text-blue-400">ISR</th>
-                <th className="px-6 py-3 text-green-400 font-bold">Neto</th>
+                <th className="px-4 py-3">Empleado</th>
+                <th className="px-4 py-3">Sal. Mensual</th>
+                <th className="px-4 py-3">Bruto Partida</th>
+                <th className="px-4 py-3 text-red-400">SS Emp. (7.25%)</th>
+                <th className="px-4 py-3 text-blue-400">ISR (÷3)</th>
+                <th className="px-4 py-3 text-green-400">Neto Empleado</th>
+                <th className="px-4 py-3 text-amber-400">SS Pat. (10.75%)</th>
+                <th className="px-4 py-3 text-amber-300">Costo Patrono</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDarkMode ? "divide-slate-700/50" : "divide-gray-100"}`}>
               {pagedEmployees.map((emp) => (
                 <tr key={emp.id} className={`transition-colors ${isDarkMode ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}`}>
-                  <td className="px-6 py-3 flex items-center gap-3">
+                  <td className="px-4 py-3 flex items-center gap-3">
                     <UserCheck className="text-blue-500/50 shrink-0" size={15} />
                     <div>
-                      <div className={`font-medium ${isDarkMode ? "text-slate-200" : "text-gray-900"}`}>{emp.firstName} {emp.lastName}</div>
+                      <div className={`font-medium text-sm ${isDarkMode ? "text-slate-200" : "text-gray-900"}`}>{emp.firstName} {emp.lastName}</div>
                       <div className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{emp.cedula}</div>
                     </div>
                   </td>
-                  <td className={`px-6 py-3 font-mono ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{fmt(emp.monthlySalary)}</td>
-                  <td className={`px-6 py-3 font-semibold ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>{fmt(emp.calc.grossThirteenth)}</td>
-                  <td className="px-6 py-3 text-red-400/80 font-mono">-{fmt(emp.calc.ss)}</td>
-                  <td className="px-6 py-3 text-blue-400/80 font-mono">-{fmt(emp.calc.isr)}</td>
-                  <td className={`px-6 py-3 font-bold font-mono text-base ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(emp.calc.net)}</td>
+                  <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{fmt(emp.monthlySalary)}</td>
+                  <td className={`px-4 py-3 font-semibold font-mono text-sm ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>{fmt(emp.calc.grossThirteenth)}</td>
+                  <td className="px-4 py-3 text-red-400/80 font-mono text-sm">-{fmt(emp.calc.ssEmp)}</td>
+                  <td className="px-4 py-3 text-blue-400/80 font-mono text-sm">-{fmt(emp.calc.isr)}</td>
+                  <td className={`px-4 py-3 font-bold font-mono text-sm ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(emp.calc.net)}</td>
+                  <td className="px-4 py-3 text-amber-400/80 font-mono text-sm">{fmt(emp.calc.ssPat)}</td>
+                  <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(emp.calc.totalCostPatrono)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className={`font-bold text-xs border-t-2 ${isDarkMode ? "bg-slate-900/40 border-gray-600 text-white" : "bg-gray-100 border-gray-300 text-gray-900"}`}>
-                <td colSpan={2} className="px-6 py-3">TOTALES ({employeeData.length} empleados)</td>
-                <td className="px-6 py-3 font-mono">{fmt(totals.gross)}</td>
-                <td className="px-6 py-3 font-mono text-red-400">-{fmt(totals.ss)}</td>
-                <td className="px-6 py-3 font-mono text-blue-400">-</td>
-                <td className={`px-6 py-3 font-mono text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</td>
+                <td colSpan={2} className="px-4 py-3">TOTALES ({employeeData.length} empleados)</td>
+                <td className="px-4 py-3 font-mono">{fmt(totals.gross)}</td>
+                <td className="px-4 py-3 font-mono text-red-400">-{fmt(totals.ssEmp)}</td>
+                <td className="px-4 py-3 font-mono text-blue-400">-{fmt(totals.isr)}</td>
+                <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</td>
+                <td className="px-4 py-3 font-mono text-amber-400">{fmt(totals.ssPat)}</td>
+                <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(totals.totalCostPatrono)}</td>
               </tr>
             </tfoot>
           </table>
@@ -317,15 +361,21 @@ export const AllDecimo: React.FC = () => {
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-yellow-50 border-yellow-200"}`}>
               <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-yellow-500" : "text-yellow-600"}`}><AlertTriangle size={14} /><h5 className="text-xs font-bold uppercase">Seguro Social</h5></div>
-              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>Tasa actual: <strong>{getParam("ss_decimo")?.percentage ?? 7.25}%</strong>. Aplica sobre el bruto del d\u00e9cimo.</p>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>
+                Empleado: <strong>{getParam("ss_decimo")?.percentage ?? 7.25}%</strong> · Patrono: <strong>{getParam("ss_decimo_patrono")?.percentage ?? 10.75}%</strong>. Ambos sobre el bruto de cada partida.
+              </p>
             </div>
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-blue-50 border-blue-200"}`}>
-              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-blue-500" : "text-blue-600"}`}><Info size={14} /><h5 className="text-xs font-bold uppercase">Seguro Educativo</h5></div>
-              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>El d\u00e9cimo tercer mes est\u00e1 <strong>exento</strong> del Seguro Educativo por ley.</p>
+              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-blue-500" : "text-blue-600"}`}><Info size={14} /><h5 className="text-xs font-bold uppercase">ISR y Seg. Educativo</h5></div>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>
+                ISR: base = salario × 13 meses. ISR décimo = ISR(13m) − ISR(12m) ÷ 3 partidas. Seguro Educativo: <strong>exento</strong> por ley.
+              </p>
             </div>
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-green-50 border-green-200"}`}>
-              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-green-500" : "text-green-600"}`}><Gift size={14} /><h5 className="text-xs font-bold uppercase">F\u00f3rmula</h5></div>
-              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>Sumatoria de salarios del per\u00edodo \u00f7 12. Se toman los \u00faltimos 4 meses.</p>
+              <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-green-500" : "text-green-600"}`}><Gift size={14} /><h5 className="text-xs font-bold uppercase">Fórmula por Partida</h5></div>
+              <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>
+                Bruto = Sal. × 4 ÷ 12 · SS emp. 7.25% · ISR marginal ÷ 3 · <strong>Neto = Bruto − SS − ISR</strong> · Costo patrono = Bruto + SS pat. 10.75%
+              </p>
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@
 import { authFetcher } from "../../../../services/api"
 import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
+import { useNavigate } from "react-router-dom"
 import { useNotifications } from "../../../../context/notificationContext"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
@@ -21,6 +22,7 @@ import {
   CheckCircle,
   Loader2,
   Users,
+  ExternalLink,
 } from "lucide-react"
 import {
   type VacacionesEmployee,
@@ -90,7 +92,7 @@ const SummaryCard: React.FC<{
 // DETAIL DRAWER (fila expandible)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DetailRow: React.FC<{ calc: VacacionesCalc; isDark: boolean }> = ({ calc, isDark }) => {
+const DetailRow: React.FC<{ calc: VacacionesCalc; isDark: boolean; onOpenPerfil: (empId: string) => void }> = ({ calc, isDark, onOpenPerfil }) => {
   const [open, setOpen] = useState(false)
 
   const progressPct = Math.min(100, (calc.monthsWorked / 11) * 100)
@@ -113,9 +115,13 @@ const DetailRow: React.FC<{ calc: VacacionesCalc; isDark: boolean }> = ({ calc, 
               {calc.employee.firstName[0]}{calc.employee.lastName[0]}
             </div>
             <div>
-              <p className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+              <button
+                onClick={e => { e.stopPropagation(); onOpenPerfil(calc.employeeId) }}
+                className={`font-semibold text-sm flex items-center gap-1 hover:underline ${isDark ? "text-white hover:text-teal-400" : "text-gray-900 hover:text-teal-600"}`}
+              >
                 {calc.employee.firstName} {calc.employee.lastName}
-              </p>
+                <ExternalLink size={11} className="opacity-50" />
+              </button>
               <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
                 {calc.employee.cedula} · {calc.employee.position || "—"}
               </p>
@@ -293,6 +299,7 @@ export const AllVacaciones: React.FC = () => {
   const { isDarkMode } = useTheme()
   const { pageName } = usePageName()
   const { addNotification } = useNotifications()
+  const navigate = useNavigate()
 
   useEffect(() => {
     addNotification({
@@ -488,7 +495,12 @@ export const AllVacaciones: React.FC = () => {
                 </tr>
               ) : (
                 filtered.map(calc => (
-                  <DetailRow key={calc.employeeId} calc={calc} isDark={isDarkMode} />
+                  <DetailRow
+                    key={calc.employeeId}
+                    calc={calc}
+                    isDark={isDarkMode}
+                    onOpenPerfil={(empId) => navigate(`/${selectedCompany?.code}/vacaciones/empleado/${empId}`)}
+                  />
                 ))
               )}
             </tbody>
