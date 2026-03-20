@@ -69,89 +69,60 @@ export const AllDecimo: React.FC = () => {
     return decimoHistory.partidas.find(p => p.partida === currentPartida) || null
   }, [decimoHistory, currentPartida])
 
-  // ISR progresivo sobre ingreso anual (mismos tramos que nómina)
-  const calcISRAnual = useCallback((annualIncome: number): number => {
-    if (!legalParams) return 0
-    console.log(legalParams.filter(p => p.category === "isr" && p.status === "active").sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0)), "ISR BRACKETS")
-    const brackets = legalParams
-      .filter(p => p.category === "isr" && p.status === "active")
-      .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0))
-    let isr = 0
-    for (const b of brackets) {
-      const min = b.minRange ?? 0
-      const max = b.maxRange ?? Infinity
-      const rate = b.percentage / 100
-      if (annualIncome > min) isr += (Math.min(annualIncome, max) - min) * rate
-    }
-    return Math.max(0, isr)
-  }, [legalParams])
 
 const calculateThirteenth = useCallback(
   (monthlySalary: number, part: 1 | 2 | 3): DecimoCalc => {
-
-    const annualThirteenth = monthlySalary
-
     const ssEmpRate = getParam("ss_decimo")?.percentage ?? 7.25
     const ssPatRate = getParam("ss_decimo_patrono")?.percentage ?? 10.75
-    const ssEmpRegularRate = getParam("ss_empleado")?.percentage ?? 9.75
 
+    const annualThirteenth = monthlySalary
     const annualSsEmp = annualThirteenth * (ssEmpRate / 100)
     const annualSsPat = annualThirteenth * (ssPatRate / 100)
 
-    // CSS deducido de los 12 meses regulares
-    const annualCssRegular = monthlySalary * 12 * (ssEmpRegularRate / 100)
-    // CSS deducido del décimo
-    const cssTercerMes = annualSsEmp
+    // Bruto por partida (÷3, la 3ra absorbe residuo de redondeo)
+    const grossPart1 = Number((annualThirteenth / 3).toFixed(2))
+    const grossPart2 = Number((annualThirteenth / 3).toFixed(2))
+    const grossPart3 = Number((annualThirteenth - grossPart1 - grossPart2).toFixed(2))
+    const grossPart  = part === 1 ? grossPart1 : part === 2 ? grossPart2 : grossPart3
 
-    // ISR se calcula sobre ingreso DESPUÉS de deducir CSS
-    const rentaGravable13 = (monthlySalary * 13) - annualCssRegular - cssTercerMes
-    const rentaGravable12 = (monthlySalary * 12) - annualCssRegular
-
-    const annualIsrThirteenth = Math.max(
-      0,
-      calcISRAnual(rentaGravable13) - calcISRAnual(rentaGravable12)
-    )
-
-    const grossPart = Number((annualThirteenth / 3).toFixed(2))
-
+    // SS empleado por partida (÷3, la 3ra absorbe residuo)
     const ssEmpPart1 = Number((annualSsEmp / 3).toFixed(2))
     const ssEmpPart2 = Number((annualSsEmp / 3).toFixed(2))
     const ssEmpPart3 = Number((annualSsEmp - ssEmpPart1 - ssEmpPart2).toFixed(2))
+    const ssEmp      = part === 1 ? ssEmpPart1 : part === 2 ? ssEmpPart2 : ssEmpPart3
 
+    // SS patrono por partida (÷3, la 3ra absorbe residuo)
     const ssPatPart1 = Number((annualSsPat / 3).toFixed(2))
     const ssPatPart2 = Number((annualSsPat / 3).toFixed(2))
     const ssPatPart3 = Number((annualSsPat - ssPatPart1 - ssPatPart2).toFixed(2))
+    const ssPat      = part === 1 ? ssPatPart1 : part === 2 ? ssPatPart2 : ssPatPart3
 
-    const isrPart1 = Number((annualIsrThirteenth / 3).toFixed(2))
-    const isrPart2 = Number((annualIsrThirteenth / 3).toFixed(2))
-    const isrPart3 = Number((annualIsrThirteenth - isrPart1 - isrPart2).toFixed(2))
+    // ISR método DGI — se calcula directamente sobre el bruto de la partida
+    // Monto exento proporcional = minRange del primer tramo con tasa > 0 ÷ 39 quincenas
+    const isrBrackets = legalParams
+      ?.filter(p => p.category === "isr" && p.status === "active" && p.percentage > 0)
+      .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0)) ?? []
+    const primerTramoConTasa = isrBrackets[0]
+    const exentoAnual = primerTramoConTasa?.minRange ?? 11000
+    const tasaISR     = (primerTramoConTasa?.percentage ?? 15) / 100
+    const montoExento = Number((exentoAnual / 39).toFixed(6))
+    const isr         = Number((Math.max(0, (grossPart - montoExento) * tasaISR)).toFixed(2))
 
-    const ssEmp = part === 1 ? ssEmpPart1 : part === 2 ? ssEmpPart2 : ssEmpPart3
-    const ssPat = part === 1 ? ssPatPart1 : part === 2 ? ssPatPart2 : ssPatPart3
-    const isr   = part === 1 ? isrPart1   : part === 2 ? isrPart2   : isrPart3
-
-    const net = Number((grossPart - ssEmp - isr).toFixed(2))
+    const net              = Number((grossPart - ssEmp - isr).toFixed(2))
     const totalCostPatrono = Number((grossPart + ssPat).toFixed(2))
 
-    return {
-      grossThirteenth: grossPart,
-      ssEmp,
-      ssPat,
-      isr,
-      net,
-      totalCostPatrono,
-    }
+    return { grossThirteenth: grossPart, ssEmp, ssPat, isr, net, totalCostPatrono }
   },
-  [getParam, calcISRAnual]
+  [getParam, legalParams]
 )
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
     return employees.map((emp) => {
       const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary, 1) }
+      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary, currentPartida as 1 | 2 | 3) }
     })
-  }, [employees, calculateThirteenth])
+  }, [employees, calculateThirteenth, currentPartida])
 
   const totals = useMemo<ThirteenthTotals>(() =>
     employeeData.reduce((acc, c) => ({
