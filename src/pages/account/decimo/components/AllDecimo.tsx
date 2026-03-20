@@ -241,7 +241,7 @@ export const AllDecimo: React.FC = () => {
             <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-white" : "text-gray-900"}`}>{fmt(totals.gross)}</p>
           </div>
           <div>
-            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>SS Emp. (7.25%)</p>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>SS Emp. ({getParam("ss_decimo")?.percentage ?? 7.25}%)</p>
             <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>-{fmt(totals.ssEmp)}</p>
           </div>
           <div>
@@ -253,7 +253,7 @@ export const AllDecimo: React.FC = () => {
             <p className={`text-2xl font-bold font-mono ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</p>
           </div>
           <div>
-            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>SS Pat. (10.75%)</p>
+            <p className={`text-xs uppercase mb-1 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>SS Pat. ({getParam("ss_decimo_patrono")?.percentage ?? 10.75}%)</p>
             <p className={`text-lg font-bold font-mono ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>{fmt(totals.ssPat)}</p>
             <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>costo patrono</p>
           </div>
@@ -305,9 +305,9 @@ export const AllDecimo: React.FC = () => {
                 <th className="px-4 py-3">Empleado</th>
                 <th className="px-4 py-3">Sal. Mensual</th>
                 <th className="px-4 py-3">Bruto Partida</th>
-                <th className="px-4 py-3 text-red-400">SS Emp. (7.25%)</th>
+                <th className="px-4 py-3 text-red-400">SS Emp. ({getParam("ss_decimo")?.percentage ?? 7.25}%)</th>
                 <th className="px-4 py-3 text-blue-400">ISR (÷3)</th>
-                <th className={`px-4 py-3 border-l-2 ${isDarkMode ? "border-slate-600 text-amber-400" : "border-gray-300 text-amber-600"}`}>SS Pat. (10.75%)</th>
+                <th className={`px-4 py-3 border-l-2 ${isDarkMode ? "border-slate-600 text-amber-400" : "border-gray-300 text-amber-600"}`}>SS Pat. ({getParam("ss_decimo_patrono")?.percentage ?? 10.75}%)</th>
                 <th className={`px-4 py-3 ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Costo Patrono</th>
                 <th className={`px-4 py-3 border-l-2 text-green-400 font-bold ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>Neto Empleado</th>
               </tr>
@@ -362,7 +362,7 @@ export const AllDecimo: React.FC = () => {
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-yellow-50 border-yellow-200"}`}>
               <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-yellow-500" : "text-yellow-600"}`}><AlertTriangle size={14} /><h5 className="text-xs font-bold uppercase">Seguro Social</h5></div>
               <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>
-                Empleado: <strong>{getParam("ss_decimo")?.percentage ?? 7.25}%</strong> · Patrono: <strong>{getParam("ss_decimo_patrono")?.percentage ?? 10.75}%</strong>. Ambos sobre el bruto de cada partida.
+                Empleado: <strong>{getParam("ss_decimo")?.percentage ?? 7.25}%</strong> · Patrono: <strong>{getParam("ss_decimo_patrono")?.percentage ?? 10.75}%</strong>. Sobre el décimo total anual, dividido en 3 partidas.
               </p>
             </div>
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-blue-50 border-blue-200"}`}>
@@ -374,7 +374,7 @@ export const AllDecimo: React.FC = () => {
             <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-green-50 border-green-200"}`}>
               <div className={`flex items-center gap-2 mb-2 ${isDarkMode ? "text-green-500" : "text-green-600"}`}><Gift size={14} /><h5 className="text-xs font-bold uppercase">Fórmula por Partida</h5></div>
               <p className={`text-[11px] ${isDarkMode ? "text-gray-400" : "text-gray-700"}`}>
-                Bruto = Sal. × 4 ÷ 12 · SS emp. 7.25% · ISR marginal ÷ 3 · <strong>Neto = Bruto − SS − ISR</strong> · Costo patrono = Bruto + SS pat. 10.75%
+                Bruto total = Salario mensual · SS total = Bruto × {getParam("ss_decimo")?.percentage ?? 7.25}% · ISR = ISR(13m) − ISR(12m) · Cada partida = Total ÷ 3 · <strong>Neto partida = (Bruto − SS − ISR) ÷ 3</strong>
               </p>
             </div>
           </div>

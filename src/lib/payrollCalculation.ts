@@ -155,6 +155,34 @@ export const getSSDecimoRate = (legalParams: LegalParameter[]): number => {
   return p?.percentage ?? 7.25
 }
 
+export const getSSDecimoPatronoRate = (legalParams: LegalParameter[]): number => {
+  if (!legalParams?.length) return 10.75
+  const p = legalParams.find(p => p.key === 'ss_decimo_patrono' && p.status === 'active')
+  return p?.percentage ?? 10.75
+}
+
+export const getSSSPatronoRate = (legalParams: LegalParameter[]): number => {
+  if (!legalParams?.length) return 13.25
+  const p = legalParams.find(
+    p => (p.key === 'ss_patrono' || (p.category === 'social_security' && p.type === 'employer')) && p.status === 'active'
+  )
+  return p?.percentage ?? 13.25
+}
+
+export const getSEPatronoRate = (legalParams: LegalParameter[]): number => {
+  if (!legalParams?.length) return 1.50
+  const p = legalParams.find(
+    p => (p.key === 'se_patrono' || (p.category === 'educational_insurance' && p.type === 'employer')) && p.status === 'active'
+  )
+  return p?.percentage ?? 1.50
+}
+
+export const getRiesgoProfesionalRate = (legalParams: LegalParameter[]): number => {
+  if (!legalParams?.length) return 0.98
+  const p = legalParams.find(p => p.key === 'riesgo_profesional' && p.status === 'active')
+  return p?.percentage ?? 0.98
+}
+
 export const getISRTramos = (legalParams: LegalParameter[]): ISRTramo[] => {
   if (!legalParams?.length) return []
   return legalParams
@@ -254,18 +282,20 @@ export interface ThirteenthMonthResult {
 /**
  * Calcula el décimo tercer mes para un período específico.
  *
+ * Regla: calcular el TOTAL anual primero, luego dividir en 3 partidas iguales.
+ *
  * Meses de pago (0-based, getMonth()):
  *   Abril     = 3  → 1ra Partida (16 dic – 15 abr)
  *   Agosto    = 7  → 2da Partida (16 abr – 15 ago)
  *   Diciembre = 11 → 3ra Partida (16 ago – 15 dic)
  *
- * @param totalIncome   Suma de ingresos del período de 4 meses
- * @param month         Mes actual (0-based, de Date.getMonth())
- * @param tramos        Tramos ISR
- * @param ssDecimoRate  Tasa SS del décimo (default 7.25%)
+ * @param monthlySalary  Salario mensual del empleado
+ * @param month          Mes actual (0-based, de Date.getMonth())
+ * @param tramos         Tramos ISR
+ * @param ssDecimoRate   Tasa SS empleado del décimo (default 7.25%)
  */
 export const calcDecimo = (
-  totalIncome: number,
+  monthlySalary: number,
   month: number,
   tramos: ISRTramo[],
   ssDecimoRate: number = 7.25
@@ -288,22 +318,26 @@ export const calcDecimo = (
     endMonth = 11
   }
 
-  // Bruto = ingresos del período / 12
-  const grossAmount = Number((totalIncome / 12).toFixed(2))
+  // PASO 1: Calcular el décimo TOTAL anual (= salario mensual, equivale a 1 mes completo)
+  const grossTotal = monthlySalary
 
-  // SS del décimo
-  const sss = Number((grossAmount * (ssDecimoRate / 100)).toFixed(2))
+  // PASO 2: SS empleado TOTAL sobre el décimo completo
+  const sssTotal = Number((grossTotal * (ssDecimoRate / 100)).toFixed(2))
 
-  // ISR del décimo: solo si ingreso anual > B/. 11,000 (Art. 700 CF)
-  let isr = 0
-  if (totalIncome > 11_000) {
-    // Anualizar el décimo para ubicarlo en el tramo correcto
-    const baseAnualDecimo = (grossAmount - sss) * 13
-    const isrAnual = calcISRAnual(baseAnualDecimo, tramos)
-    isr = Number((isrAnual / 12).toFixed(2))
-  }
+  // PASO 3: ISR del décimo — diferencia marginal ISR(13 meses) − ISR(12 meses)
+  // El décimo es el mes 13, por tanto la base anual con décimo = salario × 13
+  const isrCon13    = calcISRAnual(monthlySalary * 13, tramos)
+  const isrSin13    = calcISRAnual(monthlySalary * 12, tramos)
+  const isrTotal    = Number(Math.max(0, isrCon13 - isrSin13).toFixed(2))
 
-  const netAmount = Number((grossAmount - sss - isr).toFixed(2))
+  // Neto TOTAL del décimo
+  const netTotal = Number((grossTotal - sssTotal - isrTotal).toFixed(2))
+
+  // PASO 4: Dividir TODO en 3 partidas iguales
+  const grossAmount = Number((grossTotal / 3).toFixed(2))
+  const sss         = Number((sssTotal   / 3).toFixed(2))
+  const isr         = Number((isrTotal   / 3).toFixed(2))
+  const netAmount   = Number((netTotal   / 3).toFixed(2))
 
   return { period, grossAmount, sss, isr, netAmount, startMonth, endMonth }
 }
@@ -398,8 +432,7 @@ export const calcEmployeePayroll = (
   // Décimo: meses de pago abril(3), agosto(7), diciembre(11)
   const esDecimoMes = payrollMonth === 3 || payrollMonth === 7 || payrollMonth === 11
   if (esDecimoMes) {
-    const base4Meses = getMonthlySalary(employee) * 4
-    const decimoData = calcDecimo(base4Meses, payrollMonth, tramos, ssDecimoRate)
+    const decimoData = calcDecimo(getMonthlySalary(employee), payrollMonth, tramos, ssDecimoRate)
     calc.thirteenthMonth = decimoData.netAmount
   }
 

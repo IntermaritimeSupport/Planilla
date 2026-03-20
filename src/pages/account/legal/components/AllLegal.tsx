@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
-import { X, Edit2, Trash2 } from "lucide-react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
+import { X, Edit2, Trash2, Shield, GraduationCap, TrendingUp, AlertTriangle, Users, Building2 } from "lucide-react"
 import { useTheme } from "../../../../context/themeContext"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import { useCompany } from "../../../../context/routerContext"
@@ -49,10 +49,11 @@ export const AllLegalParameters: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<ParameterCategory>("social_security")
   const [parameters, setParameters] = useState<LegalParameter[]>([])
+  const [allParameters, setAllParameters] = useState<LegalParameter[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [availableKeys, setAvailableKeys] = useState<{ value: string; label: string; category: string }[] >([])
   const [notification, setNotification] = useState<Notification>({ type: "success", message: "", show: false })
-  
+
   const [modal, setModal] = useState<ModalState>({ show: false, parameter: null })
 
   // Fetch de llaves disponibles
@@ -70,12 +71,19 @@ export const AllLegalParameters: React.FC = () => {
     if (!selectedCompany?.id) return
     try {
       setIsLoading(true)
-      const data = await authFetcher<LegalParameter[]>(
-        `${API_URL}/api/system/legal-parameters?category=${activeTab}&companyId=${selectedCompany.id}`
-      )
-      setParameters(data || [])
+      const [filtered, all] = await Promise.all([
+        authFetcher<LegalParameter[]>(
+          `${API_URL}/api/system/legal-parameters?category=${activeTab}&companyId=${selectedCompany.id}`
+        ),
+        authFetcher<LegalParameter[]>(
+          `${API_URL}/api/system/legal-parameters?companyId=${selectedCompany.id}`
+        ),
+      ])
+      setParameters(filtered || [])
+      setAllParameters(all || [])
     } catch {
       setParameters([])
+      setAllParameters([])
     } finally {
       setIsLoading(false)
     }
@@ -164,9 +172,91 @@ export const AllLegalParameters: React.FC = () => {
     other: "Otros",
   }
 
+  const getRate = (key: string, fallback: number) =>
+    allParameters.find(p => p.key === key && p.status === 'active')?.percentage ?? fallback
+
+  const riesgoProfesional = allParameters.find(p => p.key === 'riesgo_profesional' && p.status === 'active')
+
   return (
     <div className={`min-h-screen transition-colors ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
       <PagesHeader title={"Legal"} description="Configuración de parámetros legales" onModal={() => openModal()} />
+
+      {/* PANEL RESUMEN DE TASAS ACTUALES */}
+      {allParameters.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Seguro Social */}
+          <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-900/40' : 'bg-blue-100'}`}>
+                <Shield size={16} className="text-blue-500" />
+              </div>
+              <h3 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Seguro Social</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}><Users size={11} /> Empleado</span>
+                <span className="text-sm font-bold font-mono text-blue-400">{getRate('ss_empleado', 9.75)}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}><Building2 size={11} /> Patrono</span>
+                <span className="text-sm font-bold font-mono text-amber-400">{getRate('ss_patrono', 13.25)}%</span>
+              </div>
+              <div className={`pt-2 mt-2 border-t text-[10px] ${isDarkMode ? 'border-slate-700 text-gray-500' : 'border-gray-100 text-gray-400'}`}>
+                Décimo: Emp. <strong>{getRate('ss_decimo', 7.25)}%</strong> · Pat. <strong>{getRate('ss_decimo_patrono', 10.75)}%</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Seguro Educativo */}
+          <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-green-900/40' : 'bg-green-100'}`}>
+                <GraduationCap size={16} className="text-green-500" />
+              </div>
+              <h3 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Seguro Educativo</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}><Users size={11} /> Empleado</span>
+                <span className="text-sm font-bold font-mono text-green-400">{getRate('se_empleado', 1.25)}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}><Building2 size={11} /> Patrono</span>
+                <span className="text-sm font-bold font-mono text-amber-400">{getRate('se_patrono', 1.50)}%</span>
+              </div>
+              <div className={`pt-2 mt-2 border-t text-[10px] ${isDarkMode ? 'border-slate-700 text-gray-500' : 'border-gray-100 text-gray-400'}`}>
+                Décimo: <strong>Exento</strong> por ley (Art. 13 Ley 42/1971)
+              </div>
+            </div>
+          </div>
+
+          {/* Riesgo Profesional */}
+          <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-orange-900/40' : 'bg-orange-100'}`}>
+                <AlertTriangle size={16} className="text-orange-500" />
+              </div>
+              <div className="flex-1 flex items-center justify-between">
+                <h3 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Riesgo Profesional</h3>
+                {riesgoProfesional && (
+                  <button onClick={() => openModal(riesgoProfesional)} className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isDarkMode ? 'border-slate-600 text-gray-400 hover:text-white hover:border-slate-500' : 'border-gray-300 text-gray-500 hover:text-gray-700'}`}>
+                    <Edit2 size={9} className="inline mr-0.5" />Editar
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}><Building2 size={11} /> Patrono (variable)</span>
+                <span className="text-xl font-bold font-mono text-orange-400">{getRate('riesgo_profesional', 0.98)}%</span>
+              </div>
+              <div className={`pt-2 mt-2 border-t text-[10px] ${isDarkMode ? 'border-slate-700 text-gray-500' : 'border-gray-100 text-gray-400'}`}>
+                <TrendingUp size={9} className="inline mr-1" />Campo dinámico — definido por la empresa según actividad económica
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className={`flex border-b mb-6 transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
