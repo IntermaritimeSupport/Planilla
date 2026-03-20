@@ -6,7 +6,7 @@ import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import Loader from "../../../../components/loaders/loader"
 import { useNavigate } from "react-router-dom"
-import useSWR, { mutate } from "swr"
+import useSWR from "swr"
 import { authFetcher } from "../../../../services/api"
 
 const VITE_API_URL = import.meta.env?.VITE_API_URL || "http://localhost:3000"

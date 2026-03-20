@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { X, Edit2, Trash2, Shield, GraduationCap, TrendingUp, AlertTriangle, Users, Building2 } from "lucide-react"
 import { useTheme } from "../../../../context/themeContext"
 import PagesHeader from "../../../../components/headers/pagesHeader"
