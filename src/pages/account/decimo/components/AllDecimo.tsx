@@ -307,9 +307,9 @@ export const AllDecimo: React.FC = () => {
                 <th className="px-4 py-3">Bruto Partida</th>
                 <th className="px-4 py-3 text-red-400">SS Emp. (7.25%)</th>
                 <th className="px-4 py-3 text-blue-400">ISR (÷3)</th>
-                <th className="px-4 py-3 text-green-400">Neto Empleado</th>
-                <th className="px-4 py-3 text-amber-400">SS Pat. (10.75%)</th>
-                <th className="px-4 py-3 text-amber-300">Costo Patrono</th>
+                <th className={`px-4 py-3 border-l-2 ${isDarkMode ? "border-slate-600 text-amber-400" : "border-gray-300 text-amber-600"}`}>SS Pat. (10.75%)</th>
+                <th className={`px-4 py-3 ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Costo Patrono</th>
+                <th className={`px-4 py-3 border-l-2 text-green-400 font-bold ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>Neto Empleado</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDarkMode ? "divide-slate-700/50" : "divide-gray-100"}`}>
@@ -326,9 +326,9 @@ export const AllDecimo: React.FC = () => {
                   <td className={`px-4 py-3 font-semibold font-mono text-sm ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>{fmt(emp.calc.grossThirteenth)}</td>
                   <td className="px-4 py-3 text-red-400/80 font-mono text-sm">-{fmt(emp.calc.ssEmp)}</td>
                   <td className="px-4 py-3 text-blue-400/80 font-mono text-sm">-{fmt(emp.calc.isr)}</td>
-                  <td className={`px-4 py-3 font-bold font-mono text-sm ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(emp.calc.net)}</td>
-                  <td className="px-4 py-3 text-amber-400/80 font-mono text-sm">{fmt(emp.calc.ssPat)}</td>
+                  <td className={`px-4 py-3 text-amber-400/80 font-mono text-sm border-l-2 ${isDarkMode ? "border-slate-600" : "border-gray-200"}`}>{fmt(emp.calc.ssPat)}</td>
                   <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(emp.calc.totalCostPatrono)}</td>
+                  <td className={`px-4 py-3 font-bold font-mono text-sm border-l-2 ${isDarkMode ? "text-green-400 border-slate-600" : "text-green-600 border-gray-200"}`}>{fmt(emp.calc.net)}</td>
                 </tr>
               ))}
             </tbody>
@@ -338,9 +338,9 @@ export const AllDecimo: React.FC = () => {
                 <td className="px-4 py-3 font-mono">{fmt(totals.gross)}</td>
                 <td className="px-4 py-3 font-mono text-red-400">-{fmt(totals.ssEmp)}</td>
                 <td className="px-4 py-3 font-mono text-blue-400">-{fmt(totals.isr)}</td>
-                <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{fmt(totals.net)}</td>
-                <td className="px-4 py-3 font-mono text-amber-400">{fmt(totals.ssPat)}</td>
-                <td className={`px-4 py-3 font-mono text-sm ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(totals.totalCostPatrono)}</td>
+                <td className={`px-4 py-3 font-mono text-amber-400 border-l-2 ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>{fmt(totals.ssPat)}</td>
+                <td className={`px-4 py-3 font-mono ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(totals.totalCostPatrono)}</td>
+                <td className={`px-4 py-3 font-mono text-base border-l-2 ${isDarkMode ? "text-green-400 border-slate-600" : "text-green-600 border-gray-300"}`}>{fmt(totals.net)}</td>
               </tr>
             </tfoot>
           </table>
