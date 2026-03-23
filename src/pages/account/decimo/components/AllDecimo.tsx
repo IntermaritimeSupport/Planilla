@@ -23,7 +23,7 @@ const PARTIDA_INFO = [
 const PAGE_SIZE = 15
 
 type SalaryType = "MONTHLY" | "BIWEEKLY"
-interface EmployeeBase { id: string; firstName: string; lastName: string; cedula: string; salary: number; salaryType: SalaryType }
+interface EmployeeBase { id: string; firstName: string; lastName: string; cedula: string; salary: number; salaryType: SalaryType; hireDate?: string }
 interface LegalParameter { id: string; key: string; percentage: number; category: string; minRange: number | null; maxRange: number | null; status: string }
 interface DecimoCalc { grossThirteenth: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
 interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: DecimoCalc }
@@ -118,11 +118,21 @@ const calculateThirteenth = useCallback(
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
-    return employees.map((emp) => {
-      const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-      return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary, currentPartida as 1 | 2 | 3) }
-    })
-  }, [employees, calculateThirteenth, currentPartida])
+    // Fin de la partida actual (la 3ra partida cubre hasta dic del año en curso)
+    const partidaEndMonth = currentPartida === 1 ? 3 : currentPartida === 2 ? 7 : 11
+    const partidaEnd = new Date(year, partidaEndMonth, currentPartida === 2 ? 15 : new Date(year, partidaEndMonth + 1, 0).getDate())
+    partidaEnd.setHours(23, 59, 59, 999)
+
+    return employees
+      .filter(emp => {
+        if (!emp.hireDate) return true
+        return new Date(emp.hireDate) <= partidaEnd
+      })
+      .map((emp) => {
+        const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
+        return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary, currentPartida as 1 | 2 | 3) }
+      })
+  }, [employees, calculateThirteenth, currentPartida, year])
 
   const totals = useMemo<ThirteenthTotals>(() =>
     employeeData.reduce((acc, c) => ({

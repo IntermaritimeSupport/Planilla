@@ -72,7 +72,7 @@ export default function AllSettingsPage() {
 
   const { data: users, isLoading: loadingUsers, mutate: mutateUsers } =
     useSWR<UserFull[]>(
-      selectedCompany ? `${VITE_API_URL}/api/users/full/${selectedCompany.id}` : null,
+      selectedCompany ? `${VITE_API_URL}/api/users/full/${selectedCompany.code}` : null,
       authFetcher
     )
 
@@ -197,7 +197,7 @@ export default function AllSettingsPage() {
           )}
           {activeTab === "companies" && (
             <button
-              onClick={() => navigate("create")}
+              onClick={() => navigate("../create")}
               className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
             >
               <Plus size={14} /> New company
@@ -213,7 +213,7 @@ export default function AllSettingsPage() {
           )}
           {activeTab === "departments" && (
             <button
-              onClick={() => navigate("departments/create")}
+              onClick={() => navigate("../departments/create")}
               className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
             >
               <Plus size={14} /> New department
@@ -391,7 +391,7 @@ export default function AllSettingsPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => navigate(`edit/${c.id}`)}
+                        onClick={() => navigate(`../edit/${c.id}`)}
                         className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "text-gray-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
                       ><Edit2 size={15} /></button>
                       <button
@@ -411,7 +411,7 @@ export default function AllSettingsPage() {
                       <div className="flex items-center justify-between mb-3">
                         <p className={`text-[11px] font-bold uppercase tracking-widest ${txt2}`}>Departments ({depts.length})</p>
                         <button
-                          onClick={() => navigate(`departments/create?companyId=${c.id}`)}
+                          onClick={() => navigate(`../departments/create?companyId=${c.id}`)}
                           className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
                         ><Plus size={12} /> Add</button>
                       </div>
@@ -431,7 +431,7 @@ export default function AllSettingsPage() {
                               <div className="flex items-center gap-1 shrink-0 ml-2">
                                 <span className={`w-1.5 h-1.5 rounded-full ${d.isActive ? "bg-green-500" : "bg-gray-400"}`} />
                                 <button
-                                  onClick={() => navigate(`departments/edit?id=${d.id}&companyId=${d.companyId}`)}
+                                  onClick={() => navigate(`../departments/edit?id=${d.id}&companyId=${d.companyId}`)}
                                   className={`p-1 rounded transition-colors ${isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-gray-700"}`}
                                 ><Edit2 size={12} /></button>
                                 <button
@@ -488,7 +488,7 @@ export default function AllSettingsPage() {
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => navigate(`departments/edit?id=${d.id}&companyId=${d.companyId}`)}
+                    onClick={() => navigate(`../departments/edit?id=${d.id}&companyId=${d.companyId}`)}
                     className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "text-gray-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
                   ><Edit2 size={14} /></button>
                   <button

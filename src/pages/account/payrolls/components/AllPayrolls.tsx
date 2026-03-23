@@ -51,6 +51,7 @@ export interface Employee {
   lastName: string
   salary: number
   salaryType: SalaryType
+  hireDate?: string
   recurringDeductions?: RecurringDeduction[]
 }
 

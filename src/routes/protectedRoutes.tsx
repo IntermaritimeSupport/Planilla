@@ -19,19 +19,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ auth, allowedRoles, chi
   }
 
   // 🔒 2. Logueado pero sin empresa válida seleccionada → redirigir a selector
-  if (!selectedCompany || selectedCompany?.id === "na") {
-    return <Navigate to="/NOCODE/select-company" replace={false} state={{ from: location }} />;
+  // Excepción: global_admin no necesita empresa seleccionada
+  const isGlobalAdmin = auth.roles.includes("global_admin");
+  if (!isGlobalAdmin && (!selectedCompany || selectedCompany?.id === "na")) {
+    return <Navigate to="/select-company" replace={false} state={{ from: location }} />;
   }
 
   // 🔒 3. Verificar roles permitidos
   if (!auth.roles.some((role) => allowedRoles.includes(role))) {
-    return (
-      <Navigate
-        to={`/${selectedCompany.code}/dashboard`}
-        replace={false}
-        state={{ from: location }}
-      />
-    );
+    const fallback = selectedCompany?.code
+      ? `/${selectedCompany.code}/dashboard`
+      : "/";
+    return <Navigate to={fallback} replace={false} state={{ from: location }} />;
   }
 
   // ✅ Todo bien → mostrar el contenido

@@ -82,8 +82,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
     hireDate:    initialData?.hireDate
       ? new Date(initialData.hireDate).toISOString().split("T")[0]
       : "",
-    salary:      initialData?.salary      || 0,
-    salaryType:  initialData?.salaryType  || "MONTHLY",
+    salary:        initialData?.salary        || 0,
+    salaryType:    initialData?.salaryType    || "MONTHLY",
+    contractType:  initialData?.contractType  || "HOURS_48",
     bankAccount: initialData?.bankAccount || "",
     bankName:    initialData?.bankName    || "",
     userId:      initialData?.userId      || "",
@@ -277,6 +278,18 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
               <input required className={inputClass} value={formData.position}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })} />
             </div>
+          </div>
+
+          {/* Tipo de contrato */}
+          <div>
+            <label className={labelClass}>Tipo de Contrato</label>
+            <select className={inputClass} value={formData.contractType}
+              onChange={(e) => setFormData({ ...formData, contractType: e.target.value })}>
+              <option value="HOURS_48">48 horas semanales (6 días)</option>
+              <option value="HOURS_40">40 horas semanales (5 días)</option>
+              <option value="HOURS_36">36 horas semanales</option>
+              <option value="HALF_TIME">Medio tiempo</option>
+            </select>
           </div>
 
           {/* Salario con indicador de cambio */}

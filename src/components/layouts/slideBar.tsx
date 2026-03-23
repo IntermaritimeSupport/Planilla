@@ -36,7 +36,7 @@ type DashboardProps = {
   companies?: Company[];
 };
 
-const GROUP_ORDER: RouteGroup[] = ['PRINCIPAL', 'NÓMINA', 'REPORTES', 'CONFIGURACIÓN'];
+const GROUP_ORDER: RouteGroup[] = ['ADMINISTRACIÓN', 'PRINCIPAL', 'NÓMINA', 'REPORTES', 'CONFIGURACIÓN'];
 
 const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   const { logout } = useUser();
@@ -46,11 +46,16 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   const location = useLocation();
 
   const currentPathSegments = location.pathname.split("/").filter(Boolean);
-  const baseRoute = currentPathSegments.length > 1 ? currentPathSegments[1] : "";
+  // Para rutas /admin/* el primer segmento es "admin", para el resto es el segundo
+  const isAdminPath = currentPathSegments[0] === "admin";
+  const baseRoute = isAdminPath
+    ? `admin/${currentPathSegments[1] ?? ""}`
+    : currentPathSegments.length > 1 ? currentPathSegments[1] : "";
 
   const userRoles = profile?.roles ? getUserRoles(profile) : ["user"];
+  const isGlobalAdmin = userRoles.includes("global_admin");
   const allLinks = userRoles.flatMap((role) =>
-    getMainRoutesForRole(role as "user" | "super_admin" | "admin" | "moderator")
+    getMainRoutesForRole(role)
   );
 
   // Deduplicate by href
@@ -62,7 +67,12 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   });
 
   // Group routes
-  const groupedLinks = GROUP_ORDER.reduce<Record<string, typeof filteredNavLinks>>(
+  // GLOBAL_ADMIN solo ve ADMINISTRACIÓN; los demás ven todo excepto ADMINISTRACIÓN
+  const visibleGroups = isGlobalAdmin
+    ? GROUP_ORDER.filter((g) => g === 'ADMINISTRACIÓN')
+    : GROUP_ORDER.filter((g) => g !== 'ADMINISTRACIÓN');
+
+  const groupedLinks = visibleGroups.reduce<Record<string, typeof filteredNavLinks>>(
     (acc, group) => {
       const items = filteredNavLinks.filter((r) => (r as any).group === group);
       if (items.length > 0) acc[group] = items;
@@ -102,14 +112,19 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
 
             <ul className="space-y-0.5">
               {links.map((link, index) => {
-                const linkBase = link.href.split("/").filter(Boolean)[0] || "";
+                // Para rutas admin: comparar "admin/overview" vs "admin/overview"
+                // Para rutas normales: comparar segundo segmento
+                const hrefParts = link.href.split("/").filter(Boolean);
+                const linkBase = hrefParts[0] === "admin"
+                  ? `admin/${hrefParts[1] ?? ""}`
+                  : hrefParts[0] || "";
                 const isActive = baseRoute === linkBase;
                 const IconComp = (link as any).icon;
 
                 return (
                   <li key={index}>
                     <Link
-                      to={`/${selectedCompany?.code || "account"}${link.href}`}
+                      to={link.href.startsWith("/admin/") ? link.href : `/${selectedCompany?.code ?? ""}${link.href}`}
                       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 group relative ${
                         isActive
                           ? isDarkMode
@@ -169,7 +184,7 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
       >
         {/* User info */}
         <Link
-          to={`/${selectedCompany?.code || "account"}/profile/1`}
+          to={isGlobalAdmin ? "/admin/overview" : `/${selectedCompany?.code ?? ""}/profile/1`}
           className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 group ${
             isDarkMode
               ? "hover:bg-slate-800/50"

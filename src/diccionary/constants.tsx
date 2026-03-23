@@ -1,5 +1,6 @@
 export const constants = {
     roles: [
+      { id: 0, name: "GLOBAL_ADMIN", key: "global_admin" },
       { id: 1, name: "SUPER_ADMIN", key: "super_admin" },
       { id: 2, name: "ADMIN", key: "admin" },
       { id: 3, name: "MODERATOR", key: "moderator" },
@@ -24,6 +25,7 @@ export const constants = {
 };
 
 export const authRoles = {
+    global_admin: constants.roles.find((role) => role.id === 0)?.key || "global_admin",
     super_admin: constants.roles.find((role) => role.id === 1)?.key || "super_admin",
     admin: constants.roles.find((role) => role.id === 2)?.key || "admin",
     moderator: constants.roles.find((role) => role.id === 3)?.key || "moderator",

@@ -1,11 +1,11 @@
 
 // import { TicketIcon } from "lucide-react";
-import { Banknote, HandCoins, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale, UserMinus } from "lucide-react";
+import { Banknote, Building2, HandCoins, LayoutDashboard, LucideBookUser, Palmtree, PercentCircle, ReceiptText, Scale, ShieldCheck, UserMinus, Users } from "lucide-react";
 import { DashboardIcon, SettingsIcon, UsersIcon } from "../components/icons/icons";
 import { UserProfile } from "../context/userProfileContext";
 import { authRoles } from "../diccionary/constants";
 
-export type RouteGroup = 'PRINCIPAL' | 'NÓMINA' | 'REPORTES' | 'CONFIGURACIÓN';
+export type RouteGroup = 'PRINCIPAL' | 'NÓMINA' | 'REPORTES' | 'CONFIGURACIÓN' | 'ADMINISTRACIÓN';
 
 const routesConfig = [
   {
@@ -142,6 +142,51 @@ const routesConfig = [
       { name: "My Settings", href: "/settings/all" },
     ]
   },
+  // --- Panel exclusivo GLOBAL_ADMIN ---
+  {
+    disable: false,
+    icon: LayoutDashboard,
+    name: "AdminOverview",
+    href: "/admin/overview",
+    group: 'ADMINISTRACIÓN' as RouteGroup,
+    roles: [authRoles.global_admin],
+    subroutes: [
+      { name: "Resumen", href: "/admin/overview" },
+    ]
+  },
+  {
+    disable: false,
+    icon: Building2,
+    name: "AdminCompanies",
+    href: "/admin/companies",
+    group: 'ADMINISTRACIÓN' as RouteGroup,
+    roles: [authRoles.global_admin],
+    subroutes: [
+      { name: "Empresas", href: "/admin/companies" },
+    ]
+  },
+  {
+    disable: false,
+    icon: Users,
+    name: "AdminUsers",
+    href: "/admin/users",
+    group: 'ADMINISTRACIÓN' as RouteGroup,
+    roles: [authRoles.global_admin],
+    subroutes: [
+      { name: "Usuarios", href: "/admin/users" },
+    ]
+  },
+  {
+    disable: false,
+    icon: ShieldCheck,
+    name: "AdminLicenses",
+    href: "/admin/licenses",
+    group: 'ADMINISTRACIÓN' as RouteGroup,
+    roles: [authRoles.global_admin],
+    subroutes: [
+      { name: "Licencias", href: "/admin/licenses" },
+    ]
+  },
 ];
 
 export default routesConfig;
@@ -169,8 +214,8 @@ const getRoutesForRole = (roleKey: keyof typeof authRoles) => {
 };
 export { getRoutesForRole };
 
-const getMainRoutesForRole = (roleKey: keyof typeof authRoles) => {
-  const role = authRoles[roleKey] || authRoles.user;
+const getMainRoutesForRole = (roleKey: keyof typeof authRoles | string) => {
+  const role = (authRoles as Record<string, string>)[roleKey] || authRoles.user;
   if (!role) {
     return [];
   }
@@ -188,7 +233,7 @@ export const getUserRoles = (profile: UserProfile) => {
     return ["user"];
   }
 
-  const validRoles = ["super_admin", "admin", "moderator", "user"];
+  const validRoles = ["global_admin", "super_admin", "admin", "moderator", "user"];
 
   const rolesArray = profile.roles
     .split(',')

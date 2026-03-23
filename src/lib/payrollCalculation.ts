@@ -66,6 +66,7 @@ export interface Employee {
   lastName: string
   salary: number
   salaryType: 'MONTHLY' | 'BIWEEKLY'
+  hireDate?: string | Date
   department?: string
   position?: string
 }
@@ -457,16 +458,30 @@ export const calcAllPayrolls = (
   const [_y, _m] = payrollDate.split("-").map(Number)
   const payrollMonth = _m - 1  // 0-indexed
 
-  return employees.map(emp =>
-    calcEmployeePayroll(
-      emp,
-      overridesMap[emp.id] || {},
-      legalParams,
-      periodType,
-      quincena,
-      payrollMonth
+  // Fin del período seleccionado (último día de la quincena o del mes)
+  const isQ1 = quincena === 'Primera Quincena (1-15)'
+  const periodEnd = isQ1
+    ? new Date(_y, _m - 1, 15)
+    : new Date(_y, _m, 0)  // último día del mes
+  periodEnd.setHours(23, 59, 59, 999)
+
+  return employees
+    .filter(emp => {
+      if (!emp.hireDate) return true
+      const hire = new Date(emp.hireDate)
+      // Solo incluir empleados cuya fecha de ingreso sea ≤ fin del período
+      return hire <= periodEnd
+    })
+    .map(emp =>
+      calcEmployeePayroll(
+        emp,
+        overridesMap[emp.id] || {},
+        legalParams,
+        periodType,
+        quincena,
+        payrollMonth
+      )
     )
-  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -58,6 +58,15 @@ const handleUnauthorized = () => {
   }
 }
 
+/** Maneja empresa desactivada: limpia selectedCompany y redirige al selector */
+const handleCompanyInactive = () => {
+  localStorage.removeItem('selectedCompany')
+  const current = window.location.pathname
+  if (!current.startsWith('/select-company')) {
+    window.location.href = '/select-company?reason=inactive'
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FETCHER PARA SWR (GET)
 // Uso: const { data } = useSWR(url, authFetcher)
@@ -75,6 +84,11 @@ export const authFetcher = async <T = unknown>(url: string): Promise<T> => {
   }
 
   if (res.status === 403) {
+    const body = await res.json().catch(() => ({}))
+    if (body?.error === 'COMPANY_INACTIVE') {
+      handleCompanyInactive()
+      throw new Error('COMPANY_INACTIVE')
+    }
     throw new Error('No tienes permisos para acceder a este recurso.')
   }
 
@@ -90,6 +104,20 @@ export const authFetcher = async <T = unknown>(url: string): Promise<T> => {
 // MÉTODOS HTTP AUTENTICADOS
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Manejo centralizado de errores para métodos mutadores */
+const handleMutationError = async (res: globalThis.Response): Promise<never> => {
+  if (res.status === 401) {
+    handleUnauthorized()
+    throw new Error('Sesión expirada.')
+  }
+  const err = await res.json().catch(() => ({}))
+  if (res.status === 403 && err?.error === 'COMPANY_INACTIVE') {
+    handleCompanyInactive()
+    throw new Error('COMPANY_INACTIVE')
+  }
+  throw new Error(err?.message || err?.error || `Error ${res.status}`)
+}
+
 export const apiPost = async <T = unknown>(
   path: string,
   body: unknown
@@ -100,17 +128,7 @@ export const apiPost = async <T = unknown>(
     credentials: 'include',
     body: JSON.stringify(body),
   })
-
-  if (res.status === 401) {
-    handleUnauthorized()
-    throw new Error('Sesión expirada.')
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.message || err?.error || `Error ${res.status}`)
-  }
-
+  if (!res.ok) await handleMutationError(res)
   return res.json() as Promise<T>
 }
 
@@ -124,17 +142,7 @@ export const apiPut = async <T = unknown>(
     credentials: 'include',
     body: JSON.stringify(body),
   })
-
-  if (res.status === 401) {
-    handleUnauthorized()
-    throw new Error('Sesión expirada.')
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.message || err?.error || `Error ${res.status}`)
-  }
-
+  if (!res.ok) await handleMutationError(res)
   return res.json() as Promise<T>
 }
 
@@ -148,17 +156,7 @@ export const apiPatch = async <T = unknown>(
     credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
-
-  if (res.status === 401) {
-    handleUnauthorized()
-    throw new Error('Sesión expirada.')
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.message || err?.error || `Error ${res.status}`)
-  }
-
+  if (!res.ok) await handleMutationError(res)
   return res.json() as Promise<T>
 }
 

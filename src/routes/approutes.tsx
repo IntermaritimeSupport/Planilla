@@ -58,6 +58,11 @@ import { VacacionesMain } from "../pages/account/vacaciones/components/Vacacione
 import { VacacionesEmpleadoPerfil } from "../pages/account/vacaciones/components/VacacionesEmpleadoPerfil";
 import LiquidacionesPage from "../pages/account/liquidaciones/page";
 import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllLiquidaciones";
+import ProtectedAdminRoute from "./protectedAdminRoute";
+import { AdminOverview } from "../pages/admin/overview/AdminOverview";
+import { AdminCompanies } from "../pages/admin/companies/AdminCompanies";
+import { AdminUsers } from "../pages/admin/users/AdminUsers";
+import { AdminLicenses } from "../pages/admin/licenses/AdminLicenses";
 
 // Tipado de usuario
 export interface User {
@@ -137,17 +142,24 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       />
 
+      {/* Ruta fija — usada tras el login para evitar dependencia del code */}
       <Route
-        path={`/:${code}/select-company`}
+        path="/select-company"
         element={
-          <ProtectedCompanyRoute
-            isLogged={isLogged}
-          >
+          <ProtectedCompanyRoute isLogged={isLogged}>
             <CompanySelector profile={profile} />
           </ProtectedCompanyRoute>
         }
-      >
-      </Route>
+      />
+      {/* Ruta legacy con prefijo de empresa (por compatibilidad con links existentes) */}
+      <Route
+        path="/:companyCode/select-company"
+        element={
+          <ProtectedCompanyRoute isLogged={isLogged}>
+            <CompanySelector profile={profile} />
+          </ProtectedCompanyRoute>
+        }
+      />
 
       <Route
         path={`/:${code}/dashboard/*`}
@@ -771,6 +783,80 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       >
       </Route>
+
+      {/* ── Panel Global Admin ───────────────────────────────────────── */}
+      <Route
+        path="/admin/overview"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout
+              title="Admin — Resumen"
+              description="Panel de administración global"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <AdminOverview />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/companies"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout
+              title="Admin — Empresas"
+              description="Gestión de empresas"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <AdminCompanies />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout
+              title="Admin — Usuarios"
+              description="Gestión de usuarios"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <AdminUsers />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/licenses"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout
+              title="Admin — Licencias"
+              description="Gestión de licencias"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <AdminLicenses />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
 
       <Route
         path="*"

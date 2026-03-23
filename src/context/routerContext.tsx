@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 
 // 1. Define the Company interface (Mantener esto aquí o en un archivo de tipos compartido)
 export interface Company {
@@ -25,6 +26,7 @@ interface CompanyContextType {
   selectedCompany: Company | null;
   setSelectedCompany: React.Dispatch<React.SetStateAction<Company | null>>;
   companies: Company[];
+  isLoadingCompanies: boolean;
   handleCompanyChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
@@ -33,9 +35,13 @@ export const CompanyContext = createContext<CompanyContextType | null>(null);
 interface CompanyProviderProps {
   children: ReactNode;
   initialCompanies: Company[];
+  isLoadingCompanies?: boolean;
 }
 
-export const CompanyProvider = ({ children, initialCompanies }: CompanyProviderProps) => {
+export const CompanyProvider = ({ children, initialCompanies, isLoadingCompanies = false }: CompanyProviderProps) => {
+  const location = useLocation();
+  const onSelectorPage = location.pathname.includes('select-company');
+
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(() => {
     const savedCompany = localStorage.getItem('selectedCompany');
     try {
@@ -57,13 +63,26 @@ export const CompanyProvider = ({ children, initialCompanies }: CompanyProviderP
   }, [selectedCompany]);
 
   useEffect(() => {
-    if (initialCompanies && initialCompanies.length > 0 && !selectedCompany) {
-      setSelectedCompany(initialCompanies[0]);
+    // No hacer nada mientras carga o si no hay datos reales
+    if (isLoadingCompanies || !initialCompanies || initialCompanies.length === 0) return;
+
+    // Sincronizar lista solo si los IDs cambiaron (evitar loop por referencia)
+    const currentIds = companies.map(c => c.id).join(',');
+    const newIds = initialCompanies.map(c => c.id).join(',');
+    if (currentIds !== newIds) {
+      setCompanies(initialCompanies);
     }
-    if (initialCompanies && initialCompanies.length > 0 && companies !== initialCompanies) {
-        setCompanies(initialCompanies);
+
+    // No auto-seleccionar mientras el usuario está eligiendo empresa manualmente
+    if (onSelectorPage) return;
+
+    // Auto-seleccionar primera empresa válida si no hay ninguna seleccionada aún
+    if (!selectedCompany) {
+      const first = initialCompanies.find(c => c.isActive && c.id !== "na") ?? null;
+      if (first) setSelectedCompany(first);
     }
-  }, [initialCompanies, selectedCompany, companies]);
+  }, [initialCompanies, isLoadingCompanies, onSelectorPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCompanyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const companyCode = event.target.value;
     const company = companies.find(c => c.code === companyCode);
@@ -71,7 +90,7 @@ export const CompanyProvider = ({ children, initialCompanies }: CompanyProviderP
   };
 
   return (
-    <CompanyContext.Provider value={{ selectedCompany, setSelectedCompany, companies, handleCompanyChange }}>
+    <CompanyContext.Provider value={{ selectedCompany, setSelectedCompany, companies, isLoadingCompanies, handleCompanyChange }}>
       {children}
     </CompanyContext.Provider>
   );

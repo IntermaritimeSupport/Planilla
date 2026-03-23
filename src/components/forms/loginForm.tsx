@@ -1,11 +1,7 @@
-"use client"
-
 import type React from "react"
-import { Eye, EyeOff } from "lucide-react"
-
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import useUser from "../../hook/useUser"
-import { useCompany } from "../../context/routerContext"
-import { useNavigate } from "react-router-dom"
+import { decodeToken } from "../../utils/decode"
 
 interface LoginFormProps {
   pending: boolean
@@ -24,15 +20,13 @@ export default function LoginForm({
   error,
   setError,
 }: LoginFormProps) {
-  const { selectedCompany, companies } = useCompany()
   const { login } = useUser()
-  const navigate = useNavigate()
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setPending(true)
     const formData = new FormData(event.currentTarget)
-    const email = formData.get("email")?.toString()
+    const email    = formData.get("email")?.toString()
     const password = formData.get("password")?.toString()
 
     if (!email || !password) {
@@ -43,82 +37,90 @@ export default function LoginForm({
 
     try {
       await login({ email, password })
-      const code = selectedCompany?.code ?? companies.find(c => c.id !== "na")?.code ?? "go"
-      navigate(`/${code}/select-company`, { replace: true })
-    } catch (error) {
-      setError(new Error(error instanceof Error ? error.message : "Error al iniciar sesión."))
+      const decoded = decodeToken()
+      const role = decoded?.roles?.toLowerCase() ?? ""
+      if (role === "global_admin") {
+        window.location.href = "/admin/overview"
+        return
+      }
+      // Limpiar empresa seleccionada para que el selector siempre aparezca tras login
+      localStorage.removeItem("selectedCompany")
+      window.location.href = "/select-company"
+    } catch (err) {
+      setError(new Error(err instanceof Error ? err.message : "Error al iniciar sesión."))
     } finally {
       setPending(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="space-y-5">
+
       {/* Email */}
-      <div>
+      <div className="space-y-1.5">
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          Correo electrónico
+        </label>
         <input
           type="email"
-          required
-          placeholder="Email"
           id="email"
           name="email"
-          className="w-full px-4 py-3 bg-gray-100 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:bg-gray-200 transition"
+          required
+          autoComplete="email"
+          placeholder="tu@empresa.com"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-gray-900 text-sm placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
         />
       </div>
 
       {/* Contraseña */}
-      <div className="relative">
-        <input
-          type={showPassword ? "text" : "password"}
-          required
-          placeholder="Contraseña"
-          id="password"
-          name="password"
-          className="w-full px-4 py-3 bg-gray-100 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:bg-gray-200 transition pr-12"
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-purple-600 hover:text-purple-700 transition"
-        >
-          {showPassword ? (
-            <EyeOff size={20} />
-          ) : (
-            <Eye size={20} />
-          )}
-        </button>
-      </div>
-
-      {/* Checkbox Mostrar contraseña */}
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          checked={showPassword}
-          onChange={() => setShowPassword(!showPassword)}
-          className="w-4 h-4 rounded border-gray-300"
-          id="showPassword"
-        />
-        <label htmlFor="showPassword" className="ml-2 text-sm text-gray-600 cursor-pointer">
-          Mostrar contraseña
+      <div className="space-y-1.5">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          Contraseña
         </label>
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            id="password"
+            name="password"
+            required
+            autoComplete="current-password"
+            placeholder="••••••••"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-gray-900 text-sm placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition pr-11"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
       </div>
 
-      {/* Error message */}
+      {/* Error */}
       {error && (
-        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-600 text-sm">
-          {error.message}
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <span className="mt-0.5 flex-shrink-0">⚠</span>
+          <span>{error.message}</span>
         </div>
       )}
 
-      {/* Botón Sign In */}
+      {/* Submit */}
       <button
         type="submit"
         disabled={pending}
-        className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 rounded-lg transition duration-300 mt-2"
+        className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors duration-200 mt-1"
       >
-        {pending ? "Iniciando sesión..." : "Iniciar Sesión"}
+        {pending ? (
+          <>
+            <Loader2 size={15} className="animate-spin" />
+            Iniciando sesión…
+          </>
+        ) : (
+          "Iniciar Sesión"
+        )}
       </button>
-
 
     </form>
   )

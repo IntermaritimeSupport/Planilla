@@ -5,6 +5,8 @@ import { CompanyProvider } from "../../context/routerContext";
 import useUser from "../../hook/useUser";
 import useUserProfile from "../../hook/userUserProfile";
 import { SearchProvider } from "../../context/searchContext";
+import { getUserRoles } from "../../routes/routesConfig";
+import { useLocation } from "react-router-dom";
 
 const { VITE_API_URL } = import.meta.env;
 
@@ -16,64 +18,70 @@ interface RoutesProps {
   isLogged: boolean;
 }
 
-const fetcher = (url: string) =>
-  fetch(url, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('jwt') || ''}`,
-    },
-  }).then((res) => {
-    if (!res.ok) throw new Error('Failed to fetch companies');
-    return res.json();
+const fetcher = async (url: string) => {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('jwt') || ''}` },
   });
 
-const fallbackCompanies = [
-  {
-    id: "na",
-    name: "N/A",
-    address: "N/A",
-    phone: "N/A",
-    email: "N/A",
-    isActive: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+  if (res.status === 401) {
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('selectedCompany');
+    window.location.href = '/login';
+    throw new Error('UNAUTHORIZED');
+  }
+
+  // 403 en my-companies: empresa inactiva en el token.
+  // Si ya estamos en /select-company, solo devolver [] sin redirigir (evita loop).
+  // Si estamos en otra ruta, limpiar y redirigir al selector.
+  if (res.status === 403) {
+    localStorage.removeItem('selectedCompany');
+    if (!window.location.pathname.includes('select-company')) {
+      window.location.href = '/select-company?reason=inactive';
+      throw new Error('COMPANY_INACTIVE'); // detener ejecución
+    }
+    return [];
+  }
+
+  if (!res.ok) throw new Error('Failed to fetch companies');
+  return res.json();
+};
+
+const EMPTY_COMPANIES: never[] = [];
 
 const Layout: React.FC<RoutesProps> = () => {
   const [pathnameLocation, setCurrentPathname] = useState<CurrentPathname>({ name: '' });
-  const [, setShowError] = useState(false);
   const { isLogged } = useUser();
   const { profile } = useUserProfile();
+  const location = useLocation();
 
   useEffect(() => {
     setCurrentPathname({ name: window.location.pathname });
   }, []);
 
-  const { data, error } = useSWR(
-    isLogged && profile?.id ? `${VITE_API_URL}/api/companies/${profile.id}/my-companies` : null,
+  const isGlobalAdmin = profile ? getUserRoles(profile).includes("global_admin") : false;
+
+  const swrKey = isLogged && profile?.id && !isGlobalAdmin
+    ? `${VITE_API_URL}/api/companies/${profile.id}/my-companies`
+    : null;
+
+  const { data, isLoading: swrLoading } = useSWR(
+    swrKey,
     fetcher,
     {
-      fallbackData: fallbackCompanies,
-      revalidateOnFocus: true,
-      shouldRetryOnError: true,
-      errorRetryInterval: 5000,
-      errorRetryCount: 10,
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
     }
   );
 
-  useEffect(() => {
-    if (error) {
-      console.error("Error al cargar compañías:", error);
-      setShowError(true);
-    } else if (data && data[0]?.id !== "na") {
-      setShowError(false);
-    }
-  }, [error, data]);
+  // "Cargando" solo cuando la key SWR está activa pero aún no hay datos.
+  // En /select-company no bloqueamos con spinner — el selector se muestra directo.
+  const onSelectCompanyPage = location.pathname.includes('select-company');
+  const isLoadingCompanies = !onSelectCompanyPage && !!swrKey && (swrLoading || data === undefined);
 
-  const companies = data || fallbackCompanies;
+  const companies = data ?? EMPTY_COMPANIES;
 
   return (
-    <CompanyProvider initialCompanies={companies}>
+    <CompanyProvider initialCompanies={companies} isLoadingCompanies={isLoadingCompanies}>
       <SearchProvider>
         <main className="w-full relative scroll-smooth">
           <AppRoutes pathnameLocation={pathnameLocation} companies={companies} />

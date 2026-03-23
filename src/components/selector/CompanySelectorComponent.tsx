@@ -1,5 +1,5 @@
 // CompanySelectorComponent.tsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useCompany } from '../../context/routerContext.tsx';
 import { useCallback } from 'react';
 import { UserProfile } from '../../context/userProfileContext.tsx';
@@ -32,23 +32,29 @@ type Props = {
 
 const CompanySelectorComponent: React.FC<Props> = ({ isDarkMode = true }) => {
   const { selectedCompany, handleCompanyChange, companies } = useCompany();
-  const navigate = useNavigate();
   const location = useLocation();
-  
+
   const handleChangeAndNavigate = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    // Guardar la nueva empresa en el contexto/localStorage antes de recargar
     handleCompanyChange(event);
     const newCompanyCode = event.target.value;
-    const currentPath = location.pathname;
-    const pathSegments = currentPath.split('/');
 
-    if (pathSegments.length >= 2) {
+    // Reemplazar el code en la ruta actual o ir al dashboard
+    const pathSegments = location.pathname.split('/');
+    let newPath: string;
+    if (pathSegments.length >= 2 && pathSegments[1] && pathSegments[1] !== 'select-company') {
       pathSegments[1] = newCompanyCode;
-      const newPath = pathSegments.join('/');
-      navigate(newPath);
+      newPath = pathSegments.join('/');
     } else {
-      navigate(`/${newCompanyCode}/dashboard/all`);
+      newPath = `/${newCompanyCode}/dashboard/all`;
     }
-  }, [handleCompanyChange, navigate, location.pathname]);
+
+    // Hard reload para que todos los SWR se reinicien con el nuevo companyId
+    window.location.href = newPath;
+  }, [handleCompanyChange, location.pathname]);
+
+  // Solo mostrar activas en el selector del navbar
+  const activeCompanies = companies.filter(c => c.isActive);
 
   return (
     <div className="w-full">
@@ -60,16 +66,16 @@ const CompanySelectorComponent: React.FC<Props> = ({ isDarkMode = true }) => {
               : "bg-white border-gray-300 text-gray-900 hover:border-gray-400 focus:ring-blue-500"
           } focus:outline-none focus:ring-2 focus:border-transparent`}
           onChange={handleChangeAndNavigate}
-          value={selectedCompany ? selectedCompany.code : ''}
+          value={selectedCompany?.isActive ? selectedCompany.code : ''}
         >
-          {companies && companies.length > 0 ? (
-            companies.map((company) => (
-              <option key={company?.id} value={company?.code} className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"}>
-                {company?.name}
+          {activeCompanies.length > 0 ? (
+            activeCompanies.map((company) => (
+              <option key={company.id} value={company.code} className={isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"}>
+                {company.name}
               </option>
             ))
           ) : (
-            <option value="">No companies available</option>
+            <option value="">Sin empresas activas</option>
           )}
         </select>
         <div className={`absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-400" : "text-gray-400"}`}>
