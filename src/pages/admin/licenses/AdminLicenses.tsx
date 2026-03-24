@@ -4,27 +4,45 @@ import { useState } from "react"
 import useSWR from "swr"
 import {
   ShieldCheck, Building2, Search, Loader2, AlertTriangle,
-  RefreshCw, CheckCircle2, XCircle, Key,
+  RefreshCw, CheckCircle2, XCircle, Key, Pencil, Clock,
 } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher } from "../../../services/api"
 import PagesHeader from "../../../components/headers/pagesHeader"
+import { useNavigate } from "react-router-dom"
 
 const API = import.meta.env.VITE_API_URL as string
+
+interface LicenseData {
+  plan: string
+  maxUsers: number
+  maxEmployees: number
+  startsAt: string
+  expiresAt: string | null
+  isActive: boolean
+}
 
 interface LicenseInfo {
   companyId: string
   companyName: string
   companyCode: string
   isActive: boolean
-  plan: string
   createdAt: string
   employeeCount: number
   userCount: number
+  license: LicenseData | null
+}
+
+const PLAN_COLOR: Record<string, string> = {
+  TRIAL:        "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  STARTER:      "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  PROFESSIONAL: "bg-violet-500/20 text-violet-400 border-violet-500/30",
+  ENTERPRISE:   "bg-amber-500/20 text-amber-400 border-amber-500/30",
 }
 
 export const AdminLicenses = () => {
   const { isDarkMode: dark } = useTheme()
+  const navigate = useNavigate()
   const [search, setSearch] = useState("")
 
   const { data, isLoading, error, mutate } = useSWR<LicenseInfo[]>(
@@ -97,43 +115,81 @@ export const AdminLicenses = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className={`border-b ${dark ? "border-gray-700" : "border-gray-100"}`}>
-              {["Empresa", "Código", "Plan", "Empleados", "Usuarios", "Estado", "Desde"].map((h) => (
+              {["Empresa", "Plan", "Uso", "Vencimiento", "Estado", ""].map((h) => (
                 <th key={h} className={`text-left px-4 py-3 text-xs font-bold uppercase tracking-wider ${sub}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((lic) => (
+            {filtered.map((lic) => {
+              const plan = lic.license?.plan ?? "SIN PLAN"
+              const expiresAt = lic.license?.expiresAt
+              const daysLeft = expiresAt
+                ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                : null
+              const licActive = lic.license?.isActive ?? false
+
+              return (
               <tr key={lic.companyId} className={`border-b last:border-0 ${dark ? "border-gray-700/50 hover:bg-slate-700/40" : "border-gray-50 hover:bg-gray-50"}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div className={`p-1.5 rounded-lg ${dark ? "bg-indigo-500/20" : "bg-indigo-50"}`}>
                       <Building2 size={13} className="text-indigo-500" />
                     </div>
-                    <span className={`font-medium ${text}`}>{lic.companyName}</span>
+                    <div>
+                      <p className={`font-medium text-sm ${text}`}>{lic.companyName}</p>
+                      <p className={`text-xs font-mono ${sub}`}>{lic.companyCode}</p>
+                    </div>
                   </div>
                 </td>
-                <td className={`px-4 py-3 font-mono text-xs ${sub}`}>{lic.companyCode}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${dark ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
-                    <Key size={10} /> {lic.plan || "Estándar"}
+                  <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${PLAN_COLOR[plan] ?? "bg-gray-500/20 text-gray-400 border-gray-500/30"}`}>
+                    <Key size={10} /> {plan}
                   </span>
                 </td>
-                <td className={`px-4 py-3 font-mono text-xs ${sub}`}>{lic.employeeCount}</td>
-                <td className={`px-4 py-3 font-mono text-xs ${sub}`}>{lic.userCount}</td>
-                <td className="px-4 py-3">
-                  {lic.isActive
-                    ? <span className="text-xs font-medium text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Activa</span>
-                    : <span className="text-xs font-medium text-red-400 flex items-center gap-1"><XCircle size={12} /> Inactiva</span>}
-                </td>
                 <td className={`px-4 py-3 text-xs ${sub}`}>
-                  {new Date(lic.createdAt).toLocaleDateString("es-PA")}
+                  {lic.license ? (
+                    <div className="space-y-0.5">
+                      <p>{lic.employeeCount} / {lic.license.maxEmployees} emp.</p>
+                      <p>{lic.userCount} / {lic.license.maxUsers} usr.</p>
+                    </div>
+                  ) : (
+                    <span className="text-gray-500 italic">Sin límites</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {daysLeft === null ? (
+                    <span className={sub}>Sin fecha</span>
+                  ) : daysLeft < 0 ? (
+                    <span className="text-red-400 font-medium flex items-center gap-1"><XCircle size={11} /> Expirada</span>
+                  ) : daysLeft <= 30 ? (
+                    <span className="text-amber-400 font-medium flex items-center gap-1"><Clock size={11} /> {daysLeft}d</span>
+                  ) : (
+                    <span className={`${sub} flex items-center gap-1`}><Clock size={11} /> {daysLeft}d</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {lic.license ? (
+                    licActive
+                      ? <span className="text-xs font-medium text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Activa</span>
+                      : <span className="text-xs font-medium text-red-400 flex items-center gap-1"><XCircle size={12} /> Inactiva</span>
+                  ) : (
+                    <span className={`text-xs italic ${sub}`}>Sin licencia</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => navigate(`/admin/licenses/edit/${lic.companyId}`)}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                  >
+                    <Pencil size={11} /> {lic.license ? "Editar" : "Configurar"}
+                  </button>
                 </td>
               </tr>
-            ))}
+            )})}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className={`px-4 py-8 text-center text-sm ${sub}`}>
+                <td colSpan={6} className={`px-4 py-8 text-center text-sm ${sub}`}>
                   <ShieldCheck size={32} className="mx-auto mb-2 opacity-30" />
                   No se encontraron licencias.
                 </td>

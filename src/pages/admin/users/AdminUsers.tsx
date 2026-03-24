@@ -4,11 +4,12 @@ import { useState, useMemo } from "react"
 import useSWR from "swr"
 import {
   Search, Loader2, AlertTriangle, RefreshCw, UserCircle,
-  Shield, Building2,
+  Shield, Building2, Plus, Pencil,
 } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher } from "../../../services/api"
 import PagesHeader from "../../../components/headers/pagesHeader"
+import { useNavigate } from "react-router-dom"
 
 const API = import.meta.env.VITE_API_URL as string
 
@@ -29,6 +30,7 @@ const ROLE_COLOR: Record<string, string> = {
 
 export const AdminUsers = () => {
   const { isDarkMode: dark } = useTheme()
+  const navigate = useNavigate()
   const [search, setSearch]         = useState("")
   const [companyFilter, setCompanyFilter] = useState("ALL")
 
@@ -102,6 +104,12 @@ export const AdminUsers = () => {
         >
           <RefreshCw size={15} />
         </button>
+        <button
+          onClick={() => navigate("/admin/users/create")}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-colors"
+        >
+          <Plus size={15} /> Nuevo usuario
+        </button>
       </div>
 
       {isLoading && (
@@ -119,7 +127,7 @@ export const AdminUsers = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className={`border-b ${dark ? "border-gray-700" : "border-gray-100"}`}>
-              {["Usuario", "Email", "Rol", "Empresa", "Estado", "Creado"].map((h) => (
+              {["Usuario", "Email", "Rol", "Empresa", "Estado", "Creado", ""].map((h) => (
                 <th key={h} className={`text-left px-4 py-3 text-xs font-bold uppercase tracking-wider ${sub}`}>{h}</th>
               ))}
             </tr>
@@ -166,11 +174,19 @@ export const AdminUsers = () => {
                 <td className={`px-4 py-3 text-xs ${sub}`}>
                   {new Date(user.createdAt).toLocaleDateString("es-PA")}
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => navigate(`/admin/users/edit/${user.id}`)}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                  >
+                    <Pencil size={11} /> Editar
+                  </button>
+                </td>
               </tr>
             ))}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className={`px-4 py-8 text-center text-sm ${sub}`}>
+                <td colSpan={7} className={`px-4 py-8 text-center text-sm ${sub}`}>
                   <UserCircle size={32} className="mx-auto mb-2 opacity-30" />
                   No se encontraron administradores.
                 </td>

@@ -61,8 +61,11 @@ import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllL
 import ProtectedAdminRoute from "./protectedAdminRoute";
 import { AdminOverview } from "../pages/admin/overview/AdminOverview";
 import { AdminCompanies } from "../pages/admin/companies/AdminCompanies";
+import { AdminCompanyForm } from "../pages/admin/companies/AdminCompanyForm";
 import { AdminUsers } from "../pages/admin/users/AdminUsers";
+import { AdminUserForm } from "../pages/admin/users/AdminUserForm";
 import { AdminLicenses } from "../pages/admin/licenses/AdminLicenses";
+import { AdminLicenseForm } from "../pages/admin/licenses/AdminLicenseForm";
 
 // Tipado de usuario
 export interface User {
@@ -822,6 +825,26 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       />
       <Route
+        path="/admin/companies/create"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout title="Admin — Nueva Empresa" description="Crear empresa" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
+              <AdminCompanyForm />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/companies/edit/:id"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout title="Admin — Editar Empresa" description="Editar empresa" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
+              <AdminCompanyForm />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
         path="/admin/users"
         element={
           <ProtectedAdminRoute>
@@ -835,6 +858,36 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
               companies={companies}
             >
               <AdminUsers />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users/create"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout title="Admin — Nuevo Usuario" description="Crear usuario admin" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
+              <AdminUserForm />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users/edit/:id"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout title="Admin — Editar Usuario" description="Editar usuario admin" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
+              <AdminUserForm />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/licenses/edit/:companyId"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout title="Admin — Licencia" description="Editar licencia" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
+              <AdminLicenseForm />
             </EnvolveLayout>
           </ProtectedAdminRoute>
         }
