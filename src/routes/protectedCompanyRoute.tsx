@@ -11,21 +11,21 @@ interface ProtectedCompanyRouteProps {
 
 const ProtectedCompanyRoute: React.FC<ProtectedCompanyRouteProps> = ({children, isLogged }) => {
   const location = useLocation();
-  const { selectedCompany, isLoadingCompanies } = useCompany();
+  const { selectedCompany, isLoadingCompanies, companies } = useCompany();
   const { profile } = useUserProfile();
 
-  // 🚪 1. No logueado → login
+  // 1. No logueado → login
   if (!isLogged) {
     return <Navigate to="/" replace={false} state={{ from: location }} />;
   }
 
-  // 🚪 2. GLOBAL_ADMIN nunca necesita seleccionar empresa → su panel
+  // 2. GLOBAL_ADMIN nunca necesita seleccionar empresa → su panel
   const isGlobalAdmin = profile ? getUserRoles(profile).includes("global_admin") : false;
   if (isGlobalAdmin) {
     return <Navigate to="/admin/overview" replace />;
   }
 
-  // ⏳ 3. Esperando que carguen las empresas del usuario
+  // 3. Esperando que carguen las empresas del usuario
   if (isLoadingCompanies) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a1a3e] to-[#2d1b4e] flex items-center justify-center">
@@ -34,15 +34,18 @@ const ProtectedCompanyRoute: React.FC<ProtectedCompanyRouteProps> = ({children, 
     );
   }
 
-  // 🚪 4. Ya hay empresa válida Y viene de una navegación interna (no post-login) → dashboard
-  // Si selectedCompany está en localStorage y el usuario ya eligió antes, lo mandamos directo.
-  // Pero si llegamos aquí sin selectedCompany (post-login con localStorage limpio), mostramos selector.
+  // 4. Sin empresas → redirigir a settings (dashboard limitado)
+  if (companies.length === 0) {
+    return <Navigate to="/setup/settings/all" replace />;
+  }
+
+  // 5. Ya hay empresa valida guardada → dashboard directo
   const hasSavedCompany = Boolean(localStorage.getItem('selectedCompany'));
   if (hasSavedCompany && selectedCompany && selectedCompany.id !== "na") {
     return <Navigate to={`/${selectedCompany.code}/dashboard/all`} replace={false} />;
   }
 
-  // ✅ 5. Logueado pero sin empresa guardada → mostrar selector
+  // 6. Logueado pero sin empresa guardada → mostrar selector
   return children;
 };
 

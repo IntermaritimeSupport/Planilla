@@ -41,19 +41,18 @@ interface CompanyProviderProps {
 export const CompanyProvider = ({ children, initialCompanies, isLoadingCompanies = false }: CompanyProviderProps) => {
   const location = useLocation();
   const onSelectorPage = location.pathname.includes('select-company');
+  const companies = initialCompanies || [];
 
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(() => {
-    const savedCompany = localStorage.getItem('selectedCompany');
     try {
-      return savedCompany ? JSON.parse(savedCompany) : null;
-    } catch (error) {
-      console.error("Error parsing saved company from localStorage:", error);
+      const saved = localStorage.getItem('selectedCompany');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
       return null;
     }
   });
 
-  const [companies, setCompanies] = useState<Company[]>(initialCompanies || []);
-
+  // Persistir en localStorage cada vez que cambia
   useEffect(() => {
     if (selectedCompany) {
       localStorage.setItem('selectedCompany', JSON.stringify(selectedCompany));
@@ -62,30 +61,26 @@ export const CompanyProvider = ({ children, initialCompanies, isLoadingCompanies
     }
   }, [selectedCompany]);
 
+  // Solo cuando llega la lista real: limpiar empresa eliminada o auto-seleccionar si no hay ninguna
   useEffect(() => {
-    // No hacer nada mientras carga o si no hay datos reales
-    if (isLoadingCompanies || !initialCompanies || initialCompanies.length === 0) return;
+    if (isLoadingCompanies || companies.length === 0) return;
 
-    // Sincronizar lista solo si los IDs cambiaron (evitar loop por referencia)
-    const currentIds = companies.map(c => c.id).join(',');
-    const newIds = initialCompanies.map(c => c.id).join(',');
-    if (currentIds !== newIds) {
-      setCompanies(initialCompanies);
-    }
-
-    // No auto-seleccionar mientras el usuario está eligiendo empresa manualmente
-    if (onSelectorPage) return;
-
-    // Auto-seleccionar primera empresa válida si no hay ninguna seleccionada aún
-    if (!selectedCompany) {
-      const first = initialCompanies.find(c => c.isActive && c.id !== "na") ?? null;
-      if (first) setSelectedCompany(first);
-    }
-  }, [initialCompanies, isLoadingCompanies, onSelectorPage]); // eslint-disable-line react-hooks/exhaustive-deps
+    setSelectedCompany(prev => {
+      if (prev) {
+        // Si la empresa seleccionada ya no existe → limpiar
+        const stillExists = companies.find(c => c.id === prev.id);
+        return stillExists ?? null;
+      }
+      // Sin empresa seleccionada y no estamos en el selector → tomar la primera activa
+      if (!onSelectorPage) {
+        return companies.find(c => c.isActive && c.id !== "na") ?? null;
+      }
+      return null;
+    });
+  }, [companies, isLoadingCompanies, onSelectorPage]);
 
   const handleCompanyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const companyCode = event.target.value;
-    const company = companies.find(c => c.code === companyCode);
+    const company = companies.find(c => c.code === event.target.value);
     setSelectedCompany(company || null);
   };
 

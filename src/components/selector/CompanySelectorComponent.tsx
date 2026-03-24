@@ -1,9 +1,10 @@
 // CompanySelectorComponent.tsx
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCompany } from '../../context/routerContext.tsx';
 import { useCallback } from 'react';
 import { UserProfile } from '../../context/userProfileContext.tsx';
 import { ChevronDown } from 'lucide-react';
+import { mutate } from 'swr';
 
 export interface Company {
   id: string;
@@ -33,25 +34,34 @@ type Props = {
 const CompanySelectorComponent: React.FC<Props> = ({ isDarkMode = true }) => {
   const { selectedCompany, handleCompanyChange, companies } = useCompany();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleChangeAndNavigate = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
-    // Guardar la nueva empresa en el contexto/localStorage antes de recargar
-    handleCompanyChange(event);
     const newCompanyCode = event.target.value;
+    const newCompany = companies.find(c => c.code === newCompanyCode);
 
-    // Reemplazar el code en la ruta actual o ir al dashboard
-    const pathSegments = location.pathname.split('/');
+    if (newCompany) {
+      localStorage.setItem('selectedCompany', JSON.stringify(newCompany));
+    }
+    handleCompanyChange(event);
+
+    // Forzar revalidación de todo el caché SWR para que las páginas fetchen datos frescos
+    mutate(() => true);
+
+    // Reemplazar el primer segmento (companyCode) manteniendo el resto de la ruta
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const knownCodes = companies.map(c => c.code);
     let newPath: string;
-    if (pathSegments.length >= 2 && pathSegments[1] && pathSegments[1] !== 'select-company') {
-      pathSegments[1] = newCompanyCode;
-      newPath = pathSegments.join('/');
+    if (pathSegments.length >= 1 && knownCodes.includes(pathSegments[0])) {
+      pathSegments[0] = newCompanyCode;
+      newPath = '/' + pathSegments.join('/');
     } else {
       newPath = `/${newCompanyCode}/dashboard/all`;
     }
 
-    // Hard reload para que todos los SWR se reinicien con el nuevo companyId
-    window.location.href = newPath;
-  }, [handleCompanyChange, location.pathname]);
+    // Navegación sin reload — los SWR reaccionan al cambio de selectedCompany en el contexto
+    navigate(newPath, { replace: true });
+  }, [handleCompanyChange, location.pathname, companies, navigate]);
 
   // Solo mostrar activas en el selector del navbar
   const activeCompanies = companies.filter(c => c.isActive);

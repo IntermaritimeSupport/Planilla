@@ -59,6 +59,7 @@ import { VacacionesEmpleadoPerfil } from "../pages/account/vacaciones/components
 import LiquidacionesPage from "../pages/account/liquidaciones/page";
 import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllLiquidaciones";
 import ProtectedAdminRoute from "./protectedAdminRoute";
+import SetupCompany from "../pages/onboarding/SetupCompany";
 import { AdminOverview } from "../pages/admin/overview/AdminOverview";
 import { AdminCompanies } from "../pages/admin/companies/AdminCompanies";
 import { AdminCompanyForm } from "../pages/admin/companies/AdminCompanyForm";
@@ -66,6 +67,7 @@ import { AdminUsers } from "../pages/admin/users/AdminUsers";
 import { AdminUserForm } from "../pages/admin/users/AdminUserForm";
 import { AdminLicenses } from "../pages/admin/licenses/AdminLicenses";
 import { AdminLicenseForm } from "../pages/admin/licenses/AdminLicenseForm";
+import { AdminPlans } from "../pages/admin/plans/AdminPlans";
 
 // Tipado de usuario
 export interface User {
@@ -88,8 +90,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
   const { pathname } = useLocation();
   const initialPathSet = useRef(false);
   const { isLogged } = useUser();
-  const { selectedCompany } = useCompany();
-  const code = `${selectedCompany?.code || "default-code"}`;
+  const { companies: userCompanies, isLoadingCompanies } = useCompany();
   const { profile } = useUserProfile();
   useEffect(() => {
     if (!isLogged) {
@@ -154,6 +155,50 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
           </ProtectedCompanyRoute>
         }
       />
+      {/* Onboarding — crear primera empresa (solo si no tiene empresa aún) */}
+      <Route
+        path="/setup"
+        element={
+          !isLogged
+            ? <Navigate to="/" replace />
+            : isLoadingCompanies
+              ? null
+              : (userCompanies && userCompanies.length > 0)
+                ? <Navigate to="/select-company" replace />
+                : <SetupCompany />
+        }
+      />
+
+      {/* Settings sin empresa — accesible mientras el usuario no haya creado su empresa */}
+      <Route
+        path="/setup/settings/*"
+        element={
+          !isLogged
+            ? <Navigate to="/" replace />
+            : (userCompanies && userCompanies.length > 0)
+              ? <Navigate to="/select-company" replace />
+              : (
+                <EnvolveLayout
+                  title="Configuración"
+                  description="Configuración de cuenta"
+                  isLogged={isLogged}
+                  profile={profile}
+                  currentPathname={pathnameLocation}
+                  publicRoute={false}
+                  companies={companies}
+                >
+                  <SettingsPage />
+                </EnvolveLayout>
+              )
+        }
+      >
+        <Route path="all" element={<AllSettingsPage />} />
+        <Route path="create" element={<UpdateCompany />} />
+        <Route path="edit/:id" element={<UpdateCompany />} />
+        <Route path="departments/edit" element={<UpdateDepartment />} />
+        <Route path="departments/create" element={<UpdateDepartment />} />
+      </Route>
+
       {/* Ruta legacy con prefijo de empresa (por compatibilidad con links existentes) */}
       <Route
         path="/:companyCode/select-company"
@@ -165,7 +210,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       />
 
       <Route
-        path={`/:${code}/dashboard/*`}
+        path="/:companyCode/dashboard/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -201,7 +246,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/network/*`}
+        path="/:companyCode/network/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -241,7 +286,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/users/*`}
+        path="/:companyCode/users/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -277,7 +322,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/reports/*`}
+        path="/:companyCode/reports/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -312,7 +357,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/tickets/*`}
+        path="/:companyCode/tickets/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -349,7 +394,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/expenses/*`}
+        path="/:companyCode/expenses/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -386,7 +431,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/legal/*`}
+        path="/:companyCode/legal/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -423,7 +468,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/legaldecimo/*`}
+        path="/:companyCode/legaldecimo/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -460,7 +505,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/employees/*`}
+        path="/:companyCode/employees/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -497,7 +542,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/payrolls/*`}
+        path="/:companyCode/payrolls/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -534,7 +579,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/sipe/*`}
+        path="/:companyCode/sipe/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -570,7 +615,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         <Route path="edit/:id" element={<ExpenseDetailPage/>} /> */}
       </Route>
       <Route
-        path={`/:${code}/decimo/*`}
+        path="/:companyCode/decimo/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -607,7 +652,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/vacaciones/*`}
+        path="/:companyCode/vacaciones/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -643,7 +688,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/liquidaciones/*`}
+        path="/:companyCode/liquidaciones/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -677,7 +722,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/isr/*`}
+        path="/:companyCode/isr/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -714,7 +759,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/settings/*`}
+        path="/:companyCode/settings/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -753,7 +798,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
       </Route>
 
       <Route
-        path={`/:${code}/profile/:id/*`}
+        path="/:companyCode/profile/:id/*"
         element={
           <ProtectedRoute
             isLogged={isLogged}
@@ -883,11 +928,29 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       />
       <Route
-        path="/admin/licenses/edit/:companyId"
+        path="/admin/licenses/edit/:userId"
         element={
           <ProtectedAdminRoute>
             <EnvolveLayout title="Admin — Licencia" description="Editar licencia" isLogged={isLogged} profile={profile} currentPathname={pathnameLocation} publicRoute={false} companies={companies}>
               <AdminLicenseForm />
+            </EnvolveLayout>
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/plans"
+        element={
+          <ProtectedAdminRoute>
+            <EnvolveLayout
+              title="Admin — Planes"
+              description="Planes disponibles"
+              isLogged={isLogged}
+              profile={profile}
+              currentPathname={pathnameLocation}
+              publicRoute={false}
+              companies={companies}
+            >
+              <AdminPlans />
             </EnvolveLayout>
           </ProtectedAdminRoute>
         }

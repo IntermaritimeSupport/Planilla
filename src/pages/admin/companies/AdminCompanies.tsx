@@ -5,10 +5,10 @@ import useSWR from "swr"
 import {
   Building2, Users, Search, Loader2, AlertTriangle,
   RefreshCw, CheckCircle2, XCircle, Plus, X,
-  UserPlus, Power, Pencil, UserCheck, Shield,
+  UserPlus, Power, Pencil, UserCheck, Shield, Trash2,
 } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
-import { authFetcher, apiPost, apiPatch, authHeaders } from "../../../services/api"
+import { authFetcher, apiPost, apiPatch, apiDelete, authHeaders } from "../../../services/api"
 import PagesHeader from "../../../components/headers/pagesHeader"
 import { useNavigate } from "react-router-dom"
 
@@ -189,6 +189,18 @@ export const AdminCompanies = () => {
     }
   }
 
+  // ── Eliminar empresa ───────────────────────────────────────────────────────
+  const handleDelete = async (company: Company) => {
+    if (!confirm(`¿Eliminar la empresa "${company.name}"? Esta acción eliminará todos sus datos y no se puede deshacer.`)) return
+    try {
+      await apiDelete(`/api/admin/companies/${company.id}`)
+      if (selected?.id === company.id) setSelected(null)
+      await mutate()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al eliminar.")
+    }
+  }
+
   // ── Toggle activo/inactivo ─────────────────────────────────────────────────
   const handleToggle = async (company: Company) => {
     try {
@@ -306,6 +318,12 @@ export const AdminCompanies = () => {
                 className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
               >
                 <Pencil size={11} /> Editar
+              </button>
+              <button
+                onClick={() => handleDelete(company)}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors bg-red-500/10 hover:bg-red-500/20 text-red-400"
+              >
+                <Trash2 size={11} /> Eliminar
               </button>
             </div>
           </div>
@@ -577,9 +595,15 @@ export const AdminCompanies = () => {
             </button>
             <button
               onClick={() => handleToggle(selected)}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${selected.isActive ? "bg-red-500/20 hover:bg-red-500/30 text-red-400" : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"}`}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${selected.isActive ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400" : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"}`}
             >
               <Power size={14} /> {selected.isActive ? "Desactivar empresa" : "Activar empresa"}
+            </button>
+            <button
+              onClick={() => handleDelete(selected)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors bg-red-500/20 hover:bg-red-500/30 text-red-400"
+            >
+              <Trash2 size={14} /> Eliminar empresa
             </button>
           </div>
         </div>

@@ -40,10 +40,11 @@ const GROUP_ORDER: RouteGroup[] = ['ADMINISTRACIÓN', 'PRINCIPAL', 'NÓMINA', 'R
 
 const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   const { logout } = useUser();
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, companies, isLoadingCompanies } = useCompany();
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
   const location = useLocation();
+  const hasCompany = isLoadingCompanies || (companies && companies.length > 0);
 
   const currentPathSegments = location.pathname.split("/").filter(Boolean);
   // Para rutas /admin/* el primer segmento es "admin", para el resto es el segundo
@@ -67,10 +68,14 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
   });
 
   // Group routes
-  // GLOBAL_ADMIN solo ve ADMINISTRACIÓN; los demás ven todo excepto ADMINISTRACIÓN
+  // GLOBAL_ADMIN solo ve ADMINISTRACIÓN
+  // Sin empresa: solo CONFIGURACIÓN (settings)
+  // Con empresa: todo excepto ADMINISTRACIÓN
   const visibleGroups = isGlobalAdmin
     ? GROUP_ORDER.filter((g) => g === 'ADMINISTRACIÓN')
-    : GROUP_ORDER.filter((g) => g !== 'ADMINISTRACIÓN');
+    : !hasCompany
+      ? GROUP_ORDER.filter((g) => g === 'CONFIGURACIÓN')
+      : GROUP_ORDER.filter((g) => g !== 'ADMINISTRACIÓN');
 
   const groupedLinks = visibleGroups.reduce<Record<string, typeof filteredNavLinks>>(
     (acc, group) => {
@@ -184,7 +189,7 @@ const SlideBar: React.FC<DashboardProps> = ({ profile }) => {
       >
         {/* User info */}
         <Link
-          to={isGlobalAdmin ? "/admin/overview" : `/${selectedCompany?.code ?? ""}/profile/1`}
+          to={isGlobalAdmin ? "/admin/overview" : selectedCompany ? `/${selectedCompany.code}/profile/1` : "/setup/settings/all"}
           className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 group ${
             isDarkMode
               ? "hover:bg-slate-800/50"

@@ -1,13 +1,14 @@
 "use client"
 
 import React, { useState } from "react"
-import { Edit2, Trash2, Plus, Users, Building2, FolderOpen, Settings, Search, ChevronDown, ChevronUp } from "lucide-react"
+import { Edit2, Trash2, Plus, Users, Building2, FolderOpen, Settings, Search, ChevronDown, ChevronUp, ShieldCheck, CalendarDays, Clock } from "lucide-react"
 import { useCompany } from "../../../../context/routerContext"
 import { useTheme } from "../../../../context/themeContext"
 import Loader from "../../../../components/loaders/loader"
 import { useNavigate } from "react-router-dom"
-import useSWR from "swr"
+import useSWR, { useSWRConfig } from "swr"
 import { authFetcher } from "../../../../services/api"
+import useUserProfile from "../../../../hook/userUserProfile"
 
 const VITE_API_URL = import.meta.env?.VITE_API_URL || "http://localhost:3000"
 
@@ -51,6 +52,20 @@ interface UserFull {
   }
 }
 
+interface LicenseInfo {
+  license: {
+    plan: string
+    maxCompanies: number
+    maxUsers: number
+    maxEmployees: number
+    startsAt: string | null
+    expiresAt: string | null
+    isActive: boolean
+    notes: string | null
+  } | null
+  usage: { companyCount: number; totalUsers: number }
+}
+
 const getInitials = (name: string) =>
   name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "?"
 
@@ -61,6 +76,14 @@ export default function AllSettingsPage() {
   const { isDarkMode } = useTheme()
   const { selectedCompany } = useCompany()
   const navigate = useNavigate()
+  const { mutate: globalMutate } = useSWRConfig()
+  const { profile } = useUserProfile()
+  const isSuperAdmin = profile?.roles?.includes("SUPER_ADMIN") ?? false
+
+  const { data: licenseData } = useSWR<LicenseInfo>(
+    isSuperAdmin ? `${VITE_API_URL}/api/users/my-license` : null,
+    authFetcher
+  )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [search, setSearch] = useState("")
   const [expandedCompany, setExpandedCompany] = useState<string | null>(null)
@@ -100,7 +123,12 @@ export default function AllSettingsPage() {
       method: "DELETE",
       headers: { "Authorization": `Bearer ${token}` },
     })
-    if (res.ok) { mutateCompanies(); setShowDeleteConfirm(null) }
+    if (res.ok) {
+      mutateCompanies()
+      // Invalidar también el SWR global de my-companies para que el contexto se actualice
+      globalMutate((key: unknown) => typeof key === "string" && key.includes("my-companies"), undefined, { revalidate: true })
+      setShowDeleteConfirm(null)
+    }
   }
 
   const deleteDept = async (deptId: string) => {
@@ -142,8 +170,10 @@ export default function AllSettingsPage() {
     { key: "departments", label: "Departments", icon: <FolderOpen size={14} /> },
   ]
 
+
   return (
     <div className={`transition-colors ${bg}`}>
+
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div className="mb-6">
@@ -151,12 +181,12 @@ export default function AllSettingsPage() {
       </div>
 
       {/* ── TABS ───────────────────────────────────────────────────────────── */}
-      <div className={`flex gap-1 border-b mb-6 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
+      <div className={`flex border-b mb-6 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => { setActiveTab(t.key); setSearch("") }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === t.key
                 ? "border-blue-500 text-blue-500"
                 : `border-transparent ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
@@ -226,38 +256,115 @@ export default function AllSettingsPage() {
           TAB: GENERAL
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "general" && (
-        <div className={`rounded-xl border p-6 max-w-md ${card}`}>
-          <h3 className={`text-xs font-bold uppercase tracking-widest mb-4 ${txt2}`}>Appearance</h3>
-          <div className="space-y-5">
-            <div>
-              <p className={`text-sm font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Theme</p>
-              <div className={`flex rounded-lg border overflow-hidden ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>
-                {[
-                  { label: "🌙 Dark", val: "dark" },
-                  { label: "☀️ Light", val: "light" },
-                  { label: "🖥 System", val: "system" },
-                ].map(opt => (
-                  <button key={opt.val} className={`flex-1 py-2 text-sm transition-colors ${
-                    (isDarkMode && opt.val === "dark") || (!isDarkMode && opt.val === "light")
-                      ? "bg-blue-600 text-white font-medium"
-                      : isDarkMode ? "text-gray-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
-                  }`}>
-                    {opt.label}
-                  </button>
-                ))}
+        <div className="space-y-4 max-w-md">
+
+          {/* Appearance */}
+          <div className={`rounded-xl border p-6 ${card}`}>
+            <h3 className={`text-xs font-bold uppercase tracking-widest mb-4 ${txt2}`}>Appearance</h3>
+            <div className="space-y-5">
+              <div>
+                <p className={`text-sm font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Theme</p>
+                <div className={`flex rounded-lg border overflow-hidden ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>
+                  {[{ label: "🌙 Dark", val: "dark" }, { label: "☀️ Light", val: "light" }, { label: "🖥 System", val: "system" }].map(opt => (
+                    <button key={opt.val} className={`flex-1 py-2 text-sm transition-colors ${
+                      (isDarkMode && opt.val === "dark") || (!isDarkMode && opt.val === "light")
+                        ? "bg-blue-600 text-white font-medium"
+                        : isDarkMode ? "text-gray-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
+                    }`}>{opt.label}</button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <p className={`text-sm font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Language</p>
-              <div className={`flex rounded-lg border overflow-hidden ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>
-                {["🌐 English", "🌐 Spanish"].map(lang => (
-                  <button key={lang} className={`flex-1 py-2 text-sm transition-colors ${
-                    lang.includes("English") ? "bg-blue-600 text-white font-medium" : isDarkMode ? "text-gray-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
-                  }`}>{lang}</button>
-                ))}
+              <div>
+                <p className={`text-sm font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Language</p>
+                <div className={`flex rounded-lg border overflow-hidden ${isDarkMode ? "border-slate-600" : "border-gray-300"}`}>
+                  {["🌐 English", "🌐 Spanish"].map(lang => (
+                    <button key={lang} className={`flex-1 py-2 text-sm transition-colors ${
+                      lang.includes("English") ? "bg-blue-600 text-white font-medium" : isDarkMode ? "text-gray-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
+                    }`}>{lang}</button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
+
+          {/* License — solo SUPER_ADMIN */}
+          {isSuperAdmin && (
+            <div className={`rounded-xl border p-6 ${card}`}>
+              <div className="flex items-center gap-2 mb-4">
+                <ShieldCheck size={15} className="text-violet-400" />
+                <h3 className={`text-xs font-bold uppercase tracking-widest ${txt2}`}>Licencia</h3>
+                {licenseData?.license && (
+                  <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold ${licenseData.license.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                    {licenseData.license.isActive ? "Activa" : "Inactiva"}
+                  </span>
+                )}
+              </div>
+              {!licenseData ? (
+                <p className={`text-xs ${txt2}`}>Cargando…</p>
+              ) : !licenseData.license ? (
+                <p className={`text-xs ${txt2}`}>Sin licencia asignada.</p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Plan */}
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${txt2}`}>Plan</span>
+                    <span className={`text-sm font-semibold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{licenseData.license.plan}</span>
+                  </div>
+
+                  {/* Límites con barras de progreso */}
+                  {[
+                    { label: "Empresas",  used: licenseData.usage.companyCount, max: licenseData.license.maxCompanies },
+                    { label: "Usuarios",  used: licenseData.usage.totalUsers,   max: licenseData.license.maxUsers },
+                    { label: "Empleados", used: 0,                              max: licenseData.license.maxEmployees },
+                  ].map(({ label, used, max }) => {
+                    const pct = max > 0 ? Math.min((used / max) * 100, 100) : 0
+                    const warn = pct >= 80
+                    return (
+                      <div key={label}>
+                        <div className="flex justify-between mb-1">
+                          <span className={`text-xs ${txt2}`}>{label}</span>
+                          <span className={`text-xs font-mono font-semibold ${warn ? "text-orange-400" : isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{used} / {max}</span>
+                        </div>
+                        <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? "bg-slate-700" : "bg-gray-200"}`}>
+                          <div
+                            className={`h-full rounded-full transition-all ${warn ? "bg-orange-400" : "bg-violet-500"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Fechas */}
+                  <div className={`pt-3 border-t grid grid-cols-2 gap-3 ${isDarkMode ? "border-slate-700" : "border-gray-100"}`}>
+                    <div className="flex items-center gap-2">
+                      <CalendarDays size={13} className={txt2} />
+                      <div>
+                        <p className={`text-[10px] uppercase tracking-wider ${txt2}`}>Inicio</p>
+                        <p className={`text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+                          {licenseData.license.startsAt ? new Date(licenseData.license.startsAt).toLocaleDateString() : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={13} className={txt2} />
+                      <div>
+                        <p className={`text-[10px] uppercase tracking-wider ${txt2}`}>Vence</p>
+                        <p className={`text-xs font-medium ${licenseData.license.expiresAt && new Date(licenseData.license.expiresAt) < new Date() ? "text-red-400" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+                          {licenseData.license.expiresAt ? new Date(licenseData.license.expiresAt).toLocaleDateString() : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {licenseData.license.notes && (
+                    <p className={`text-xs italic ${txt2}`}>{licenseData.license.notes}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 
@@ -351,7 +458,23 @@ export default function AllSettingsPage() {
           TAB: COMPANIES
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "companies" && (
-        loadingCompanies ? <Loader /> : (
+        loadingCompanies ? <Loader /> : filteredCompanies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className={`p-4 rounded-2xl ${isDarkMode ? "bg-slate-800" : "bg-gray-100"}`}>
+              <Building2 size={32} className={txt2} />
+            </div>
+            <div className="text-center">
+              <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>No tienes empresas registradas</p>
+              <p className={`text-sm mt-1 ${txt2}`}>Crea tu primera empresa para desbloquear todas las funcionalidades.</p>
+            </div>
+            <button
+              onClick={() => navigate("../create")}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+            >
+              <Plus size={15} /> Crear empresa
+            </button>
+          </div>
+        ) : (
           <div className="space-y-3">
             {filteredCompanies.map(c => {
               const isExpanded = expandedCompany === c.id

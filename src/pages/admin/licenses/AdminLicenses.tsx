@@ -3,8 +3,8 @@
 import { useState } from "react"
 import useSWR from "swr"
 import {
-  ShieldCheck, Building2, Search, Loader2, AlertTriangle,
-  RefreshCw, CheckCircle2, XCircle, Key, Pencil, Clock,
+  ShieldCheck, Search, Loader2, AlertTriangle,
+  RefreshCw, CheckCircle2, XCircle, Key, Pencil, Clock, Building2, Users,
 } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher } from "../../../services/api"
@@ -15,6 +15,7 @@ const API = import.meta.env.VITE_API_URL as string
 
 interface LicenseData {
   plan: string
+  maxCompanies: number
   maxUsers: number
   maxEmployees: number
   startsAt: string
@@ -23,13 +24,16 @@ interface LicenseData {
 }
 
 interface LicenseInfo {
-  companyId: string
-  companyName: string
-  companyCode: string
+  userId: string
+  username: string
+  email: string
+  fullName: string
   isActive: boolean
   createdAt: string
-  employeeCount: number
-  userCount: number
+  companyCount: number
+  totalEmployees: number
+  totalUsers: number
+  companies: { id: string; name: string; code: string; isActive: boolean }[]
   license: LicenseData | null
 }
 
@@ -53,26 +57,27 @@ export const AdminLicenses = () => {
   const licenses = data ?? []
   const filtered = licenses.filter(
     (l) =>
-      l.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      l.companyCode.toLowerCase().includes(search.toLowerCase())
+      l.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      l.email.toLowerCase().includes(search.toLowerCase()) ||
+      l.username.toLowerCase().includes(search.toLowerCase())
   )
 
   const text = dark ? "text-gray-200" : "text-gray-800"
-  const sub = dark ? "text-gray-400" : "text-gray-500"
+  const sub  = dark ? "text-gray-400" : "text-gray-500"
   const card = `rounded-xl border transition-colors ${dark ? "bg-slate-800 border-gray-700" : "bg-white border-gray-200"}`
 
-  const activeLicenses = licenses.filter((l) => l.isActive).length
+  const activeLicenses = licenses.filter((l) => l.license?.isActive).length
 
   return (
     <div className="space-y-6">
-      <PagesHeader title="Licencias" description="Estado de licencias por empresa" />
+      <PagesHeader title="Licencias" description="Licencias por cuenta SUPER ADMIN" />
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total licencias", value: licenses.length, icon: ShieldCheck, color: "bg-indigo-500" },
-          { label: "Activas", value: activeLicenses, icon: CheckCircle2, color: "bg-emerald-500" },
-          { label: "Inactivas", value: licenses.length - activeLicenses, icon: XCircle, color: "bg-red-500" },
+          { label: "Total cuentas", value: licenses.length, icon: ShieldCheck, color: "bg-indigo-500" },
+          { label: "Activas",       value: activeLicenses,  icon: CheckCircle2, color: "bg-emerald-500" },
+          { label: "Inactivas",     value: licenses.length - activeLicenses, icon: XCircle, color: "bg-red-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className={`${card} p-5`}>
             <div className="flex items-start justify-between mb-3">
@@ -89,7 +94,7 @@ export const AdminLicenses = () => {
           <Search size={15} className={sub} />
           <input
             type="text"
-            placeholder="Buscar empresa…"
+            placeholder="Buscar cuenta…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={`flex-1 bg-transparent text-sm outline-none ${text}`}
@@ -115,83 +120,102 @@ export const AdminLicenses = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className={`border-b ${dark ? "border-gray-700" : "border-gray-100"}`}>
-              {["Empresa", "Plan", "Uso", "Vencimiento", "Estado", ""].map((h) => (
+              {["Cuenta", "Plan", "Empresas", "Usuarios / Emp.", "Vencimiento", "Estado", ""].map((h) => (
                 <th key={h} className={`text-left px-4 py-3 text-xs font-bold uppercase tracking-wider ${sub}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((lic) => {
-              const plan = lic.license?.plan ?? "SIN PLAN"
+              const plan     = lic.license?.plan ?? "SIN PLAN"
               const expiresAt = lic.license?.expiresAt
-              const daysLeft = expiresAt
+              const daysLeft  = expiresAt
                 ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
                 : null
               const licActive = lic.license?.isActive ?? false
 
               return (
-              <tr key={lic.companyId} className={`border-b last:border-0 ${dark ? "border-gray-700/50 hover:bg-slate-700/40" : "border-gray-50 hover:bg-gray-50"}`}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-lg ${dark ? "bg-indigo-500/20" : "bg-indigo-50"}`}>
-                      <Building2 size={13} className="text-indigo-500" />
+                <tr key={lic.userId} className={`border-b last:border-0 ${dark ? "border-gray-700/50 hover:bg-slate-700/40" : "border-gray-50 hover:bg-gray-50"}`}>
+                  {/* Cuenta */}
+                  <td className="px-4 py-3">
+                    <p className={`font-semibold text-sm ${text}`}>{lic.fullName || lic.username}</p>
+                    <p className={`text-xs ${sub}`}>{lic.email}</p>
+                  </td>
+
+                  {/* Plan */}
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${PLAN_COLOR[plan] ?? PLAN_COLOR.TRIAL}`}>
+                      <Key size={10} /> {plan}
+                    </span>
+                  </td>
+
+                  {/* Empresas */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={12} className={sub} />
+                      <span className={`text-xs font-mono ${text}`}>
+                        {lic.companyCount}
+                        {lic.license && <span className={sub}> / {lic.license.maxCompanies}</span>}
+                      </span>
                     </div>
-                    <div>
-                      <p className={`font-medium text-sm ${text}`}>{lic.companyName}</p>
-                      <p className={`text-xs font-mono ${sub}`}>{lic.companyCode}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${PLAN_COLOR[plan] ?? "bg-gray-500/20 text-gray-400 border-gray-500/30"}`}>
-                    <Key size={10} /> {plan}
-                  </span>
-                </td>
-                <td className={`px-4 py-3 text-xs ${sub}`}>
-                  {lic.license ? (
-                    <div className="space-y-0.5">
-                      <p>{lic.employeeCount} / {lic.license.maxEmployees} emp.</p>
-                      <p>{lic.userCount} / {lic.license.maxUsers} usr.</p>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 italic">Sin límites</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  {daysLeft === null ? (
-                    <span className={sub}>Sin fecha</span>
-                  ) : daysLeft < 0 ? (
-                    <span className="text-red-400 font-medium flex items-center gap-1"><XCircle size={11} /> Expirada</span>
-                  ) : daysLeft <= 30 ? (
-                    <span className="text-amber-400 font-medium flex items-center gap-1"><Clock size={11} /> {daysLeft}d</span>
-                  ) : (
-                    <span className={`${sub} flex items-center gap-1`}><Clock size={11} /> {daysLeft}d</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {lic.license ? (
-                    licActive
-                      ? <span className="text-xs font-medium text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Activa</span>
-                      : <span className="text-xs font-medium text-red-400 flex items-center gap-1"><XCircle size={12} /> Inactiva</span>
-                  ) : (
-                    <span className={`text-xs italic ${sub}`}>Sin licencia</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => navigate(`/admin/licenses/edit/${lic.companyId}`)}
-                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                  >
-                    <Pencil size={11} /> {lic.license ? "Editar" : "Configurar"}
-                  </button>
-                </td>
-              </tr>
-            )})}
+                  </td>
+
+                  {/* Usuarios / Empleados */}
+                  <td className={`px-4 py-3 text-xs ${sub}`}>
+                    {lic.license ? (
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <Users size={10} />
+                          <span>{lic.totalUsers} / {lic.license.maxUsers} usr.</span>
+                        </div>
+                        <p>{lic.totalEmployees} / {lic.license.maxEmployees} emp.</p>
+                      </div>
+                    ) : (
+                      <span className="italic">Sin límites</span>
+                    )}
+                  </td>
+
+                  {/* Vencimiento */}
+                  <td className="px-4 py-3 text-xs">
+                    {daysLeft === null ? (
+                      <span className={sub}>Sin fecha</span>
+                    ) : daysLeft < 0 ? (
+                      <span className="text-red-400 font-medium flex items-center gap-1"><XCircle size={11} /> Expirada</span>
+                    ) : daysLeft <= 30 ? (
+                      <span className="text-amber-400 font-medium flex items-center gap-1"><Clock size={11} /> {daysLeft}d</span>
+                    ) : (
+                      <span className={`${sub} flex items-center gap-1`}><Clock size={11} /> {daysLeft}d</span>
+                    )}
+                  </td>
+
+                  {/* Estado */}
+                  <td className="px-4 py-3">
+                    {lic.license ? (
+                      licActive
+                        ? <span className="text-xs font-medium text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Activa</span>
+                        : <span className="text-xs font-medium text-red-400 flex items-center gap-1"><XCircle size={12} /> Inactiva</span>
+                    ) : (
+                      <span className={`text-xs italic ${sub}`}>Sin licencia</span>
+                    )}
+                  </td>
+
+                  {/* Acción */}
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => navigate(`/admin/licenses/edit/${lic.userId}`)}
+                      className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                    >
+                      <Pencil size={11} /> {lic.license ? "Editar" : "Configurar"}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className={`px-4 py-8 text-center text-sm ${sub}`}>
+                <td colSpan={7} className={`px-4 py-8 text-center text-sm ${sub}`}>
                   <ShieldCheck size={32} className="mx-auto mb-2 opacity-30" />
-                  No se encontraron licencias.
+                  No se encontraron cuentas.
                 </td>
               </tr>
             )}

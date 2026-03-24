@@ -67,7 +67,6 @@ export const AdminUserForm = () => {
     setError("")
     if (!form.username.trim() || !form.email.trim()) { setError("Usuario y email son obligatorios."); return }
     if (!isEdit && !form.password) { setError("La contraseña es obligatoria al crear."); return }
-    if (isSuperAdmin && selectedCompanies.length === 0) { setError("Un Super Admin debe tener al menos una empresa asignada."); return }
     setSaving(true)
     try {
       const payload: any = { ...form, ...(isSuperAdmin && { companyIds: selectedCompanies }) }
@@ -169,7 +168,7 @@ export const AdminUserForm = () => {
               Empresas Asignadas
             </h2>
             <p className={`text-xs mb-4 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-              Selecciona las empresas a las que tendrá acceso este Super Admin.
+              Opcional. Si no se asigna empresa, el usuario creará la suya desde el onboarding al iniciar sesión.
             </p>
             {!companies ? (
               <div className="flex items-center gap-2 text-sm text-gray-400">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import useSWR from "swr"
-import { ArrowLeft, Loader2, ShieldCheck, Save, Calendar } from "lucide-react"
+import { ArrowLeft, Loader2, ShieldCheck, Save, Calendar, Building2, Users } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher, apiPut } from "../../../services/api"
 
@@ -18,8 +18,9 @@ const PLANS = [
 
 interface LicenseData {
   id: string
-  companyId: string
+  userId: string
   plan: string
+  maxCompanies: number
   maxUsers: number
   maxEmployees: number
   startsAt: string
@@ -29,13 +30,16 @@ interface LicenseData {
 }
 
 interface LicenseInfo {
-  companyId: string
-  companyName: string
-  companyCode: string
+  userId: string
+  username: string
+  email: string
+  fullName: string
   isActive: boolean
   createdAt: string
-  employeeCount: number
-  userCount: number
+  companyCount: number
+  totalEmployees: number
+  totalUsers: number
+  companies: { id: string; name: string; code: string; isActive: boolean }[]
   license: LicenseData | null
 }
 
@@ -47,12 +51,12 @@ function toDateInput(iso: string | null | undefined): string {
 export const AdminLicenseForm = () => {
   const { isDarkMode: dark } = useTheme()
   const navigate = useNavigate()
-  const { companyId } = useParams<{ companyId: string }>()
+  const { userId } = useParams<{ userId: string }>()
 
   const { data, isLoading } = useSWR<LicenseInfo[]>(`${API}/api/admin/licenses`, authFetcher)
 
-  const company = data?.find(l => l.companyId === companyId)
-  const lic     = company?.license
+  const account = data?.find(l => l.userId === userId)
+  const lic     = account?.license
 
   const oneYearFromNow = () => {
     const d = new Date()
@@ -61,7 +65,7 @@ export const AdminLicenseForm = () => {
   }
 
   const [form, setForm] = useState({
-    plan: "TRIAL", maxUsers: 5, maxEmployees: 20,
+    plan: "TRIAL", maxCompanies: 1, maxUsers: 5, maxEmployees: 20,
     startsAt: toDateInput(new Date().toISOString()),
     expiresAt: oneYearFromNow(),
     isActive: true, notes: "",
@@ -73,6 +77,7 @@ export const AdminLicenseForm = () => {
     if (lic) {
       setForm({
         plan:         lic.plan,
+        maxCompanies: lic.maxCompanies,
         maxUsers:     lic.maxUsers,
         maxEmployees: lic.maxEmployees,
         startsAt:     toDateInput(lic.startsAt),
@@ -90,7 +95,7 @@ export const AdminLicenseForm = () => {
     setError("")
     setSaving(true)
     try {
-      await apiPut(`/api/admin/licenses/${companyId}`, {
+      await apiPut(`/api/admin/licenses/${userId}`, {
         ...form,
         expiresAt: form.expiresAt || null,
       })
@@ -114,10 +119,10 @@ export const AdminLicenseForm = () => {
     )
   }
 
-  if (!company) {
+  if (!account) {
     return (
       <div className="flex items-center justify-center min-h-[300px] text-gray-400">
-        Empresa no encontrada.
+        Cuenta no encontrada.
       </div>
     )
   }
@@ -138,19 +143,20 @@ export const AdminLicenseForm = () => {
           <ShieldCheck size={20} className="text-violet-500" />
           <div>
             <h1 className={`text-xl font-bold leading-tight ${dark ? "text-white" : "text-gray-900"}`}>
-              Licencia — {company.companyName}
+              Licencia — {account.fullName || account.username}
             </h1>
-            <p className={`text-xs font-mono ${dark ? "text-gray-500" : "text-gray-400"}`}>{company.companyCode}</p>
+            <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>{account.email}</p>
           </div>
         </div>
       </div>
 
       {/* Resumen actual */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "Empleados", value: `${company.employeeCount} / ${form.maxEmployees}` },
-          { label: "Usuarios",  value: `${company.userCount} / ${form.maxUsers}` },
-          { label: "Vence en",  value: daysLeft !== null ? (daysLeft < 0 ? "Expirada" : `${daysLeft}d`) : "Sin fecha" },
+          { label: "Empresas",   value: `${account.companyCount} / ${form.maxCompanies}`, icon: Building2 },
+          { label: "Empleados",  value: `${account.totalEmployees} / ${form.maxEmployees}`, icon: Users },
+          { label: "Usuarios",   value: `${account.totalUsers} / ${form.maxUsers}`, icon: Users },
+          { label: "Vence en",   value: daysLeft !== null ? (daysLeft < 0 ? "Expirada" : `${daysLeft}d`) : "Sin fecha", icon: null },
         ].map(({ label: l, value }) => (
           <div key={l} className={`rounded-xl border p-4 ${dark ? "bg-slate-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>{l}</p>
@@ -189,7 +195,13 @@ export const AdminLicenseForm = () => {
           <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 ${dark ? "text-gray-300" : "text-gray-700"}`}>
             Límites de Uso
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={label}>Máx. Empresas</label>
+              <input className={input} type="number" min={1} max={999}
+                value={form.maxCompanies}
+                onChange={e => set("maxCompanies", parseInt(e.target.value) || 1)} />
+            </div>
             <div>
               <label className={label}>Máx. Usuarios</label>
               <input className={input} type="number" min={1} max={9999}

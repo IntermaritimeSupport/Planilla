@@ -4,10 +4,10 @@ import { useState, useMemo } from "react"
 import useSWR from "swr"
 import {
   Search, Loader2, AlertTriangle, RefreshCw, UserCircle,
-  Shield, Building2, Plus, Pencil,
+  Shield, Building2, Plus, Pencil, Trash2,
 } from "lucide-react"
 import { useTheme } from "../../../context/themeContext"
-import { authFetcher } from "../../../services/api"
+import { authFetcher, apiDelete } from "../../../services/api"
 import PagesHeader from "../../../components/headers/pagesHeader"
 import { useNavigate } from "react-router-dom"
 
@@ -33,6 +33,7 @@ export const AdminUsers = () => {
   const navigate = useNavigate()
   const [search, setSearch]         = useState("")
   const [companyFilter, setCompanyFilter] = useState("ALL")
+  const [deleting, setDeleting]     = useState<string | null>(null)
 
   const { data, isLoading, error, mutate } = useSWR<AdminUser[]>(
     `${API}/api/admin/users`,
@@ -64,6 +65,19 @@ export const AdminUsers = () => {
       u.companies.some(uc => uc.company.id === companyFilter)
     return matchSearch && matchCompany
   })
+
+  const handleDelete = async (user: AdminUser) => {
+    if (!confirm(`¿Eliminar al usuario "${user.username}"? Esta acción no se puede deshacer.`)) return
+    setDeleting(user.id)
+    try {
+      await apiDelete(`/api/admin/users/${user.id}`)
+      await mutate()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al eliminar.")
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   const text     = dark ? "text-gray-200" : "text-gray-800"
   const sub      = dark ? "text-gray-400" : "text-gray-500"
@@ -175,12 +189,21 @@ export const AdminUsers = () => {
                   {new Date(user.createdAt).toLocaleDateString("es-PA")}
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => navigate(`/admin/users/edit/${user.id}`)}
-                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                  >
-                    <Pencil size={11} /> Editar
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => navigate(`/admin/users/edit/${user.id}`)}
+                      className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${dark ? "bg-slate-700 hover:bg-slate-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                    >
+                      <Pencil size={11} /> Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user)}
+                      disabled={deleting === user.id}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-50"
+                    >
+                      {deleting === user.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />} Eliminar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
