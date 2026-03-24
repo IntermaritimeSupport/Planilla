@@ -70,7 +70,7 @@ export const AdminUsers = () => {
 
   return (
     <div className="space-y-6">
-      <PagesHeader title="Administradores" subtitle="Global admins y super admins de cada empresa" />
+      <PagesHeader title="Administradores" description="Global admins y super admins de cada empresa" />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className={`${inputBase} flex-1 min-w-48`}>

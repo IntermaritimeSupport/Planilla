@@ -132,7 +132,7 @@ export const AdminCompanies = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <PagesHeader title="Empresas" subtitle="Crea y administra las empresas de la plataforma" />
+      <PagesHeader title="Empresas" description="Crea y administra las empresas de la plataforma" />
 
       {/* Barra de herramientas */}
       <div className="flex items-center gap-3">

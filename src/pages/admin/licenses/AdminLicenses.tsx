@@ -47,7 +47,7 @@ export const AdminLicenses = () => {
 
   return (
     <div className="space-y-6">
-      <PagesHeader title="Licencias" subtitle="Estado de licencias por empresa" />
+      <PagesHeader title="Licencias" description="Estado de licencias por empresa" />
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">

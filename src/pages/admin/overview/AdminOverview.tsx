@@ -32,7 +32,12 @@ const KpiCard = ({
 export const AdminOverview = () => {
   const { isDarkMode: dark } = useTheme()
 
-  const { data: stats, isLoading, error } = useSWR(
+  const { data: stats, isLoading, error } = useSWR<{
+    totalCompanies: number
+    totalUsers: number
+    totalEmployees: number
+    totalPayrolls: number
+  }>(
     `${API}/api/admin/stats`,
     authFetcher
   )
@@ -41,7 +46,7 @@ export const AdminOverview = () => {
 
   return (
     <div className="space-y-6">
-      <PagesHeader title="Panel de Administración" subtitle="Vista global de la plataforma FlowPlanilla" />
+      <PagesHeader title="Panel de Administración" description="Vista global de la plataforma FlowPlanilla" />
 
       {isLoading && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
