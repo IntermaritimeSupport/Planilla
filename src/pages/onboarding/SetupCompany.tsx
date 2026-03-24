@@ -1,14 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { Building2, Loader2, CheckSquare, Square, ChevronRight, LogOut } from "lucide-react"
 import { useTheme } from "../../context/themeContext"
 import { apiPost } from "../../services/api"
 import useUser from "../../hook/useUser"
 import Images from "../../assets"
-
-const API = import.meta.env.VITE_API_URL as string
 
 const COMMON_DEPARTMENTS = [
   { name: "Recursos Humanos",       emoji: "👥" },
@@ -27,7 +24,6 @@ const COMMON_DEPARTMENTS = [
 
 export default function SetupCompany() {
   const { isDarkMode: dark } = useTheme()
-  const navigate = useNavigate()
   const { logout } = useUser()
 
   const [step, setStep]           = useState<1 | 2>(1)
@@ -63,9 +59,10 @@ export default function SetupCompany() {
       })
 
       // Guardar empresa en localStorage para que el contexto la pique
-      localStorage.setItem("selectedCompany", JSON.stringify(company))
+      const created = company as { code: string }
+      localStorage.setItem("selectedCompany", JSON.stringify(created))
       // Forzar recarga para que SWR de my-companies se reinicie y el contexto se actualice
-      window.location.href = `/${company.code}/dashboard/all`
+      window.location.href = `/${created.code}/dashboard/all`
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear la empresa.")
       setSaving(false)
