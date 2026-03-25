@@ -150,7 +150,7 @@ function TabInfo({ emp, dark }: { emp: any; dark: boolean }) {
 // ─── Tab: Vacaciones ──────────────────────────────────────────────────────────
 
 function TabVacaciones({ employeeId, companyId, dark }: { employeeId: string; companyId: string; dark: boolean }) {
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<any>(
     `${API_URL}/api/payroll/leaves?employeeId=${employeeId}&companyId=${companyId}`,
     authFetcher
   )
@@ -245,7 +245,7 @@ function TabContrato({ emp, dark }: { emp: any; dark: boolean }) {
 // ─── Tab: Nóminas ─────────────────────────────────────────────────────────────
 
 function TabNominas({ employeeId, companyId, hireDate, dark }: { employeeId: string; companyId: string; hireDate: string | null | undefined; dark: boolean }) {
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<any>(
     hireDate
       ? `${API_URL}/api/payroll/payrolls?employeeId=${employeeId}&companyId=${companyId}`
       : null,
@@ -333,7 +333,7 @@ function TabNominas({ employeeId, companyId, hireDate, dark }: { employeeId: str
 // ─── Tab: Historial Salarial ──────────────────────────────────────────────────
 
 function TabSalarios({ employeeId, dark }: { employeeId: string; dark: boolean }) {
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<any>(
     `${API_URL}/api/payroll/employees/${employeeId}/salary-history`,
     authFetcher
   )
@@ -381,7 +381,7 @@ function TabSalarios({ employeeId, dark }: { employeeId: string; dark: boolean }
 // ─── Tab: Liquidación ─────────────────────────────────────────────────────────
 
 function TabLiquidacion({ employeeId, companyId, dark }: { employeeId: string; companyId: string; dark: boolean }) {
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<any>(
     `${API_URL}/api/payroll/liquidaciones?companyId=${companyId}`,
     authFetcher
   )
