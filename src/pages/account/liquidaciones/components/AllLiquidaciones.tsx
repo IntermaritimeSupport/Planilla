@@ -154,7 +154,6 @@ export const AllLiquidaciones: React.FC = () => {
   }, [])
 
   const [search, setSearch] = useState("")
-  const [terminatedIds, setTerminatedIds] = useState<Set<string>>(new Set())
   const [revertingId, setRevertingId] = useState<string | null>(null)
   const [revertingStatusId, setRevertingStatusId] = useState<string | null>(null)
   // const [filterTipo, setFilterTipo] = useState<TipoTerminacion | "todos">("todos")
@@ -185,9 +184,9 @@ export const AllLiquidaciones: React.FC = () => {
   const activeEmployees = useMemo(() => {
     if (!employees) return []
     return employees.filter(e =>
-      (e.status === "ACTIVE" || e.status === "SUSPENDED") && !terminatedIds.has(e.id)
+      (e.status === "ACTIVE" || e.status === "SUSPENDED")
     )
-  }, [employees, terminatedIds])
+  }, [employees])
 
   // ── EMPLEADOS TERMINADOS (para revertir error) ──
   const terminatedEmployees = useMemo(() => {
