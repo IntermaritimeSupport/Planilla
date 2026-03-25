@@ -257,7 +257,6 @@ export const AllDecimo: React.FC = () => {
   }
 
   const brd = isDarkMode ? "border-gray-700" : "border-gray-200"
-  const lbl = `block text-xs font-bold uppercase mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`
 
   return (
     <div className={`transition-colors ${isDarkMode ? "bg-slate-900 text-white" : "text-gray-900"}`}>
