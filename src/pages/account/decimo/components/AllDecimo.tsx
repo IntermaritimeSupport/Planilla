@@ -23,7 +23,22 @@ const PARTIDA_INFO = [
 const PAGE_SIZE = 15
 
 type SalaryType = "MONTHLY" | "BIWEEKLY"
-interface EmployeeBase { id: string; firstName: string; lastName: string; cedula: string; salary: number; salaryType: SalaryType; hireDate?: string }
+
+interface SalaryHistoryEntry {
+  id: string
+  previousSalary: number
+  newSalary: number
+  previousType: string
+  newType: string
+  effectiveDate: string
+}
+
+interface EmployeeBase {
+  id: string; firstName: string; lastName: string; cedula: string
+  salary: number; salaryType: SalaryType; hireDate?: string | null
+  salaryHistory?: SalaryHistoryEntry[]
+}
+
 interface LegalParameter { id: string; key: string; percentage: number; category: string; minRange: number | null; maxRange: number | null; status: string }
 interface DecimoCalc { grossThirteenth: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
 interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: DecimoCalc }
@@ -32,6 +47,129 @@ interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDI
 
 const fmt = (n: number) => new Intl.NumberFormat("es-PA", { style: "currency", currency: "USD" }).format(n)
 function getMonthlySalary(salary: number, salaryType: SalaryType): number { return salaryType === "BIWEEKLY" ? salary * 2 : salary }
+
+// Períodos exactos de cada partida (inicio inclusivo, fin inclusivo)
+// Partida 1: 16 Dic año-1 → 15 Abr año
+// Partida 2: 16 Abr año   → 15 Ago año
+// Partida 3: 16 Ago año   → 15 Dic año
+function getPartidaRange(part: 1 | 2 | 3, year: number): { start: Date; end: Date } {
+  if (part === 1) return {
+    start: new Date(year - 1, 11, 16, 0, 0, 0, 0),
+    end:   new Date(year,     3, 15, 23, 59, 59, 999),
+  }
+  if (part === 2) return {
+    start: new Date(year, 3, 16, 0, 0, 0, 0),
+    end:   new Date(year, 7, 15, 23, 59, 59, 999),
+  }
+  return {
+    start: new Date(year, 7, 16, 0, 0, 0, 0),
+    end:   new Date(year, 11, 15, 23, 59, 59, 999),
+  }
+}
+
+/**
+ * Calcula la base bruta proporcional del décimo de un empleado para una partida,
+ * considerando su fecha de ingreso y los cambios de salario que ocurrieron
+ * dentro del período.
+ *
+ * Algoritmo:
+ * 1. El período efectivo empieza en max(inicio_partida, hireDate)
+ * 2. Se construye una línea de tiempo de salarios vigentes dentro del período
+ * 3. Por cada segmento [segStart, segEnd] con salario S:
+ *    - Para cada mes calendario que toca el segmento:
+ *      diasTrabajadosEnMes / diasTotalesDelMes × salarioMensual
+ * 4. Se suman todos los aportes
+ */
+function calcDecimoBase(
+  emp: EmployeeBase,
+  part: 1 | 2 | 3,
+  year: number,
+): number {
+  const { start: pStart, end: pEnd } = getPartidaRange(part, year)
+
+  // Ajustar inicio por hireDate
+  const hireDate = emp.hireDate ? new Date(emp.hireDate) : null
+  const effectiveStart = hireDate && hireDate > pStart ? hireDate : pStart
+
+  // Si no llegó a trabajar en este período
+  if (effectiveStart > pEnd) return 0
+
+  // Construir línea de tiempo de cambios de salario dentro del período
+  // Cada entrada: { from: Date, salary: number, salaryType: SalaryType }
+  type Segment = { from: Date; salary: number; salaryType: SalaryType }
+  const segments: Segment[] = []
+
+  // Salario actual es el vigente desde la última fecha de la historia hasta hoy
+  const history = (emp.salaryHistory ?? []).slice().sort(
+    (a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime()
+  )
+
+  if (history.length === 0) {
+    // Sin historial: salario actual aplica para todo el período
+    segments.push({ from: effectiveStart, salary: emp.salary, salaryType: emp.salaryType })
+  } else {
+    // El primer segmento usa el salario que estaba vigente antes del primer cambio
+    // (previousSalary del primer registro)
+    const firstChange = history[0]
+    const firstChangeDate = new Date(firstChange.effectiveDate)
+
+    if (firstChangeDate > effectiveStart) {
+      // Antes del primer cambio: usar previousSalary del primer registro
+      segments.push({
+        from: effectiveStart,
+        salary: Number(firstChange.previousSalary),
+        salaryType: firstChange.previousType as SalaryType,
+      })
+    }
+
+    for (let i = 0; i < history.length; i++) {
+      const change = history[i]
+      const changeDate = new Date(change.effectiveDate)
+      if (changeDate > pEnd) break
+      const segStart = changeDate < effectiveStart ? effectiveStart : changeDate
+      segments.push({
+        from: segStart,
+        salary: Number(change.newSalary),
+        salaryType: change.newType as SalaryType,
+      })
+    }
+  }
+
+  // Calcular base sumando aporte de cada segmento día a día por mes
+  let base = 0
+  for (let i = 0; i < segments.length; i++) {
+    const segStart = segments[i].from
+    const segEnd = i + 1 < segments.length
+      ? new Date(new Date(segments[i + 1].from).getTime() - 1)  // justo antes del siguiente cambio
+      : pEnd
+
+    // Recortar al período efectivo
+    const s = segStart < effectiveStart ? effectiveStart : segStart
+    const e = segEnd > pEnd ? pEnd : segEnd
+
+    if (s > e) continue
+
+    const monthlySalary = getMonthlySalary(segments[i].salary, segments[i].salaryType)
+
+    // Iterar mes a mes dentro del segmento [s, e]
+    let cursor = new Date(s.getFullYear(), s.getMonth(), 1)
+    while (cursor <= e) {
+      const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+      const monthEnd   = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
+      const daysInMonth = monthEnd.getDate()
+
+      const workStart = s > monthStart ? s : monthStart
+      const workEnd   = e < monthEnd   ? e : monthEnd
+
+      const daysWorked = workEnd.getDate() - workStart.getDate() + 1
+      base += (monthlySalary / daysInMonth) * daysWorked
+
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+    }
+  }
+
+  return Number(base.toFixed(4))
+}
 
 export const AllDecimo: React.FC = () => {
   const { selectedCompany } = useCompany()
@@ -70,35 +208,17 @@ export const AllDecimo: React.FC = () => {
   }, [decimoHistory, currentPartida])
 
 
+// Calcula deducciones y neto dado un monto bruto proporcional ya calculado
 const calculateThirteenth = useCallback(
-  (monthlySalary: number, part: 1 | 2 | 3): DecimoCalc => {
+  (grossPart: number): DecimoCalc => {
     const ssEmpRate = getParam("ss_decimo")?.percentage ?? 7.25
     const ssPatRate = getParam("ss_decimo_patrono")?.percentage ?? 10.75
 
-    const annualThirteenth = monthlySalary
-    const annualSsEmp = annualThirteenth * (ssEmpRate / 100)
-    const annualSsPat = annualThirteenth * (ssPatRate / 100)
+    const gross = Number(grossPart.toFixed(2))
+    const ssEmp = Number((gross * (ssEmpRate / 100)).toFixed(2))
+    const ssPat = Number((gross * (ssPatRate / 100)).toFixed(2))
 
-    // Bruto por partida (÷3, la 3ra absorbe residuo de redondeo)
-    const grossPart1 = Number((annualThirteenth / 3).toFixed(2))
-    const grossPart2 = Number((annualThirteenth / 3).toFixed(2))
-    const grossPart3 = Number((annualThirteenth - grossPart1 - grossPart2).toFixed(2))
-    const grossPart  = part === 1 ? grossPart1 : part === 2 ? grossPart2 : grossPart3
-
-    // SS empleado por partida (÷3, la 3ra absorbe residuo)
-    const ssEmpPart1 = Number((annualSsEmp / 3).toFixed(2))
-    const ssEmpPart2 = Number((annualSsEmp / 3).toFixed(2))
-    const ssEmpPart3 = Number((annualSsEmp - ssEmpPart1 - ssEmpPart2).toFixed(2))
-    const ssEmp      = part === 1 ? ssEmpPart1 : part === 2 ? ssEmpPart2 : ssEmpPart3
-
-    // SS patrono por partida (÷3, la 3ra absorbe residuo)
-    const ssPatPart1 = Number((annualSsPat / 3).toFixed(2))
-    const ssPatPart2 = Number((annualSsPat / 3).toFixed(2))
-    const ssPatPart3 = Number((annualSsPat - ssPatPart1 - ssPatPart2).toFixed(2))
-    const ssPat      = part === 1 ? ssPatPart1 : part === 2 ? ssPatPart2 : ssPatPart3
-
-    // ISR método DGI — se calcula directamente sobre el bruto de la partida
-    // Monto exento proporcional = minRange del primer tramo con tasa > 0 ÷ 39 quincenas
+    // ISR sobre el bruto proporcional de la partida
     const isrBrackets = legalParams
       ?.filter(p => p.category === "isr" && p.status === "active" && p.percentage > 0)
       .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0)) ?? []
@@ -106,31 +226,31 @@ const calculateThirteenth = useCallback(
     const exentoAnual = primerTramoConTasa?.minRange ?? 11000
     const tasaISR     = (primerTramoConTasa?.percentage ?? 15) / 100
     const montoExento = Number((exentoAnual / 39).toFixed(6))
-    const isr         = Number((Math.max(0, (grossPart - montoExento) * tasaISR)).toFixed(2))
+    const isr         = Number((Math.max(0, (gross - montoExento) * tasaISR)).toFixed(2))
 
-    const net              = Number((grossPart - ssEmp - isr).toFixed(2))
-    const totalCostPatrono = Number((grossPart + ssPat).toFixed(2))
+    const net              = Number((gross - ssEmp - isr).toFixed(2))
+    const totalCostPatrono = Number((gross + ssPat).toFixed(2))
 
-    return { grossThirteenth: grossPart, ssEmp, ssPat, isr, net, totalCostPatrono }
+    return { grossThirteenth: gross, ssEmp, ssPat, isr, net, totalCostPatrono }
   },
   [getParam, legalParams]
 )
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
-    // Fin de la partida actual (la 3ra partida cubre hasta dic del año en curso)
-    const partidaEndMonth = currentPartida === 1 ? 3 : currentPartida === 2 ? 7 : 11
-    const partidaEnd = new Date(year, partidaEndMonth, currentPartida === 2 ? 15 : new Date(year, partidaEndMonth + 1, 0).getDate())
-    partidaEnd.setHours(23, 59, 59, 999)
+    const part = currentPartida as 1 | 2 | 3
+    const { end: pEnd } = getPartidaRange(part, year)
 
     return employees
       .filter(emp => {
         if (!emp.hireDate) return true
-        return new Date(emp.hireDate) <= partidaEnd
+        return new Date(emp.hireDate) <= pEnd
       })
       .map((emp) => {
         const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-        return { ...emp, monthlySalary, calc: calculateThirteenth(monthlySalary, currentPartida as 1 | 2 | 3) }
+        // Base bruta proporcional: considera hireDate y cambios de salario
+        const grossBase = calcDecimoBase(emp, part, year)
+        return { ...emp, monthlySalary, calc: calculateThirteenth(grossBase) }
       })
   }, [employees, calculateThirteenth, currentPartida, year])
 

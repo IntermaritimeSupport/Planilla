@@ -442,39 +442,80 @@ function TabLiquidacion({ employeeId, companyId, dark }: { employeeId: string; c
 
 // ─── Tab: Décimos ─────────────────────────────────────────────────────────────
 
-// Misma lógica que AllDecimo.tsx — salario mensual normalizado
 function getMonthlySalary(salary: number, salaryType: string): number {
   return salaryType === "BIWEEKLY" ? salary * 2 : salary
 }
 
-// Mismo cálculo exacto de AllDecimo.tsx para una partida
+function getPartidaRange(part: 1 | 2 | 3, year: number): { start: Date; end: Date } {
+  if (part === 1) return { start: new Date(year - 1, 11, 16), end: new Date(year, 3, 15, 23, 59, 59, 999) }
+  if (part === 2) return { start: new Date(year, 3, 16),      end: new Date(year, 7, 15, 23, 59, 59, 999) }
+  return             { start: new Date(year, 7, 16),           end: new Date(year, 11, 15, 23, 59, 59, 999) }
+}
+
+// Calcula la base bruta proporcional considerando hireDate y cambios de salario
+function calcDecimoBase(emp: any, part: 1 | 2 | 3, year: number): number {
+  const { start: pStart, end: pEnd } = getPartidaRange(part, year)
+  const hireDate = emp.hireDate ? new Date(emp.hireDate) : null
+  const effectiveStart = hireDate && hireDate > pStart ? hireDate : pStart
+  if (effectiveStart > pEnd) return 0
+
+  type Seg = { from: Date; salary: number; salaryType: string }
+  const history: any[] = (emp.salaryHistory ?? []).slice().sort(
+    (a: any, b: any) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime()
+  )
+
+  const segments: Seg[] = []
+  if (history.length === 0) {
+    segments.push({ from: effectiveStart, salary: Number(emp.salary), salaryType: emp.salaryType })
+  } else {
+    const firstChange = history[0]
+    const firstChangeDate = new Date(firstChange.effectiveDate)
+    if (firstChangeDate > effectiveStart) {
+      segments.push({ from: effectiveStart, salary: Number(firstChange.previousSalary), salaryType: firstChange.previousType })
+    }
+    for (let i = 0; i < history.length; i++) {
+      const change = history[i]
+      const changeDate = new Date(change.effectiveDate)
+      if (changeDate > pEnd) break
+      const segStart = changeDate < effectiveStart ? effectiveStart : changeDate
+      segments.push({ from: segStart, salary: Number(change.newSalary), salaryType: change.newType })
+    }
+  }
+
+  let base = 0
+  for (let i = 0; i < segments.length; i++) {
+    const segEnd = i + 1 < segments.length
+      ? new Date(new Date(segments[i + 1].from).getTime() - 1)
+      : pEnd
+    const s = segments[i].from < effectiveStart ? effectiveStart : segments[i].from
+    const e = segEnd > pEnd ? pEnd : segEnd
+    if (s > e) continue
+    const monthlySal = getMonthlySalary(segments[i].salary, segments[i].salaryType)
+    let cursor = new Date(s.getFullYear(), s.getMonth(), 1)
+    while (cursor <= e) {
+      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
+      const daysInMonth = monthEnd.getDate()
+      const workStart = s > cursor ? s : cursor
+      const workEnd   = e < monthEnd ? e : monthEnd
+      const daysWorked = workEnd.getDate() - workStart.getDate() + 1
+      base += (monthlySal / daysInMonth) * daysWorked
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+    }
+  }
+  return Number(base.toFixed(4))
+}
+
+// Aplica deducciones sobre la base bruta proporcional
 function calcDecimoPartida(
-  monthlySalary: number,
-  part: 1 | 2 | 3,
+  grossBase: number,
   ssEmpRate: number,
   ssPatRate: number,
   legalParams: any[]
 ): { gross: number; ssEmp: number; ssPat: number; isr: number; net: number } {
-  const annual = monthlySalary
-  const annualSsEmp = annual * (ssEmpRate / 100)
-  const annualSsPat = annual * (ssPatRate / 100)
+  const gross  = Number(grossBase.toFixed(2))
+  const ssEmp  = Number((gross * (ssEmpRate / 100)).toFixed(2))
+  const ssPat  = Number((gross * (ssPatRate / 100)).toFixed(2))
 
-  const g1 = Number((annual / 3).toFixed(2))
-  const g2 = Number((annual / 3).toFixed(2))
-  const g3 = Number((annual - g1 - g2).toFixed(2))
-  const gross = part === 1 ? g1 : part === 2 ? g2 : g3
-
-  const s1 = Number((annualSsEmp / 3).toFixed(2))
-  const s2 = Number((annualSsEmp / 3).toFixed(2))
-  const s3 = Number((annualSsEmp - s1 - s2).toFixed(2))
-  const ssEmp = part === 1 ? s1 : part === 2 ? s2 : s3
-
-  const p1 = Number((annualSsPat / 3).toFixed(2))
-  const p2 = Number((annualSsPat / 3).toFixed(2))
-  const p3 = Number((annualSsPat - p1 - p2).toFixed(2))
-  const ssPat = part === 1 ? p1 : part === 2 ? p2 : p3
-
-  // ISR — mismo método DGI de AllDecimo
   const isrBrackets = legalParams
     .filter((p: any) => p.category === "isr" && p.status === "active" && p.percentage > 0)
     .sort((a: any, b: any) => (a.minRange ?? 0) - (b.minRange ?? 0))
@@ -489,12 +530,16 @@ function calcDecimoPartida(
 }
 
 const PARTIDA_LABELS = ["", "1ra Partida (Abril)", "2da Partida (Agosto)", "3ra Partida (Diciembre)"]
-const PARTIDA_PERIOD = [
+const PARTIDA_PERIOD: Array<string | ((y: number) => string)> = [
   "",
   (y: number) => `16 Dic ${y-1} – 15 Abr ${y}`,
   (y: number) => `16 Abr ${y} – 15 Ago ${y}`,
   (y: number) => `16 Ago ${y} – 15 Dic ${y}`,
 ]
+const getPartidaPeriodLabel = (partida: number, year: number): string => {
+  const fn = PARTIDA_PERIOD[partida]
+  return typeof fn === "function" ? fn(year) : fn
+}
 
 function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dark: boolean }) {
   const currentYear = new Date().getFullYear()
@@ -510,7 +555,7 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
     `${API_URL}/api/system/legal-decimo-parameters?companyId=${companyId}`,
     authFetcher
   )
-  const { data: history, isLoading: loadingHistory } = useSWR(
+  const { data: history, isLoading: loadingHistory } = useSWR<any>(
     `${API_URL}/api/payroll/decimo/history?companyId=${companyId}&year=${selectedYear}`,
     authFetcher
   )
@@ -521,16 +566,9 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
   const ssEmpRate  = params.find((p: any) => p.key === "ss_decimo"         && p.status === "active")?.percentage ?? 7.25
   const ssPatRate  = params.find((p: any) => p.key === "ss_decimo_patrono" && p.status === "active")?.percentage ?? 10.75
 
-  const monthlySalary = getMonthlySalary(Number(emp.salary) || 0, emp.salaryType)
-
-  // Calcular si el empleado estaba activo en cada partida (igual que AllDecimo filtra por hireDate <= partidaEnd)
   const isActiveInPartida = (partida: 1 | 2 | 3): boolean => {
-    const partidaEndMonth = partida === 1 ? 3 : partida === 2 ? 7 : 11
-    const partidaEnd = new Date(selectedYear, partidaEndMonth,
-      partida === 2 ? 15 : new Date(selectedYear, partidaEndMonth + 1, 0).getDate()
-    )
-    partidaEnd.setHours(23, 59, 59, 999)
-    return new Date(emp.hireDate) <= partidaEnd
+    const { end } = getPartidaRange(partida, selectedYear)
+    return new Date(emp.hireDate) <= end
   }
 
   const partidasHistory: any[] = history?.partidas ?? []
@@ -570,12 +608,13 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
               </div>
               <div>
                 <p className="font-medium text-sm">{PARTIDA_LABELS[partida]}</p>
-                <p className="text-xs text-slate-400">{PARTIDA_PERIOD[partida](selectedYear)} · No aplica (ingresó después)</p>
+                <p className="text-xs text-slate-400">{getPartidaPeriodLabel(partida, selectedYear)} · No aplica (ingresó después)</p>
               </div>
             </div>
           )
 
-          const calc = calcDecimoPartida(monthlySalary, partida, ssEmpRate, ssPatRate, params)
+          const grossBase = calcDecimoBase(emp, partida, selectedYear)
+          const calc = calcDecimoPartida(grossBase, ssEmpRate, ssPatRate, params)
 
           return (
             <div key={partida} className={`rounded-xl border overflow-hidden ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
@@ -587,7 +626,7 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{PARTIDA_LABELS[partida]}</p>
-                    <p className="text-xs text-slate-400">{PARTIDA_PERIOD[partida](selectedYear)}</p>
+                    <p className="text-xs text-slate-400">{getPartidaPeriodLabel(partida, selectedYear)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -702,7 +741,7 @@ export default function EmployeeProfile() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>("info")
 
-  const { data: emp, isLoading } = useSWR(
+  const { data: emp, isLoading } = useSWR<any>(
     employeeId ? `${API_URL}/api/payroll/employees/${employeeId}` : null,
     authFetcher
   )
