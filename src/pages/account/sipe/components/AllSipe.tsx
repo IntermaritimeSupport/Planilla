@@ -21,6 +21,7 @@ interface Employee {
   cedula: string
   salary: number
   salaryType: "MONTHLY" | "BIWEEKLY"
+  hireDate?: string | null
 }
 
 interface LegalParameter {
@@ -179,13 +180,25 @@ export const AllSipe: React.FC = () => {
      CÁLCULOS ANUALES (12 MESES)
   ============================ */
 
+  // Devuelve los empleados que ya habían ingresado al final del mes indicado
+  const empActiveInMonth = useCallback((month: number, year: number): Employee[] => {
+    if (!employees) return []
+    const lastDay = new Date(year, month, 0) // último día del mes
+    lastDay.setHours(23, 59, 59, 999)
+    return employees.filter(e => {
+      if (!e.hireDate) return true // sin fecha de ingreso se incluye siempre
+      return new Date(e.hireDate) <= lastDay
+    })
+  }, [employees])
+
   const monthCalcs = useMemo<MonthCalc[]>(() => {
     if (!employees || !legalParams) return []
 
     return Array.from({ length: 12 }, (_, i) => {
       const month      = i + 1
       const isDecimo   = DECIMO_MONTHS.has(month)
-      const calcs      = employees.map(e => calcEmployee(e, isDecimo))
+      const active     = empActiveInMonth(month, selectedYear)
+      const calcs      = active.map(e => calcEmployee(e, isDecimo))
       const isPast     = selectedYear < currentYear || (selectedYear === currentYear && month < currentMonth)
       const isCurrent  = selectedYear === currentYear && month === currentMonth
 
@@ -208,14 +221,15 @@ export const AllSipe: React.FC = () => {
         isCurrent,
       }
     })
-  }, [employees, legalParams, selectedYear, currentYear, currentMonth, calcEmployee])
+  }, [employees, legalParams, selectedYear, currentYear, currentMonth, calcEmployee, empActiveInMonth])
 
-  // Empleados para el modal del mes seleccionado
+  // Empleados para el modal del mes seleccionado — solo los activos en ese mes
   const modalCalcs = useMemo<SipeEmployeeCalc[]>(() => {
     if (!employees || !legalParams || selectedMonth === null) return []
     const isDecimo = DECIMO_MONTHS.has(selectedMonth)
-    return employees.map(e => calcEmployee(e, isDecimo))
-  }, [employees, legalParams, selectedMonth, calcEmployee])
+    const active   = empActiveInMonth(selectedMonth, selectedYear)
+    return active.map(e => calcEmployee(e, isDecimo))
+  }, [employees, legalParams, selectedMonth, selectedYear, calcEmployee, empActiveInMonth])
 
   const totalAnual = useMemo(
     () => Number(monthCalcs.reduce((s, m) => s + m.total, 0).toFixed(2)),

@@ -45,6 +45,7 @@ import LegalPage from "../pages/account/legal/page";
 import { AllEmployees } from "../pages/account/employees/components/AllEmployees";
 import EmployeesPage from "../pages/account/employees/page";
 import ManageEmployeePage from "../pages/account/employees/components/updateEmployee";
+import EmployeeProfile from "../pages/account/employees/components/EmployeeProfile";
 import SipePage from "../pages/account/sipe/page";
 import { AllSipe } from "../pages/account/sipe/components/AllSipe";
 import IsrPage from "../pages/account/isr/page";
@@ -58,6 +59,7 @@ import { VacacionesMain } from "../pages/account/vacaciones/components/Vacacione
 import { VacacionesEmpleadoPerfil } from "../pages/account/vacaciones/components/VacacionesEmpleadoPerfil";
 import LiquidacionesPage from "../pages/account/liquidaciones/page";
 import { AllLiquidaciones } from "../pages/account/liquidaciones/components/AllLiquidaciones";
+import LiquidacionEmpleadoPage from "../pages/account/liquidaciones/components/LiquidacionEmpleadoPage";
 import ProtectedAdminRoute from "./protectedAdminRoute";
 import SetupCompany from "../pages/onboarding/SetupCompany";
 import { AdminOverview } from "../pages/admin/overview/AdminOverview";
@@ -539,6 +541,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         <Route path="all" element={<AllEmployees />} />
         <Route path="create" element={<ManageEmployeePage />} />
         <Route path="edit/:id" element={<ManageEmployeePage />} />
+        <Route path="profile/:id" element={<EmployeeProfile />} />
       </Route>
 
       <Route
@@ -719,6 +722,7 @@ export const AppRoutes: React.FC<Props> = ({ pathnameLocation, companies }) => {
         }
       >
         <Route path="all" element={<AllLiquidaciones />} />
+        <Route path="procesar/:employeeId" element={<LiquidacionEmpleadoPage />} />
       </Route>
 
       <Route

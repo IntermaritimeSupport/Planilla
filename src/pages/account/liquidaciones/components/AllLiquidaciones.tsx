@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import useSWR from "swr"
 import { useNotifications } from "../../../../context/notificationContext"
 import { useCompany } from "../../../../context/routerContext"
@@ -8,12 +9,13 @@ import { useTheme } from "../../../../context/themeContext"
 import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
 import {
-  FileText, Search, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Info, Loader2, Calculator, Download, Users,
+  FileText, Search, AlertTriangle,
+  CheckCircle, Info, Loader2, Calculator, Users,
   Calendar, DollarSign, Clock, ShieldAlert, RotateCcw, History,
+  ArrowRight,
 } from "lucide-react"
 import { ExportButtons } from "../../../../components/exports/ExportButtons"
-import { exportLiquidacionesExcel, exportLiquidacionesPDF, exportLiquidacionIndividualPDF } from "../../../../utils/exports/exportEngine"
+import { exportLiquidacionesExcel, exportLiquidacionesPDF } from "../../../../utils/exports/exportEngine"
 import {
   type LiquidacionEmployee,
   type LiquidacionLegalParam,
@@ -60,8 +62,6 @@ interface LiquidacionRecord {
 const fmt = (n: number) =>
   `$${(Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-const fmtDays = (n: number) => `${Number(n).toFixed(1)} días`
-
 const TIPO_LABELS: Record<TipoTerminacion, { label: string; color: string; icon: React.ReactNode }> = {
   DESPIDO_INJUSTIFICADO: { label: "Despido Injustificado", color: "red", icon: <ShieldAlert size={13} /> },
   RENUNCIA: { label: "Renuncia Voluntaria", color: "amber", icon: <Clock size={13} /> },
@@ -70,484 +70,66 @@ const TIPO_LABELS: Record<TipoTerminacion, { label: string; color: string; icon:
   TERMINACION_CONTRATO: { label: "Terminación de Contrato", color: "orange", icon: <FileText size={13} /> },
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONCEPTO ROW — fila de desglose
-// ─────────────────────────────────────────────────────────────────────────────
-
-const ConceptoRow: React.FC<{
-  label: string; value: number; sub?: string; isDark: boolean
-  highlight?: boolean; negative?: boolean; disabled?: boolean
-}> = ({ label, value, sub, isDark, highlight, negative, disabled }) => {
-  if (disabled) return null
-  return (
-    <div className={`flex justify-between items-center py-2.5 px-4 rounded-lg ${
-      highlight
-        ? isDark ? "bg-emerald-900/20 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-200"
-        : negative
-        ? isDark ? "bg-red-900/10" : "bg-red-50"
-        : isDark ? "bg-slate-800/50" : "bg-gray-50"
-    }`}>
-      <div>
-        <p className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>{label}</p>
-        {sub && <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>{sub}</p>}
-      </div>
-      <p className={`font-mono font-bold text-sm ${
-        highlight ? "text-emerald-500"
-        : negative ? "text-red-400"
-        : isDark ? "text-white" : "text-gray-900"
-      }`}>
-        {negative ? "-" : ""}{fmt(value)}
-      </p>
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BADGE TIPO
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TipoBadge: React.FC<{ tipo: TipoTerminacion; isDark: boolean }> = ({ tipo, isDark }) => {
-  const cfg = TIPO_LABELS[tipo]
-  const colorMap: Record<string, string> = {
-    red: isDark ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-red-100 text-red-700 border-red-300",
-    amber: isDark ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-amber-100 text-amber-700 border-amber-300",
-    blue: isDark ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-blue-100 text-blue-700 border-blue-300",
-    purple: isDark ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-purple-100 text-purple-700 border-purple-300",
-    orange: isDark ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-orange-100 text-orange-700 border-orange-300",
-  }
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${colorMap[cfg.color]}`}>
-      {cfg.icon} {cfg.label}
-    </span>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SELECTOR DE TIPO DE TERMINACIÓN
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TipoSelector: React.FC<{
-  value: TipoTerminacion; onChange: (v: TipoTerminacion) => void; isDark: boolean
-}> = ({ value, onChange, isDark }) => (
-  <div className="grid grid-cols-2 gap-2">
-    {(Object.keys(TIPO_LABELS) as TipoTerminacion[]).map(tipo => {
-      const cfg = TIPO_LABELS[tipo]
-      const active = value === tipo
-      const colorActive: Record<string, string> = {
-        red: "border-red-500 bg-red-500/10 text-red-400",
-        amber: "border-amber-500 bg-amber-500/10 text-amber-400",
-        blue: "border-blue-500 bg-blue-500/10 text-blue-400",
-        purple: "border-purple-500 bg-purple-500/10 text-purple-400",
-        orange: "border-orange-500 bg-orange-500/10 text-orange-400",
-      }
-      return (
-        <button
-          key={tipo}
-          onClick={() => onChange(tipo)}
-          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all text-left ${
-            active
-              ? colorActive[cfg.color]
-              : isDark
-              ? "border-slate-700 text-gray-400 hover:border-slate-600 hover:bg-slate-800"
-              : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          {cfg.icon} {cfg.label}
-        </button>
-      )
-    })}
-  </div>
-)
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DETALLE EXPANDIBLE POR EMPLEADO
+// FILA DE EMPLEADO — navega a la página de liquidación
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EmpleadoRow: React.FC<{
   employee: LiquidacionEmployee
   legalParams: LiquidacionLegalParam[]
   isDark: boolean
-  companyName: string
-  diasVacPagadas: number
-  companyId: string
-  onTerminated: (id: string) => void
-}> = ({ employee, legalParams, isDark, companyName, diasVacPagadas, companyId, onTerminated }) => {
-  const [open, setOpen] = useState(false)
-  const [tipo, setTipo] = useState<TipoTerminacion>("DESPIDO_INJUSTIFICADO")
-  const [fechaTerm, setFechaTerm] = useState(new Date().toISOString().split("T")[0])
-  const [terminating, setTerminating] = useState(false)
-  const [diasPendienteOverride, setDiasPendienteOverride] = useState<string>("")
+  companyCode: string
+}> = ({ employee, legalParams, isDark, companyCode }) => {
+  const navigate = useNavigate()
 
   const calc = useMemo<LiquidacionDesglose>(() => {
-    const diasOverride = diasPendienteOverride !== "" ? Number(diasPendienteOverride) : undefined
-    return calcularLiquidacion(employee, tipo, new Date(fechaTerm + "T12:00:00"), legalParams, diasVacPagadas, diasOverride)
-  }, [employee, tipo, fechaTerm, legalParams, diasVacPagadas, diasPendienteOverride])
+    return calcularLiquidacion(employee, "DESPIDO_INJUSTIFICADO", new Date(), legalParams, 0)
+  }, [employee, legalParams])
 
   const td = "px-4 py-3 text-sm"
 
   return (
-    <>
-      <tr
-        onClick={() => setOpen(o => !o)}
-        className={`cursor-pointer border-b transition-colors ${
-          isDark ? "border-slate-700/50 hover:bg-slate-700/20" : "border-gray-100 hover:bg-gray-50"
-        }`}
-      >
-        {/* Empleado */}
-        <td className={`${td} pl-6`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-              isDark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"
-            }`}>
-              {employee.firstName[0]}{employee.lastName[0]}
-            </div>
-            <div>
-              <p className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
-                {employee.firstName} {employee.lastName}
-              </p>
-              <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                {employee.cedula} · {employee.position || "—"}
-              </p>
-            </div>
+    <tr
+      onClick={() => navigate(`/${companyCode}/liquidaciones/procesar/${employee.id}`)}
+      className={`cursor-pointer border-b transition-colors ${
+        isDark ? "border-slate-700/50 hover:bg-slate-700/20" : "border-gray-100 hover:bg-gray-50"
+      }`}
+    >
+      <td className={`${td} pl-6`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+            isDark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"
+          }`}>
+            {employee.firstName[0]}{employee.lastName[0]}
           </div>
-        </td>
-
-        {/* Antigüedad */}
-        <td className={`${td} font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-          {calc.anosTrabajados > 0 ? `${calc.anosTrabajados}a ` : ""}
-          {calc.fraccionMeses}m
-        </td>
-
-        {/* Salario mensual */}
-        <td className={`${td} font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-          {fmt(calc.salarioMensual)}
-        </td>
-
-        {/* Tipo (mini badge) */}
-        <td className={td}>
-          <TipoBadge tipo={tipo} isDark={isDark} />
-        </td>
-
-        {/* Bruto */}
-        <td className={`${td} font-mono ${isDark ? "text-slate-200" : "text-gray-800"}`}>
-          {fmt(calc.totalBruto)}
-        </td>
-
-        {/* Neto */}
-        <td className={`${td} font-mono font-bold text-emerald-500`}>
-          {fmt(calc.totalNeto)}
-        </td>
-
-        {/* Chevron */}
-        <td className={`${td} pr-6 text-right`}>
-          {open
-            ? <ChevronUp size={16} className={isDark ? "text-gray-400" : "text-gray-500"} />
-            : <ChevronDown size={16} className={isDark ? "text-gray-400" : "text-gray-500"} />
-          }
-        </td>
-      </tr>
-
-      {/* ── PANEL EXPANDIDO ── */}
-      {open && (
-        <tr className={isDark ? "bg-slate-900/50" : "bg-orange-50/40"}>
-          <td colSpan={7} className="px-6 py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-              {/* ── COLUMNA 1: Configuración ── */}
-              <div className="space-y-4">
-                <h4 className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  Configuración
-                </h4>
-
-                {/* Tipo de terminación */}
-                <div>
-                  <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                    Causa de terminación
-                  </p>
-                  <TipoSelector value={tipo} onChange={setTipo} isDark={isDark} />
-                </div>
-
-                {/* Fecha de terminación */}
-                <div>
-                  <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                    Fecha efectiva de terminación
-                  </p>
-                  <input
-                    type="date"
-                    value={fechaTerm}
-                    onChange={e => setFechaTerm(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-orange-500 transition-colors ${
-                      isDark
-                        ? "bg-slate-800 border-slate-700 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
-                    }`}
-                  />
-                </div>
-
-                {/* Días de salario pendiente — solo en Terminación de Contrato */}
-                {tipo === "TERMINACION_CONTRATO" && (
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                      Días pendientes de pago (ajuste manual)
-                    </p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={31}
-                      placeholder={`Auto: ${calc.diasPendientes} días`}
-                      value={diasPendienteOverride}
-                      onChange={e => setDiasPendienteOverride(e.target.value)}
-                      onClick={e => e.stopPropagation()}
-                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-orange-500 transition-colors ${
-                        isDark
-                          ? "bg-slate-800 border-slate-700 text-white"
-                          : "bg-white border-gray-300 text-gray-900"
-                      }`}
-                    />
-                    <p className={`text-[10px] mt-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
-                      Dejar vacío para calcular automáticamente
-                    </p>
-                  </div>
-                )}
-
-                {/* Datos de cálculo */}
-                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
-                  <p className={`text-[10px] font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                    Base de cálculo
-                  </p>
-                  <div className={`space-y-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                    <div className="flex justify-between">
-                      <span>Ingreso</span>
-                      <span className="font-mono">{calc.fechaIngreso.toLocaleDateString("es-PA")}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Días trabajados</span>
-                      <span className="font-mono">{calc.diasTrabajados.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Salario diario</span>
-                      <span className="font-mono">{fmt(calc.salarioDiario)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Salario semanal</span>
-                      <span className="font-mono">{fmt(calc.salarioSemanal)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── COLUMNA 2: Conceptos brutos ── */}
-              <div className="space-y-2">
-                <h4 className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  Conceptos a Pagar
-                </h4>
-
-                <ConceptoRow
-                  label="Prima de Antigüedad"
-                  value={calc.primaAntiguedadBruto}
-                  sub={`${calc.semanasPrimaAntiguedad} sem. · Art. 224 CT`}
-                  isDark={isDark}
-                />
-                <ConceptoRow
-                  label="Preaviso"
-                  value={calc.preaviso}
-                  sub={`${calc.semanasPreaviso} sem. · Art. 683 CT`}
-                  isDark={isDark}
-                  disabled={tipo !== "DESPIDO_INJUSTIFICADO" && tipo !== "TERMINACION_CONTRATO"}
-                />
-                <ConceptoRow
-                  label="Vacaciones Proporcionales"
-                  value={calc.vacacionesBruto}
-                  sub={calc.diasVacYaPagados > 0
-                    ? `${fmtDays(calc.diasVacaciones)} netos · ${calc.diasVacYaPagados.toFixed(1)}d ya pagados · Art. 54 CT`
-                    : `${fmtDays(calc.diasVacaciones)} · Art. 54 CT`
-                  }
-                  isDark={isDark}
-                />
-                <ConceptoRow
-                  label="Décimo Proporcional"
-                  value={calc.decimoProporcionalBruto}
-                  sub={`${calc.mesesDecimoActual} meses en período · Ley 44/1995`}
-                  isDark={isDark}
-                />
-                <ConceptoRow
-                  label="Indemnización"
-                  value={calc.indemnizacionBruto}
-                  sub={`${calc.anosTrabajados} años · Art. 225 CT`}
-                  isDark={isDark}
-                  disabled={tipo !== "DESPIDO_INJUSTIFICADO" && tipo !== "TERMINACION_CONTRATO"}
-                />
-                <ConceptoRow
-                  label="Salarios Pendientes"
-                  value={calc.salariosPendientes}
-                  sub={`${calc.diasPendientes} días sin pagar del período actual`}
-                  isDark={isDark}
-                  disabled={tipo !== "TERMINACION_CONTRATO"}
-                />
-
-                {/* Subtotal bruto */}
-                <div className={`flex justify-between items-center py-2 px-4 rounded-lg border-t-2 mt-1 ${
-                  isDark ? "border-slate-600" : "border-gray-200"
-                }`}>
-                  <p className={`text-xs font-bold uppercase ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Total Bruto
-                  </p>
-                  <p className={`font-mono font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    {fmt(calc.totalBruto)}
-                  </p>
-                </div>
-              </div>
-
-              {/* ── COLUMNA 3: Deducciones + Neto ── */}
-              <div className="space-y-2">
-                <h4 className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  Deducciones y Neto
-                </h4>
-
-                <ConceptoRow
-                  label="Seguro Social (9.75%)"
-                  value={calc.ss}
-                  sub="Empleado · Art. 63 Ley 51/2005"
-                  isDark={isDark}
-                  negative
-                />
-                <ConceptoRow
-                  label="Seguro Educativo (1.25%)"
-                  value={calc.se}
-                  sub="Empleado · D.L. 14 de 1994"
-                  isDark={isDark}
-                  negative
-                />
-                <ConceptoRow
-                  label="ISR"
-                  value={calc.isr}
-                  sub="Código Fiscal Art. 700"
-                  isDark={isDark}
-                  negative
-                />
-
-                {/* Total deducciones */}
-                <div className={`flex justify-between items-center py-2 px-4 rounded-lg ${
-                  isDark ? "bg-red-900/10" : "bg-red-50"
-                }`}>
-                  <p className={`text-xs font-bold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Total Deducciones
-                  </p>
-                  <p className="font-mono font-bold text-red-400">
-                    -{fmt(calc.totalDeducciones)}
-                  </p>
-                </div>
-
-                {/* NETO FINAL */}
-                <div className={`flex justify-between items-center py-4 px-4 rounded-xl border-2 mt-2 ${
-                  isDark
-                    ? "bg-emerald-900/20 border-emerald-500/40"
-                    : "bg-emerald-50 border-emerald-300"
-                }`}>
-                  <div>
-                    <p className={`text-[10px] uppercase font-bold ${isDark ? "text-emerald-400/70" : "text-emerald-700/70"}`}>
-                      Total a Pagar
-                    </p>
-                    <p className={`text-[10px] ${isDark ? "text-emerald-400/50" : "text-emerald-600/60"}`}>
-                      Neto de liquidación
-                    </p>
-                  </div>
-                  <p className="font-mono font-bold text-2xl text-emerald-500">
-                    {fmt(calc.totalNeto)}
-                  </p>
-                </div>
-
-                {/* Botón descargar PDF */}
-                <button
-                  onClick={e => {
-                    e.stopPropagation()
-                    exportLiquidacionIndividualPDF({
-                      employee: { cedula: employee.cedula, firstName: employee.firstName, lastName: employee.lastName, position: employee.position },
-                      companyName,
-                      tipoTerminacion: tipo,
-                      fechaIngreso: calc.fechaIngreso,
-                      fechaTerminacion: calc.fechaTerminacion,
-                      anosTrabajados: calc.anosTrabajados,
-                      mesesTrabajados: calc.mesesTrabajados,
-                      diasTrabajados: calc.diasTrabajados,
-                      salarioMensual: calc.salarioMensual,
-                      salarioDiario: calc.salarioDiario,
-                      primaAntiguedadBruto: calc.primaAntiguedadBruto,
-                      semanasPrimaAntiguedad: calc.semanasPrimaAntiguedad,
-                      preaviso: calc.preaviso,
-                      semanasPreaviso: calc.semanasPreaviso,
-                      vacacionesBruto: calc.vacacionesBruto,
-                      diasVacaciones: calc.diasVacaciones,
-                      decimoProporcionalBruto: calc.decimoProporcionalBruto,
-                      mesesDecimoActual: calc.mesesDecimoActual,
-                      indemnizacionBruto: calc.indemnizacionBruto,
-                      totalBruto: calc.totalBruto,
-                      ss: calc.ss,
-                      se: calc.se,
-                      isr: calc.isr,
-                      totalDeducciones: calc.totalDeducciones,
-                      totalNeto: calc.totalNeto,
-                    })
-                  }}
-                  className="w-full mt-2 py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Download size={14} /> Descargar Carta de Liquidación
-                </button>
-
-                {/* Botón procesar liquidación */}
-                <button
-                  onClick={async e => {
-                    e.stopPropagation()
-                    if (!window.confirm(`¿Confirmar terminación laboral de ${employee.firstName} ${employee.lastName}?\n\nEsta acción cambiará su estado a TERMINADO y dejará de aparecer en nóminas futuras.`)) return
-                    setTerminating(true)
-                    try {
-                      await apiPost("/api/payroll/liquidaciones", {
-                        employeeId: employee.id,
-                        companyId,
-                        tipoTerminacion: tipo,
-                        fechaTerminacion: new Date(fechaTerm + "T12:00:00").toISOString(),
-                        previousStatus: employee.status,
-                        salarioMensual: calc.salarioMensual,
-                        anosTrabajados: calc.anosTrabajados,
-                        mesesTrabajados: calc.mesesTrabajados,
-                        diasTrabajados: calc.diasTrabajados,
-                        primaAntiguedad: calc.primaAntiguedadBruto,
-                        preaviso: calc.preaviso,
-                        vacaciones: calc.vacacionesBruto,
-                        decimo: calc.decimoProporcionalBruto,
-                        indemnizacion: calc.indemnizacionBruto,
-                        salariosPendientes: calc.salariosPendientes,
-                        totalBruto: calc.totalBruto,
-                        ss: calc.ss,
-                        se: calc.se,
-                        isr: calc.isr,
-                        totalDeducciones: calc.totalDeducciones,
-                        totalNeto: calc.totalNeto,
-                      })
-                      toast.success(`${employee.firstName} ${employee.lastName} liquidado exitosamente`)
-                      onTerminated(employee.id)
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Error al procesar la liquidación")
-                    } finally {
-                      setTerminating(false)
-                    }
-                  }}
-                  disabled={terminating}
-                  className="w-full mt-2 py-2.5 px-4 bg-red-700 hover:bg-red-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {terminating
-                    ? <><Loader2 size={14} className="animate-spin" /> Procesando…</>
-                    : <><CheckCircle size={14} /> Procesar Liquidación</>
-                  }
-                </button>
-              </div>
-
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+          <div>
+            <p className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+              {employee.firstName} {employee.lastName}
+            </p>
+            <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+              {employee.cedula} · {employee.position || "—"}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className={`${td} font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+        {calc.anosTrabajados > 0 ? `${calc.anosTrabajados}a ` : ""}
+        {calc.fraccionMeses}m
+      </td>
+      <td className={`${td} font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+        {fmt(calc.salarioMensual)}
+      </td>
+      <td className={`${td} font-mono ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+        {fmt(calc.totalBruto)}
+      </td>
+      <td className={`${td} font-mono font-bold text-emerald-500`}>
+        {fmt(calc.totalNeto)}
+      </td>
+      <td className={`${td} pr-6 text-right`}>
+        <ArrowRight size={16} className={isDark ? "text-gray-400" : "text-gray-500"} />
+      </td>
+    </tr>
   )
 }
 
@@ -715,8 +297,8 @@ export const AllLiquidaciones: React.FC = () => {
       }`}>
         <Info className={`shrink-0 mt-0.5 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`} size={16} />
         <p className={`text-xs ${isDarkMode ? "text-amber-200/80" : "text-amber-800"}`}>
-          <strong>Instrucciones:</strong> Haz clic en cualquier colaborador para expandir su calculadora de liquidación.
-          Selecciona la causa de terminación y la fecha efectiva para obtener el cálculo detallado con todos los conceptos legales aplicables.
+          <strong>Instrucciones:</strong> Haz clic en un colaborador para abrir su calculadora de liquidación individual.
+          Podrás configurar la causa de terminación, la fecha efectiva y descargar la carta de liquidación.
         </p>
       </div>
 
@@ -765,16 +347,15 @@ export const AllLiquidaciones: React.FC = () => {
                 <th className="px-6 py-3">Colaborador</th>
                 <th className="px-4 py-3">Antigüedad</th>
                 <th className="px-4 py-3">Salario Mensual</th>
-                <th className="px-4 py-3">Tipo Terminación</th>
-                <th className="px-4 py-3">Bruto</th>
-                <th className="px-4 py-3 text-emerald-500">Neto</th>
+                <th className="px-4 py-3">Bruto Est.</th>
+                <th className="px-4 py-3 text-emerald-500">Neto Est.</th>
                 <th className="px-4 py-3 pr-6" />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className={`text-center py-16 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
+                  <td colSpan={6} className={`text-center py-16 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
                     <Users className="mx-auto mb-3 opacity-30" size={32} />
                     <p className="text-sm">No se encontraron colaboradores</p>
                   </td>
@@ -782,14 +363,11 @@ export const AllLiquidaciones: React.FC = () => {
               ) : (
                 filtered.map(emp => (
                   <EmpleadoRow
-                    diasVacPagadas={0}
                     key={emp.id}
                     employee={emp}
                     legalParams={legalParams || []}
                     isDark={isDarkMode}
-                    companyName={selectedCompany?.name ?? "Empresa"}
-                    companyId={selectedCompany?.id ?? ""}
-                    onTerminated={id => { setTerminatedIds(prev => new Set([...prev, id])); mutateLiquidaciones() }}
+                    companyCode={selectedCompany?.code ?? ""}
                   />
                 ))
               )}

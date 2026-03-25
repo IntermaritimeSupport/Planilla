@@ -15,8 +15,6 @@ import {
   Calendar,
   Download,
   Search,
-  ChevronDown,
-  ChevronUp,
   Info,
   AlertTriangle,
   CheckCircle,
@@ -93,200 +91,64 @@ const SummaryCard: React.FC<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DetailRow: React.FC<{ calc: VacacionesCalc; isDark: boolean; onOpenPerfil: (empId: string) => void }> = ({ calc, isDark, onOpenPerfil }) => {
-  const [open, setOpen] = useState(false)
-
-  const progressPct = Math.min(100, (calc.monthsWorked / 11) * 100)
-
   const td = `px-4 py-3 text-sm`
 
   return (
-    <>
-      <tr
-        onClick={() => setOpen(o => !o)}
-        className={`cursor-pointer border-b transition-colors ${
-          isDark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-gray-100 hover:bg-gray-50"
-        }`}
-      >
-        {/* Empleado */}
-        <td className={`${td} pl-6`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-              ${isDark ? "bg-teal-500/20 text-teal-400" : "bg-teal-100 text-teal-700"}`}>
-              {calc.employee.firstName[0]}{calc.employee.lastName[0]}
-            </div>
-            <div>
-              <button
-                onClick={e => { e.stopPropagation(); onOpenPerfil(calc.employeeId) }}
-                className={`font-semibold text-sm flex items-center gap-1 hover:underline ${isDark ? "text-white hover:text-teal-400" : "text-gray-900 hover:text-teal-600"}`}
-              >
-                {calc.employee.firstName} {calc.employee.lastName}
-                <ExternalLink size={11} className="opacity-50" />
-              </button>
-              <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                {calc.employee.cedula} · {calc.employee.position || "—"}
-              </p>
-            </div>
+    <tr className={`border-b ${isDark ? "border-slate-700/50" : "border-gray-100"}`}>
+      {/* Empleado */}
+      <td className={`${td} pl-6`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+            ${isDark ? "bg-teal-500/20 text-teal-400" : "bg-teal-100 text-teal-700"}`}>
+            {calc.employee.firstName[0]}{calc.employee.lastName[0]}
           </div>
-        </td>
-
-        {/* Antigüedad */}
-        <td className={td}>
           <div>
-            <p className={`font-mono text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-              {calc.yearsWorked > 0 ? `${calc.yearsWorked}a ` : ""}{calc.monthsWorked % 12}m
+            <button
+              onClick={() => onOpenPerfil(calc.employeeId)}
+              className={`font-semibold text-sm flex items-center gap-1 hover:underline ${isDark ? "text-white hover:text-teal-400" : "text-gray-900 hover:text-teal-600"}`}
+            >
+              {calc.employee.firstName} {calc.employee.lastName}
+              <ExternalLink size={11} className="opacity-50" />
+            </button>
+            <p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+              {calc.employee.cedula} · {calc.employee.position || "—"}
             </p>
-            {/* Barra de progreso hacia los 11 meses */}
-            <div className={`mt-1 h-1.5 w-24 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>
-              <div
-                className="h-full rounded-full bg-teal-500 transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
           </div>
-        </td>
+        </div>
+      </td>
 
-        {/* Días ganados */}
-        <td className={`${td} font-mono font-semibold ${isDark ? "text-slate-200" : "text-gray-800"}`}>
-          {fmtDays(calc.daysEarned)}
-        </td>
+      {/* Antigüedad */}
+      <td className={td}>
+        <p className={`font-mono text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+          {calc.yearsWorked > 0 ? `${calc.yearsWorked}a ` : ""}{calc.monthsWorked % 12}m
+        </p>
+      </td>
 
-        {/* Salario diario */}
-        <td className={`${td} font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-          {fmt(calc.dailySalary)}
-        </td>
+      {/* Días ganados */}
+      <td className={`${td} font-mono font-semibold ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+        {fmtDays(calc.daysEarned)}
+      </td>
 
-        {/* Bruto */}
-        <td className={`${td} font-mono ${isDark ? "text-slate-200" : "text-gray-800"}`}>
-          {fmt(calc.grossVacationPay)}
-        </td>
+      {/* Salario diario */}
+      <td className={`${td} font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+        {fmt(calc.dailySalary)}
+      </td>
 
-        {/* Neto */}
-        <td className={`${td} font-mono font-bold text-emerald-500`}>
-          {fmt(calc.netVacationPay)}
-        </td>
+      {/* Bruto */}
+      <td className={`${td} font-mono ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+        {fmt(calc.grossVacationPay)}
+      </td>
 
-        {/* Estado */}
-        <td className={td}>
-          <StatusBadge status={calc.status} isDark={isDark} />
-        </td>
+      {/* Neto */}
+      <td className={`${td} font-mono font-bold text-emerald-500`}>
+        {fmt(calc.netVacationPay)}
+      </td>
 
-        {/* Expandir */}
-        <td className={`${td} pr-6 text-right`}>
-          {open
-            ? <ChevronUp size={16} className={isDark ? "text-gray-400" : "text-gray-500"} />
-            : <ChevronDown size={16} className={isDark ? "text-gray-400" : "text-gray-500"} />
-          }
-        </td>
-      </tr>
-
-      {/* ── DETALLE EXPANDIDO ── */}
-      {open && (
-        <tr className={isDark ? "bg-slate-900/40" : "bg-teal-50/60"}>
-          <td colSpan={8} className="px-6 py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-              {/* Fecha de ingreso */}
-              <div className={`p-4 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  Fecha de Ingreso
-                </p>
-                <p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {calc.hireDate.toLocaleDateString("es-PA", { day: "2-digit", month: "long", year: "numeric" })}
-                </p>
-                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  {calc.daysWorked.toLocaleString()} días calendario
-                </p>
-              </div>
-
-              {/* Salario mensual */}
-              <div className={`p-4 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  Salario Mensual
-                </p>
-                <p className={`font-semibold font-mono ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {fmt(calc.monthlyBaseSalary)}
-                </p>
-                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  Diario: {fmt(calc.dailySalary)}
-                </p>
-              </div>
-
-              {/* Desglose de deducciones */}
-              <div className={`p-4 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <p className={`text-[10px] uppercase font-bold mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  Deducciones
-                </p>
-                <div className="space-y-1 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>SS (9.75%)</span>
-                    <span className="text-red-400">-{fmt(calc.ss)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>Seg. Educ. (1.25%)</span>
-                    <span className="text-red-400">-{fmt(calc.se)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>ISR</span>
-                    <span className="text-blue-400">-{fmt(calc.isr)}</span>
-                  </div>
-                  <div className={`flex justify-between pt-1 border-t font-bold ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Total</span>
-                    <span className={isDark ? "text-white" : "text-gray-900"}>-{fmt(calc.totalDeductions)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Próximo período */}
-              <div className={`p-4 rounded-lg border ${
-                calc.status === "disponible"
-                  ? isDark ? "bg-emerald-900/20 border-emerald-500/30" : "bg-emerald-50 border-emerald-300"
-                  : isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
-              }`}>
-                <p className={`text-[10px] uppercase font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  Próximo Período
-                </p>
-                <p className={`text-2xl font-bold font-mono ${
-                  calc.status === "disponible" ? "text-emerald-500" : isDark ? "text-slate-300" : "text-gray-700"
-                }`}>
-                  {calc.nextVacationDays} días
-                </p>
-                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                  {calc.status === "disponible"
-                    ? "✓ Período completo disponible"
-                    : `Faltan ${Math.max(0, 11 - calc.monthsWorked)} meses para completar`}
-                </p>
-              </div>
-
-            </div>
-
-            {/* Barra de progreso detallada */}
-            <div className={`mt-4 p-4 rounded-lg border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className="flex justify-between items-center mb-2">
-                <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                  Progreso hacia período completo (11 meses)
-                </p>
-                <p className={`text-xs font-mono font-bold ${isDark ? "text-teal-400" : "text-teal-600"}`}>
-                  {Math.min(100, Math.round((calc.monthsWorked / 11) * 100))}%
-                </p>
-              </div>
-              <div className={`h-2 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    calc.status === "disponible" ? "bg-emerald-500" :
-                    calc.status === "parcial" ? "bg-amber-500" : "bg-slate-500"
-                  }`}
-                  style={{ width: `${Math.min(100, (calc.monthsWorked / 11) * 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-1">
-                <span className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}>Ingreso</span>
-                <span className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}>11 meses (período completo)</span>
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+      {/* Estado */}
+      <td className={`${td} pr-6`}>
+        <StatusBadge status={calc.status} isDark={isDark} />
+      </td>
+    </tr>
   )
 }
 
@@ -481,14 +343,13 @@ export const AllVacaciones: React.FC = () => {
                 <th className="px-4 py-3">Salario Diario</th>
                 <th className="px-4 py-3">Bruto</th>
                 <th className="px-4 py-3 text-emerald-500">Neto</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 pr-6" />
+                <th className="px-4 py-3 pr-6">Estado</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className={`text-center py-16 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
+                  <td colSpan={7} className={`text-center py-16 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
                     <Users className="mx-auto mb-3 opacity-30" size={32} />
                     <p className="text-sm">No se encontraron colaboradores</p>
                   </td>

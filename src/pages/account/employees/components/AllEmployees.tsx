@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useNavigate } from "react-router-dom"
 import useSWR, { mutate } from "swr"
 import Loader from "../../../../components/loaders/loader"
 import { useCompany } from "../../../../context/routerContext"
@@ -82,6 +83,7 @@ const getStatusBadge = (status: EmployeeStatus) => {
 
 export const AllEmployees: React.FC = () => {
     const { selectedCompany } = useCompany()
+    const navigate = useNavigate()
     const { isDarkMode, } = useTheme();
     const { data, error, isLoading } = useSWR<Employee[]>(
         selectedCompany ? `${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany.id}` : null, 
@@ -315,7 +317,8 @@ export const AllEmployees: React.FC = () => {
                 datos={filteredEmployees.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)}
                 titulo="Listado de Colaboradores"
                 columnasPersonalizadas={columnConfig}
-                onEditar={(item) => window.location.href = `edit/${item.id}`}
+                onVer={(item) => navigate(`/${selectedCompany?.code}/employees/profile/${item.id}`)}
+                onEditar={(item) => navigate(`/${selectedCompany?.code}/employees/edit/${item.id}`)}
                 onEliminar={(item) => setDeleteConfirmation({ show: true, employee: item, isDeleting: false })}
                 onHistorial={(item) => setSalaryHistoryEmployee(item)}
                 mostrarAcciones={true}
