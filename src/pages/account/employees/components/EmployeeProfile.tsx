@@ -452,12 +452,40 @@ function getPartidaRange(part: 1 | 2 | 3, year: number): { start: Date; end: Dat
   return             { start: new Date(year, 7, 16),           end: new Date(year, 11, 15, 23, 59, 59, 999) }
 }
 
-// Calcula la base bruta proporcional considerando hireDate y cambios de salario
-function calcDecimoBase(emp: any, part: 1 | 2 | 3, year: number): number {
+const MONTH_NAMES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+
+interface DecimoLineItem {
+  monthLabel: string   // "Ene 2025"
+  daysWorked: number
+  daysInMonth: number
+  monthlySalary: number
+  aporte: number       // (monthlySalary / daysInMonth) * daysWorked
+}
+
+interface DecimoBaseResult {
+  gross: number
+  lines: DecimoLineItem[]
+  effectiveStart: Date
+  periodStart: Date
+  periodEnd: Date
+}
+
+/** Redondea una fecha al inicio de la quincena en que cae (1 o 16 del mes) */
+function toQuincenaStart(d: Date): Date {
+  return d.getDate() <= 15
+    ? new Date(d.getFullYear(), d.getMonth(), 1)
+    : new Date(d.getFullYear(), d.getMonth(), 16)
+}
+
+// Calcula la base bruta proporcional con desglose línea a línea por mes
+function calcDecimoBase(emp: any, part: 1 | 2 | 3, year: number): DecimoBaseResult {
   const { start: pStart, end: pEnd } = getPartidaRange(part, year)
-  const hireDate = emp.hireDate ? new Date(emp.hireDate) : null
-  const effectiveStart = hireDate && hireDate > pStart ? hireDate : pStart
-  if (effectiveStart > pEnd) return 0
+  // La fecha de ingreso aplica desde el inicio de su quincena
+  const hireRaw = emp.hireDate ? new Date(emp.hireDate) : null
+  const hireQuincena = hireRaw ? toQuincenaStart(hireRaw) : null
+  const effectiveStart = hireQuincena && hireQuincena > pStart ? hireQuincena : pStart
+
+  if (effectiveStart > pEnd) return { gross: 0, lines: [], effectiveStart, periodStart: pStart, periodEnd: pEnd }
 
   type Seg = { from: Date; salary: number; salaryType: string }
   const history: any[] = (emp.salaryHistory ?? []).slice().sort(
@@ -469,40 +497,52 @@ function calcDecimoBase(emp: any, part: 1 | 2 | 3, year: number): number {
     segments.push({ from: effectiveStart, salary: Number(emp.salary), salaryType: emp.salaryType })
   } else {
     const firstChange = history[0]
-    const firstChangeDate = new Date(firstChange.effectiveDate)
-    if (firstChangeDate > effectiveStart) {
+    const firstChangeQuincena = toQuincenaStart(new Date(firstChange.effectiveDate))
+    if (firstChangeQuincena > effectiveStart) {
       segments.push({ from: effectiveStart, salary: Number(firstChange.previousSalary), salaryType: firstChange.previousType })
     }
     for (let i = 0; i < history.length; i++) {
       const change = history[i]
-      const changeDate = new Date(change.effectiveDate)
-      if (changeDate > pEnd) break
-      const segStart = changeDate < effectiveStart ? effectiveStart : changeDate
+      const changeQuincena = toQuincenaStart(new Date(change.effectiveDate))
+      if (changeQuincena > pEnd) break
+      const segStart = changeQuincena < effectiveStart ? effectiveStart : changeQuincena
       segments.push({ from: segStart, salary: Number(change.newSalary), salaryType: change.newType })
     }
   }
 
+  const lines: DecimoLineItem[] = []
   let base = 0
+
   for (let i = 0; i < segments.length; i++) {
-    const segEnd = i + 1 < segments.length
-      ? new Date(new Date(segments[i + 1].from).getTime() - 1)
+    const segEndDate = i + 1 < segments.length
+      ? (() => { const d = new Date(segments[i + 1].from); d.setDate(d.getDate() - 1); return d })()
       : pEnd
+    const segEnd = segEndDate
     const s = segments[i].from < effectiveStart ? effectiveStart : segments[i].from
     const e = segEnd > pEnd ? pEnd : segEnd
     if (s > e) continue
     const monthlySal = getMonthlySalary(segments[i].salary, segments[i].salaryType)
     let cursor = new Date(s.getFullYear(), s.getMonth(), 1)
     while (cursor <= e) {
-      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
+      const monthEnd   = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
       const daysInMonth = monthEnd.getDate()
-      const workStart = s > cursor ? s : cursor
-      const workEnd   = e < monthEnd ? e : monthEnd
+      const workStart  = s > cursor ? s : cursor
+      const workEnd    = e < monthEnd ? e : monthEnd
       const daysWorked = workEnd.getDate() - workStart.getDate() + 1
-      base += (monthlySal / daysInMonth) * daysWorked
+      const aporte     = (monthlySal / daysInMonth) * daysWorked
+      base += aporte
+      lines.push({
+        monthLabel: `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`,
+        daysWorked,
+        daysInMonth,
+        monthlySalary: monthlySal,
+        aporte,
+      })
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
     }
   }
-  return Number(base.toFixed(4))
+
+  return { gross: Number(base.toFixed(4)), lines, effectiveStart, periodStart: pStart, periodEnd: pEnd }
 }
 
 // Aplica deducciones sobre la base bruta proporcional
@@ -613,8 +653,8 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
             </div>
           )
 
-          const grossBase = calcDecimoBase(emp, partida, selectedYear)
-          const calc = calcDecimoPartida(grossBase, ssEmpRate, ssPatRate, params)
+          const baseResult = calcDecimoBase(emp, partida, selectedYear)
+          const calc = calcDecimoPartida(baseResult.gross, ssEmpRate, ssPatRate, params)
 
           return (
             <div key={partida} className={`rounded-xl border overflow-hidden ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
@@ -643,7 +683,7 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
                   />
                 </div>
               </div>
-              {/* Desglose */}
+              {/* Desglose totales */}
               <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-y divide-slate-700/30">
                 {[
                   { label: "Bruto",        value: calc.gross,  accent: false },
@@ -658,6 +698,56 @@ function TabDecimos({ emp, companyId, dark }: { emp: any; companyId: string; dar
                   </div>
                 ))}
               </div>
+              {/* Desglose por mes */}
+              {baseResult.lines.length > 0 && (
+                <div className={`border-t ${dark ? "border-slate-700" : "border-gray-100"}`}>
+                  <div className={`px-5 py-2 flex items-center gap-2 ${dark ? "bg-slate-900/30" : "bg-gray-50"}`}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Desglose por mes
+                    </p>
+                    {baseResult.effectiveStart > baseResult.periodStart && (
+                      <span className="text-[10px] text-amber-400 font-medium">
+                        · Ingresó el {baseResult.effectiveStart.toLocaleDateString("es-PA")} (período inicia {baseResult.periodStart.toLocaleDateString("es-PA")})
+                      </span>
+                    )}
+                  </div>
+                  <div className={`overflow-x-auto`}>
+                    <table className="w-full text-xs">
+                      <thead className={dark ? "bg-slate-900/40 text-slate-500" : "bg-gray-50 text-gray-400"}>
+                        <tr>
+                          <th className="px-5 py-2 text-left font-semibold uppercase tracking-wider">Mes</th>
+                          <th className="px-5 py-2 text-left font-semibold uppercase tracking-wider">Días trabajados</th>
+                          <th className="px-5 py-2 text-left font-semibold uppercase tracking-wider">Salario mensual</th>
+                          <th className="px-5 py-2 text-left font-semibold uppercase tracking-wider">Fórmula</th>
+                          <th className="px-5 py-2 text-right font-semibold uppercase tracking-wider text-violet-400">Aporte</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${dark ? "divide-slate-700/50" : "divide-gray-100"}`}>
+                        {baseResult.lines.map((line, idx) => (
+                          <tr key={idx} className={dark ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}>
+                            <td className={`px-5 py-2 font-medium ${dark ? "text-slate-300" : "text-gray-700"}`}>{line.monthLabel}</td>
+                            <td className="px-5 py-2 font-mono text-slate-400">
+                              {line.daysWorked === line.daysInMonth
+                                ? <span className="text-emerald-400">{line.daysWorked} / {line.daysInMonth} (completo)</span>
+                                : <span className="text-amber-400">{line.daysWorked} / {line.daysInMonth}</span>
+                              }
+                            </td>
+                            <td className="px-5 py-2 font-mono text-slate-400">{fmt(line.monthlySalary)}</td>
+                            <td className="px-5 py-2 font-mono text-slate-500 text-[10px]">
+                              {fmt(line.monthlySalary)} ÷ {line.daysInMonth} × {line.daysWorked}
+                            </td>
+                            <td className="px-5 py-2 font-mono font-semibold text-right text-violet-400">{fmt(line.aporte)}</td>
+                          </tr>
+                        ))}
+                        <tr className={`font-bold ${dark ? "bg-slate-900/40" : "bg-gray-50"}`}>
+                          <td colSpan={4} className="px-5 py-2 text-slate-400 text-xs uppercase tracking-wider">Total bruto</td>
+                          <td className="px-5 py-2 font-mono text-right text-violet-400">{fmt(calc.gross)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               {hist?.notes && (
                 <div className={`px-5 py-2 border-t text-xs text-slate-400 ${dark ? "border-slate-700" : "border-gray-100"}`}>
                   {hist.notes}
