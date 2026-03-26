@@ -45,7 +45,7 @@ interface DecimoLineItem { monthLabel: string; monthlySalary: number; aporte: nu
 interface DecimoBaseResult { gross: number; lines: DecimoLineItem[]; effectiveStart: Date; periodStart: Date; monthsWorked: number }
 interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: DecimoCalc; baseResult: DecimoBaseResult }
 interface ThirteenthTotals { gross: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
-interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDING"; paymentId: string | null; amount: number | null; ssAmount: number | null; netAmount: number | null; paymentDate: string | null; notes: string | null }
+interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDING"; paymentId: string | null; totalAmount: number | null; paymentDate: string | null; notes: string | null }
 
 const MONTH_NAMES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
 const fmt = (n: number) => new Intl.NumberFormat("es-PA", { style: "currency", currency: "USD" }).format(n)
@@ -138,6 +138,8 @@ export const AllDecimo: React.FC = () => {
   const [expandedRules, setExpandedRules] = useState(false)
   const [activeTab, setActiveTab] = useState<"actual" | "historico">("actual")
   const [modalEmp, setModalEmp] = useState<EmployeeThirteenth | null>(null)
+  const [modalEmpContext, setModalEmpContext] = useState<{ partida: number; year: number } | null>(null)
+  const [historialModal, setHistorialModal] = useState<{ year: number; partida: number; pago: { totalAmount: number | null; paymentDate: string | null; notes: string | null } } | null>(null)
 
   const notify = (type: "success" | "error", text: string) => {
     setNotification({ type, text })
@@ -211,6 +213,33 @@ export const AllDecimo: React.FC = () => {
     [getParam, calcISRAnual]
   )
 
+  const historialEmpleados = useMemo<EmployeeThirteenth[]>(() => {
+    if (!historialModal || !employees) return []
+    const { year: hYear, partida: hPart } = historialModal
+    const part = hPart as 1 | 2 | 3
+    const { end: pEnd } = getPartidaRange(part, hYear)
+    return employees
+      .filter(emp => { if (!emp.hireDate) return true; return new Date(emp.hireDate) <= pEnd })
+      .map((emp) => {
+        const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
+        const { lines, effectiveStart, periodStart, monthsWorked } = calcDecimoLines(emp, part, hYear)
+        const calc = calculateThirteenth(monthlySalary, monthsWorked)
+        const baseResult: DecimoBaseResult = { gross: calc.grossThirteenth, lines, effectiveStart, periodStart, monthsWorked }
+        return { ...emp, monthlySalary, calc, baseResult }
+      })
+  }, [historialModal, employees, calculateThirteenth])
+
+  const historialTotals = useMemo<ThirteenthTotals>(() =>
+    historialEmpleados.reduce((acc, c) => ({
+      gross:            acc.gross            + c.calc.grossThirteenth,
+      ssEmp:            acc.ssEmp            + c.calc.ssEmp,
+      ssPat:            acc.ssPat            + c.calc.ssPat,
+      isr:              acc.isr              + c.calc.isr,
+      net:              acc.net              + c.calc.net,
+      totalCostPatrono: acc.totalCostPatrono + c.calc.totalCostPatrono,
+    }), { gross: 0, ssEmp: 0, ssPat: 0, isr: 0, net: 0, totalCostPatrono: 0 })
+  , [historialEmpleados])
+
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
     if (!employees) return []
     const part = currentPartida as 1 | 2 | 3
@@ -247,7 +276,7 @@ export const AllDecimo: React.FC = () => {
       const res = await fetch(`${API_URL}/api/payroll/decimo/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ companyId: selectedCompany.id, year, partida: currentPartida, amount: totals.gross, ssAmount: totals.ssEmp, netAmount: totals.net, paymentDate: new Date().toISOString().split("T")[0], notes: payNotes || null }),
+        body: JSON.stringify({ companyId: selectedCompany.id, year, partida: currentPartida, totalAmount: totals.gross, paymentDate: new Date().toISOString().split("T")[0], notes: payNotes || null }),
       })
       const data = await res.json()
       if (!res.ok) { notify("error", res.status === 409 ? "Esta partida ya está registrada como pagada" : data.error || "Error al registrar"); return }
@@ -505,7 +534,10 @@ export const AllDecimo: React.FC = () => {
                     {row.partidas.map((p) => (
                       <td key={p.partida} className="px-4 py-4 text-center">
                         {p.status === "PAID" ? (
-                          <div>
+                          <button
+                            onClick={() => setHistorialModal({ year: row.year, partida: p.partida, pago: { totalAmount: p.totalAmount, paymentDate: p.paymentDate, notes: p.notes } })}
+                            className={`w-full rounded-lg px-2 py-1.5 transition-colors text-left ${isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-green-50"}`}
+                          >
                             <div className="flex items-center justify-center gap-1 mb-0.5">
                               <CheckCircle2 size={13} className="text-green-500" />
                               <span className={`font-mono font-bold text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
@@ -522,7 +554,7 @@ export const AllDecimo: React.FC = () => {
                                 {p.notes}
                               </div>
                             )}
-                          </div>
+                          </button>
                         ) : (
                           <span className={`text-[11px] px-2 py-0.5 rounded-full ${isDarkMode ? "bg-gray-700/60 text-gray-500" : "bg-gray-100 text-gray-400"}`}>
                             Pendiente
@@ -603,9 +635,9 @@ export const AllDecimo: React.FC = () => {
                     </span>
                   </div>
                   <div className={`text-[10px] truncate ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>{p.periodLabel(year)}</div>
-                  {isPaid && status?.netAmount != null && (
+                  {isPaid && status?.totalAmount != null && (
                     <div className={`text-xs font-mono font-bold ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                      {fmt(status.netAmount)}
+                      {fmt(status.totalAmount)}
                       {status.paymentDate && <span className={`ml-1 font-normal text-[10px] ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
                         · {new Date(status.paymentDate).toLocaleDateString("es-PA", { day: "2-digit", month: "short" })}
                       </span>}
@@ -793,9 +825,12 @@ export const AllDecimo: React.FC = () => {
       {modalEmp && (() => {
         const emp = modalEmp
         const enteredLate = emp.baseResult.effectiveStart > emp.baseResult.periodStart
-        const partidaInfo = PARTIDA_INFO[currentPartida - 1]
+        // Cuando se abre desde el historial usa el contexto de esa partida/año
+        const empPartida = modalEmpContext?.partida ?? currentPartida
+        const empYear    = modalEmpContext?.year    ?? year
+        const partidaInfo = PARTIDA_INFO[empPartida - 1]
 
-        const fileBase = `decimo_${emp.firstName}_${emp.lastName}_partida${currentPartida}_${year}`
+        const fileBase = `decimo_${emp.firstName}_${emp.lastName}_partida${empPartida}_${empYear}`
 
         const handleDownloadExcel = async () => {
           const XLSX = await import("xlsx")
@@ -846,7 +881,7 @@ export const AllDecimo: React.FC = () => {
           doc.setFont("helvetica", "normal")
           doc.setTextColor(80, 80, 80)
           doc.text(`${emp.firstName} ${emp.lastName}  ·  ${emp.cedula}`, marginL, y); y += 4.5
-          doc.text(`Partida ${currentPartida} — ${partidaInfo.month} ${year}  ·  ${partidaInfo.periodLabel(year)}`, marginL, y); y += 4.5
+          doc.text(`Partida ${empPartida} — ${partidaInfo.month} ${empYear}  ·  ${partidaInfo.periodLabel(empYear)}`, marginL, y); y += 4.5
           if (emp.baseResult.effectiveStart > emp.baseResult.periodStart) {
             doc.setTextColor(160, 100, 0)
             doc.text(`Ingresó: ${emp.baseResult.effectiveStart.toLocaleDateString("es-PA")}`, marginL, y); y += 4.5
@@ -928,7 +963,7 @@ export const AllDecimo: React.FC = () => {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
-            onClick={() => setModalEmp(null)}
+            onClick={() => { setModalEmp(null); setModalEmpContext(null) }}
           >
             <div
               className={`relative w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden ${isDarkMode ? "bg-slate-900 border border-slate-700" : "bg-white border border-gray-200"}`}
@@ -940,7 +975,7 @@ export const AllDecimo: React.FC = () => {
                     {emp.firstName} {emp.lastName}
                   </p>
                   <p className={`text-xs mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                    {emp.cedula} · Partida {currentPartida} ({partidaInfo.month} {year}) · {partidaInfo.periodLabel(year)}
+                    {emp.cedula} · Partida {empPartida} ({partidaInfo.month} {empYear}) · {partidaInfo.periodLabel(empYear)}
                   </p>
                   {enteredLate && (
                     <p className="text-xs text-amber-400 mt-0.5">
@@ -949,7 +984,7 @@ export const AllDecimo: React.FC = () => {
                   )}
                 </div>
                 <button
-                  onClick={() => setModalEmp(null)}
+                  onClick={() => { setModalEmp(null); setModalEmpContext(null) }}
                   className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-slate-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
                 >
                   <X size={18} />
@@ -1007,6 +1042,189 @@ export const AllDecimo: React.FC = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── MODAL HISTORIAL: desglose de partida de año anterior ── */}
+      {historialModal && (() => {
+        const { year: hYear, partida: hPart, pago } = historialModal
+        const partidaInfo = PARTIDA_INFO[hPart - 1]
+        const ssEmpRate = getParam("ss_decimo")?.percentage ?? 7.25
+        const ssPatRate = getParam("ss_decimo_patrono")?.percentage ?? 10.75
+        const fileBase = `decimo_partida${hPart}_${partidaInfo.month}_${hYear}`
+
+        const handleHistExcel = async () => {
+          const XLSX = await import("xlsx")
+          const wb = XLSX.utils.book_new()
+          const header = ["Empleado", "Cédula", "Sal. Mensual", "Bruto Décimo", "SS Empleado", "ISR", "SS Patrono", "Neto", "Costo Patrono"]
+          const rows = historialEmpleados.map(e => [
+            `${e.firstName} ${e.lastName}`, e.cedula,
+            e.monthlySalary, e.calc.grossThirteenth, e.calc.ssEmp,
+            e.calc.isr, e.calc.ssPat, e.calc.net, e.calc.totalCostPatrono,
+          ])
+          rows.push(["TOTALES", "", historialTotals.gross, historialTotals.gross, historialTotals.ssEmp, historialTotals.isr, historialTotals.ssPat, historialTotals.net, historialTotals.totalCostPatrono])
+          const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
+          ws["!cols"] = [22, 14, 14, 16, 14, 14, 14, 14, 16].map(w => ({ wch: w }))
+          XLSX.utils.book_append_sheet(wb, ws, "Detalle")
+          XLSX.writeFile(wb, `${fileBase}.xlsx`)
+        }
+
+        const handleHistPDF = async () => {
+          const { default: jsPDF } = await import("jspdf")
+          const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" })
+          const pageW = 279; const marginL = 15; const marginR = 15; const contentW = pageW - marginL - marginR
+          let y = 18
+          doc.setFontSize(13); doc.setFont("helvetica", "bold")
+          doc.text(`Décimo Tercer Mes — Partida ${hPart} (${partidaInfo.month} ${hYear})`, marginL, y); y += 6
+          doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(120, 120, 120)
+          doc.text(`Período: ${partidaInfo.periodLabel(hYear)}   ·   ${historialEmpleados.length} empleados${pago.paymentDate ? `   ·   Pagada: ${new Date(pago.paymentDate).toLocaleDateString("es-PA")}` : ""}`, marginL, y)
+          doc.setTextColor(0, 0, 0); y += 6
+          doc.setDrawColor(200, 200, 200); doc.line(marginL, y, pageW - marginR, y); y += 5
+          const cols = [
+            { label: "Empleado", w: 52, align: "left" as const },
+            { label: "Cédula", w: 24, align: "left" as const },
+            { label: "Sal. Mensual", w: 26, align: "right" as const },
+            { label: "Bruto", w: 24, align: "right" as const },
+            { label: "SS Emp.", w: 22, align: "right" as const },
+            { label: "ISR", w: 20, align: "right" as const },
+            { label: "SS Pat.", w: 22, align: "right" as const },
+            { label: "Neto", w: 26, align: "right" as const },
+            { label: "Costo Patrono", w: 28, align: "right" as const },
+          ]
+          doc.setFontSize(7.5); doc.setFont("helvetica", "bold")
+          doc.setFillColor(240, 240, 240); doc.rect(marginL, y - 3.5, contentW, 6, "F")
+          let x = marginL
+          for (const col of cols) { doc.text(col.label, col.align === "right" ? x + col.w - 1 : x + 1, y, { align: col.align }); x += col.w }
+          y += 4; doc.setDrawColor(180, 180, 180); doc.line(marginL, y, pageW - marginR, y); y += 3
+          doc.setFont("helvetica", "normal"); doc.setFontSize(7)
+          for (const emp of historialEmpleados) {
+            if (y > 185) { doc.addPage(); y = 18 }
+            const vals = [`${emp.firstName} ${emp.lastName}`, emp.cedula, fmt(emp.monthlySalary), fmt(emp.calc.grossThirteenth), fmt(emp.calc.ssEmp), fmt(emp.calc.isr), fmt(emp.calc.ssPat), fmt(emp.calc.net), fmt(emp.calc.totalCostPatrono)]
+            x = marginL
+            cols.forEach((col, i) => { doc.text(vals[i], col.align === "right" ? x + col.w - 1 : x + 1, y, { align: col.align, maxWidth: col.w - 2 }); x += col.w })
+            y += 5
+          }
+          y += 1; doc.setDrawColor(180,180,180); doc.line(marginL, y, pageW - marginR, y); y += 3
+          doc.setFont("helvetica", "bold"); doc.setFontSize(7.5)
+          const totVals = [`TOTALES (${historialEmpleados.length})`, "", fmt(historialEmpleados.reduce((s,e)=>s+e.monthlySalary,0)), fmt(historialTotals.gross), fmt(historialTotals.ssEmp), fmt(historialTotals.isr), fmt(historialTotals.ssPat), fmt(historialTotals.net), fmt(historialTotals.totalCostPatrono)]
+          x = marginL
+          cols.forEach((col, i) => { doc.text(totVals[i], col.align === "right" ? x + col.w - 1 : x + 1, y, { align: col.align }); x += col.w })
+          y += 10; doc.setFontSize(6.5); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150)
+          doc.text(`Generado el ${new Date().toLocaleDateString("es-PA", { day:"2-digit", month:"long", year:"numeric" })} · FlowPlanilla`, marginL, y)
+          doc.save(`${fileBase}.pdf`)
+        }
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.65)", backdropFilter: "blur(2px)" }}
+            onClick={() => setHistorialModal(null)}
+          >
+            <div
+              className={`relative w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden ${isDarkMode ? "bg-slate-900 border border-slate-700" : "bg-white border border-gray-200"}`}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
+                <div>
+                  <p className={`font-bold text-base ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                    Partida {hPart} — {partidaInfo.month} {hYear}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                    {partidaInfo.periodLabel(hYear)} · {historialEmpleados.length} empleados
+                    {pago.paymentDate && <> · Pagada el {new Date(pago.paymentDate).toLocaleDateString("es-PA", { day: "2-digit", month: "short", year: "numeric" })}</>}
+                    {pago.notes && <> · <span className="italic">{pago.notes}</span></>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={handleHistExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors">
+                    <FileSpreadsheet size={13} /> Excel
+                  </button>
+                  <button onClick={handleHistPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors">
+                    <Download size={13} /> PDF
+                  </button>
+                  <button onClick={() => setHistorialModal(null)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-slate-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Totales */}
+              <div className={`px-6 py-3 border-b flex items-center gap-6 flex-wrap ${isDarkMode ? "border-slate-700/60 bg-slate-800/40" : "border-gray-100 bg-gray-50"}`}>
+                {[
+                  { label: "Bruto",       value: fmt(historialTotals.gross),            color: isDarkMode ? "text-white" : "text-gray-900" },
+                  { label: `SS Emp. ${ssEmpRate}%`, value: `-${fmt(historialTotals.ssEmp)}`, color: "text-red-400" },
+                  { label: "ISR",         value: `-${fmt(historialTotals.isr)}`,         color: isDarkMode ? "text-blue-400" : "text-blue-600" },
+                  { label: `SS Pat. ${ssPatRate}%`, value: fmt(historialTotals.ssPat),   color: isDarkMode ? "text-amber-400" : "text-amber-600" },
+                  { label: "Neto",        value: fmt(historialTotals.net),               color: isDarkMode ? "text-green-400" : "text-green-600", large: true },
+                  { label: "Monto pagado", value: pago.totalAmount != null ? fmt(pago.totalAmount) : "—", color: isDarkMode ? "text-slate-300" : "text-gray-700" },
+                ].map(item => (
+                  <div key={item.label} className="shrink-0">
+                    <div className={`text-[10px] uppercase font-medium mb-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{item.label}</div>
+                    <div className={`font-mono font-bold ${"large" in item && item.large ? "text-base" : "text-sm"} ${item.color}`}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabla empleados */}
+              <div className="overflow-y-auto max-h-[55vh]">
+                <table className={`w-full text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  <thead className={`sticky top-0 text-[10px] uppercase font-bold ${isDarkMode ? "bg-slate-900/80 text-gray-500" : "bg-gray-50 text-gray-500"}`}>
+                    <tr>
+                      <th className="px-4 py-3 text-left">Empleado</th>
+                      <th className="px-4 py-3">Sal. Mensual</th>
+                      <th className="px-4 py-3">Bruto</th>
+                      <th className="px-4 py-3 text-red-400">SS Emp.</th>
+                      <th className="px-4 py-3 text-blue-400">ISR</th>
+                      <th className={`px-4 py-3 border-l-2 ${isDarkMode ? "border-slate-700 text-amber-400" : "border-gray-200 text-amber-600"}`}>SS Pat.</th>
+                      <th className={`px-4 py-3 ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Costo Pat.</th>
+                      <th className={`px-4 py-3 border-l-2 text-green-400 font-bold ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>Neto</th>
+                      <th className="px-4 py-3 w-10" />
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${isDarkMode ? "divide-slate-700/50" : "divide-gray-100"}`}>
+                    {historialEmpleados.map(emp => (
+                      <tr key={emp.id} className={isDarkMode ? "hover:bg-slate-800/20" : "hover:bg-gray-50"}>
+                        <td className="px-4 py-3">
+                          <div className={`font-medium text-sm ${isDarkMode ? "text-slate-200" : "text-gray-900"}`}>{emp.firstName} {emp.lastName}</div>
+                          <div className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{emp.cedula}</div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm text-center">{fmt(emp.monthlySalary)}</td>
+                        <td className={`px-4 py-3 font-mono font-semibold text-sm text-center ${isDarkMode ? "text-slate-200" : "text-gray-800"}`}>{fmt(emp.calc.grossThirteenth)}</td>
+                        <td className="px-4 py-3 font-mono text-sm text-center text-red-400/80">-{fmt(emp.calc.ssEmp)}</td>
+                        <td className="px-4 py-3 font-mono text-sm text-center text-blue-400/80">-{fmt(emp.calc.isr)}</td>
+                        <td className={`px-4 py-3 font-mono text-sm text-center text-amber-400/80 border-l-2 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>{fmt(emp.calc.ssPat)}</td>
+                        <td className={`px-4 py-3 font-mono text-sm text-center ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(emp.calc.totalCostPatrono)}</td>
+                        <td className={`px-4 py-3 font-mono font-bold text-sm text-center border-l-2 ${isDarkMode ? "text-green-400 border-slate-700" : "text-green-600 border-gray-200"}`}>{fmt(emp.calc.net)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => { setModalEmpContext({ partida: hPart, year: hYear }); setModalEmp(emp) }}
+                            title="Ver desglose"
+                            className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? "hover:bg-slate-700 text-gray-400 hover:text-blue-400" : "hover:bg-gray-100 text-gray-400 hover:text-blue-600"}`}
+                          >
+                            <FileSpreadsheet size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className={`font-bold text-xs border-t-2 ${isDarkMode ? "bg-slate-900/40 border-gray-600 text-white" : "bg-gray-100 border-gray-300 text-gray-900"}`}>
+                      <td className="px-4 py-3 uppercase tracking-wide">Totales ({historialEmpleados.length})</td>
+                      <td />
+                      <td className="px-4 py-3 font-mono text-center">{fmt(historialTotals.gross)}</td>
+                      <td className="px-4 py-3 font-mono text-center text-red-400">-{fmt(historialTotals.ssEmp)}</td>
+                      <td className="px-4 py-3 font-mono text-center text-blue-400">-{fmt(historialTotals.isr)}</td>
+                      <td className={`px-4 py-3 font-mono text-center text-amber-400 border-l-2 ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>{fmt(historialTotals.ssPat)}</td>
+                      <td className={`px-4 py-3 font-mono text-center ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>{fmt(historialTotals.totalCostPatrono)}</td>
+                      <td className={`px-4 py-3 font-mono text-base text-center border-l-2 ${isDarkMode ? "text-green-400 border-slate-700" : "text-green-600 border-gray-200"}`}>{fmt(historialTotals.net)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           </div>
