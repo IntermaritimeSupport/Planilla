@@ -41,15 +41,15 @@ interface EmployeeBase {
 
 interface LegalParameter { id: string; key: string; percentage: number; category: string; minRange: number | null; maxRange: number | null; status: string }
 interface DecimoCalc { grossThirteenth: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
-interface DecimoLineItem { monthLabel: string; daysWorked: number; daysInMonth: number; monthlySalary: number; aporte: number }
-interface DecimoBaseResult { gross: number; lines: DecimoLineItem[]; effectiveStart: Date; periodStart: Date }
+interface DecimoLineItem { monthLabel: string; monthlySalary: number; aporte: number }
+interface DecimoBaseResult { gross: number; lines: DecimoLineItem[]; effectiveStart: Date; periodStart: Date; monthsWorked: number }
 interface EmployeeThirteenth extends EmployeeBase { monthlySalary: number; calc: DecimoCalc; baseResult: DecimoBaseResult }
 interface ThirteenthTotals { gross: number; ssEmp: number; ssPat: number; isr: number; net: number; totalCostPatrono: number }
 interface PartidaStatus { partida: number; name: string; status: "PAID" | "PENDING"; paymentId: string | null; amount: number | null; ssAmount: number | null; netAmount: number | null; paymentDate: string | null; notes: string | null }
 
 const MONTH_NAMES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
 const fmt = (n: number) => new Intl.NumberFormat("es-PA", { style: "currency", currency: "USD" }).format(n)
-function getMonthlySalary(salary: number, salaryType: SalaryType): number { return salaryType === "BIWEEKLY" ? salary * 2 : salary }
+function getMonthlySalary(salary: number, salaryType: SalaryType): number { const s = Number(salary); return salaryType === "BIWEEKLY" ? s * 2 : s }
 
 function getPartidaRange(part: 1 | 2 | 3, year: number): { start: Date; end: Date } {
   if (part === 1) return { start: new Date(year - 1, 11, 16, 0, 0, 0, 0), end: new Date(year, 3, 15, 23, 59, 59, 999) }
@@ -64,13 +64,17 @@ function toQuincenaStart(d: Date): Date {
     : new Date(d.getFullYear(), d.getMonth(), 16)
 }
 
-function calcDecimoBase(emp: EmployeeBase, part: 1 | 2 | 3, year: number): DecimoBaseResult {
+/**
+ * Calcula las líneas de desglose y los meses trabajados en el período.
+ * monthsWorked se usa para prorratear el gross cuando el empleado no trabajó los 4 meses completos.
+ */
+function calcDecimoLines(emp: EmployeeBase, part: 1 | 2 | 3, year: number): Omit<DecimoBaseResult, "gross"> {
   const { start: pStart, end: pEnd } = getPartidaRange(part, year)
   const hireRaw = emp.hireDate ? new Date(emp.hireDate) : null
   const hireQuincena = hireRaw ? toQuincenaStart(hireRaw) : null
   const effectiveStart = hireQuincena && hireQuincena > pStart ? hireQuincena : pStart
 
-  if (effectiveStart > pEnd) return { gross: 0, lines: [], effectiveStart, periodStart: pStart }
+  if (effectiveStart > pEnd) return { lines: [], effectiveStart, periodStart: pStart, monthsWorked: 0 }
 
   type Segment = { from: Date; salary: number; salaryType: SalaryType }
   const segments: Segment[] = []
@@ -79,7 +83,7 @@ function calcDecimoBase(emp: EmployeeBase, part: 1 | 2 | 3, year: number): Decim
   )
 
   if (history.length === 0) {
-    segments.push({ from: effectiveStart, salary: emp.salary, salaryType: emp.salaryType })
+    segments.push({ from: effectiveStart, salary: Number(emp.salary), salaryType: emp.salaryType })
   } else {
     const firstChange = history[0]
     const firstChangeQuincena = toQuincenaStart(new Date(firstChange.effectiveDate))
@@ -96,7 +100,8 @@ function calcDecimoBase(emp: EmployeeBase, part: 1 | 2 | 3, year: number): Decim
   }
 
   const lines: DecimoLineItem[] = []
-  let base = 0
+  let monthsWorked = 0
+
   for (let i = 0; i < segments.length; i++) {
     const segEndDate = i + 1 < segments.length
       ? (() => { const d = new Date(segments[i + 1].from); d.setDate(d.getDate() - 1); return d })()
@@ -107,19 +112,15 @@ function calcDecimoBase(emp: EmployeeBase, part: 1 | 2 | 3, year: number): Decim
     const monthlySal = getMonthlySalary(segments[i].salary, segments[i].salaryType)
     let cursor = new Date(s.getFullYear(), s.getMonth(), 1)
     while (cursor <= e) {
-      const monthEnd    = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
-      const daysInMonth = monthEnd.getDate()
-      const workStart   = s > cursor ? s : cursor
-      const workEnd     = e < monthEnd ? e : monthEnd
-      const daysWorked  = workEnd.getDate() - workStart.getDate() + 1
-      const aporte      = (monthlySal / daysInMonth) * daysWorked
-      base += aporte
-      lines.push({ monthLabel: `${MONTH_NAMES_SHORT[cursor.getMonth()]} ${cursor.getFullYear()}`, daysWorked, daysInMonth, monthlySalary: monthlySal, aporte })
+      monthsWorked++
+      // Aporte por mes = salario × 1/12 (el décimo anual es 1 salario, dividido entre 12 meses)
+      const aporte = Number((monthlySal / 12).toFixed(2))
+      lines.push({ monthLabel: `${MONTH_NAMES_SHORT[cursor.getMonth()]} ${cursor.getFullYear()}`, monthlySalary: monthlySal, aporte })
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
     }
   }
 
-  return { gross: Number(base.toFixed(4)), lines, effectiveStart, periodStart: pStart }
+  return { lines, effectiveStart, periodStart: pStart, monthsWorked }
 }
 
 export const AllDecimo: React.FC = () => {
@@ -171,26 +172,43 @@ export const AllDecimo: React.FC = () => {
     return decimoHistory.partidas.find(p => p.partida === currentPartida) || null
   }, [decimoHistory, currentPartida])
 
+  const calcISRAnual = useCallback((baseAnual: number): number => {
+    const brackets = legalParams
+      ?.filter(p => p.category === "isr" && p.status === "active" && p.percentage > 0)
+      .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0)) ?? []
+    let isr = 0
+    for (const bracket of brackets) {
+      const min = bracket.minRange ?? 0
+      const max = bracket.maxRange ?? Infinity
+      if (baseAnual <= min) break
+      const taxable = Math.min(baseAnual, max) - min
+      isr += taxable * (bracket.percentage / 100)
+    }
+    return isr
+  }, [legalParams])
+
   const calculateThirteenth = useCallback(
-    (grossPart: number): DecimoCalc => {
+    (monthlySalary: number, monthsWorked: number): DecimoCalc => {
+      // Bruto partida = salario × meses_trabajados / 15
+      // Cada partida cubre 5 meses (ej: Dic-Abr), 3 partidas × 5 meses = 15.
+      // Período completo (5 meses): salario × 5/15 = salario/3. Si ingresó tarde, se proratea.
+      const gross = Number(((monthlySalary * monthsWorked) / 15).toFixed(2))
+
       const ssEmpRate = getParam("ss_decimo")?.percentage ?? 7.25
       const ssPatRate = getParam("ss_decimo_patrono")?.percentage ?? 10.75
-      const gross = Number(grossPart.toFixed(2))
       const ssEmp = Number((gross * (ssEmpRate / 100)).toFixed(2))
       const ssPat = Number((gross * (ssPatRate / 100)).toFixed(2))
-      const isrBrackets = legalParams
-        ?.filter(p => p.category === "isr" && p.status === "active" && p.percentage > 0)
-        .sort((a, b) => (a.minRange ?? 0) - (b.minRange ?? 0)) ?? []
-      const primerTramoConTasa = isrBrackets[0]
-      const exentoAnual = primerTramoConTasa?.minRange ?? 11000
-      const tasaISR = (primerTramoConTasa?.percentage ?? 15) / 100
-      const montoExento = Number((exentoAnual / 39).toFixed(6))
-      const isr = Number((Math.max(0, (gross - montoExento) * tasaISR)).toFixed(2))
+
+      // ISR: diferencia marginal ISR(13 meses) - ISR(12 meses) ÷ 3 partidas
+      const isrAnualCon    = calcISRAnual(monthlySalary * 13)
+      const isrAnualSin    = calcISRAnual(monthlySalary * 12)
+      const isr = Number((Math.max(0, isrAnualCon - isrAnualSin) / 3).toFixed(2))
+
       const net = Number((gross - ssEmp - isr).toFixed(2))
       const totalCostPatrono = Number((gross + ssPat).toFixed(2))
       return { grossThirteenth: gross, ssEmp, ssPat, isr, net, totalCostPatrono }
     },
-    [getParam, legalParams]
+    [getParam, calcISRAnual]
   )
 
   const employeeData = useMemo<EmployeeThirteenth[]>(() => {
@@ -201,8 +219,10 @@ export const AllDecimo: React.FC = () => {
       .filter(emp => { if (!emp.hireDate) return true; return new Date(emp.hireDate) <= pEnd })
       .map((emp) => {
         const monthlySalary = getMonthlySalary(emp.salary, emp.salaryType)
-        const baseResult = calcDecimoBase(emp, part, year)
-        return { ...emp, monthlySalary, calc: calculateThirteenth(baseResult.gross), baseResult }
+        const { lines, effectiveStart, periodStart, monthsWorked } = calcDecimoLines(emp, part, year)
+        const calc = calculateThirteenth(monthlySalary, monthsWorked)
+        const baseResult: DecimoBaseResult = { gross: calc.grossThirteenth, lines, effectiveStart, periodStart, monthsWorked }
+        return { ...emp, monthlySalary, calc, baseResult }
       })
   }, [employees, calculateThirteenth, currentPartida, year])
 
@@ -240,6 +260,152 @@ export const AllDecimo: React.FC = () => {
     finally { setPayingPartida(null) }
   }
 
+  const handleExportPartidaExcel = async () => {
+    const XLSX = await import("xlsx")
+    const partidaInfo = PARTIDA_INFO[currentPartida - 1]
+    const wb = XLSX.utils.book_new()
+
+    // Hoja 1: detalle por empleado
+    const header = ["Empleado", "Cédula", "Sal. Mensual", "Bruto Décimo", "SS Empleado", "ISR", "SS Patrono", "Neto", "Costo Patrono"]
+    const rows = employeeData.map(e => [
+      `${e.firstName} ${e.lastName}`,
+      e.cedula,
+      e.monthlySalary,
+      e.calc.grossThirteenth,
+      e.calc.ssEmp,
+      e.calc.isr,
+      e.calc.ssPat,
+      e.calc.net,
+      e.calc.totalCostPatrono,
+    ])
+    rows.push(["TOTALES", "", totals.gross, totals.gross, totals.ssEmp, totals.isr, totals.ssPat, totals.net, totals.totalCostPatrono])
+    const ws1 = XLSX.utils.aoa_to_sheet([header, ...rows])
+    ws1["!cols"] = [22, 14, 14, 16, 14, 14, 14, 14, 16].map(w => ({ wch: w }))
+    XLSX.utils.book_append_sheet(wb, ws1, "Detalle Empleados")
+
+    // Hoja 2: desglose mensual de cada empleado (columnas = meses)
+    const allMonths = Array.from(new Set(employeeData.flatMap(e => e.baseResult.lines.map(l => l.monthLabel))))
+    const h2 = ["Empleado", ...allMonths, "Total"]
+    const r2 = employeeData.map(e => {
+      const byMonth: Record<string, number> = {}
+      e.baseResult.lines.forEach(l => { byMonth[l.monthLabel] = l.aporte })
+      return [`${e.firstName} ${e.lastName}`, ...allMonths.map(m => byMonth[m] ?? 0), e.calc.grossThirteenth]
+    })
+    const ws2 = XLSX.utils.aoa_to_sheet([h2, ...r2])
+    ws2["!cols"] = [{ wch: 22 }, ...allMonths.map(() => ({ wch: 13 })), { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, ws2, "Desglose Mensual")
+
+    XLSX.writeFile(wb, `decimo_partida${currentPartida}_${partidaInfo.month}_${year}.xlsx`)
+  }
+
+  const handleExportPartidaPDF = async () => {
+    const { default: jsPDF } = await import("jspdf")
+    const partidaInfo = PARTIDA_INFO[currentPartida - 1]
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" })
+    const pageW = 279
+    const marginL = 15
+    const marginR = 15
+    const contentW = pageW - marginL - marginR
+    let y = 18
+
+    // Encabezado
+    doc.setFontSize(13)
+    doc.setFont("helvetica", "bold")
+    doc.text(`Décimo Tercer Mes — Partida ${currentPartida} (${partidaInfo.month} ${year})`, marginL, y); y += 6
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(120, 120, 120)
+    doc.text(`Período: ${partidaInfo.periodLabel(year)}   ·   ${employeeData.length} empleados`, marginL, y)
+    doc.setTextColor(0, 0, 0)
+    y += 6
+
+    doc.setDrawColor(200, 200, 200)
+    doc.line(marginL, y, pageW - marginR, y); y += 5
+
+    // Cabecera tabla
+    const cols = [
+      { label: "Empleado",      w: 52, align: "left"  as const },
+      { label: "Cédula",        w: 24, align: "left"  as const },
+      { label: "Sal. Mensual",  w: 26, align: "right" as const },
+      { label: "Bruto",         w: 24, align: "right" as const },
+      { label: "SS Emp.",       w: 22, align: "right" as const },
+      { label: "ISR",           w: 20, align: "right" as const },
+      { label: "SS Pat.",       w: 22, align: "right" as const },
+      { label: "Neto",          w: 26, align: "right" as const },
+      { label: "Costo Patrono", w: 28, align: "right" as const },
+    ]
+
+    doc.setFontSize(7.5)
+    doc.setFont("helvetica", "bold")
+    doc.setFillColor(240, 240, 240)
+    doc.rect(marginL, y - 3.5, contentW, 6, "F")
+    let x = marginL
+    for (const col of cols) {
+      const tx = col.align === "right" ? x + col.w - 1 : x + 1
+      doc.text(col.label, tx, y, { align: col.align })
+      x += col.w
+    }
+    y += 4
+    doc.setDrawColor(180, 180, 180)
+    doc.line(marginL, y, pageW - marginR, y); y += 3
+
+    // Filas empleados
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(7)
+    for (const emp of employeeData) {
+      if (y > 185) {
+        doc.addPage()
+        y = 18
+      }
+      const values = [
+        `${emp.firstName} ${emp.lastName}`,
+        emp.cedula,
+        fmt(emp.monthlySalary),
+        fmt(emp.calc.grossThirteenth),
+        fmt(emp.calc.ssEmp),
+        fmt(emp.calc.isr),
+        fmt(emp.calc.ssPat),
+        fmt(emp.calc.net),
+        fmt(emp.calc.totalCostPatrono),
+      ]
+      x = marginL
+      cols.forEach((col, i) => {
+        const tx = col.align === "right" ? x + col.w - 1 : x + 1
+        doc.text(values[i], tx, y, { align: col.align, maxWidth: col.w - 2 })
+        x += col.w
+      })
+      y += 5
+    }
+
+    // Fila totales
+    y += 1
+    doc.setDrawColor(180, 180, 180)
+    doc.line(marginL, y, pageW - marginR, y); y += 3
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(7.5)
+    const totalValues = [
+      `TOTALES (${employeeData.length})`, "",
+      fmt(employeeData.reduce((s,e) => s + e.monthlySalary, 0)),
+      fmt(totals.gross), fmt(totals.ssEmp), fmt(totals.isr),
+      fmt(totals.ssPat), fmt(totals.net), fmt(totals.totalCostPatrono),
+    ]
+    x = marginL
+    cols.forEach((col, i) => {
+      const tx = col.align === "right" ? x + col.w - 1 : x + 1
+      doc.text(totalValues[i], tx, y, { align: col.align })
+      x += col.w
+    })
+
+    // Pie
+    y += 10
+    doc.setFontSize(6.5)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(150, 150, 150)
+    doc.text(`Generado el ${new Date().toLocaleDateString("es-PA", { day: "2-digit", month: "long", year: "numeric" })} · FlowPlanilla`, marginL, y)
+
+    doc.save(`decimo_partida${currentPartida}_${partidaInfo.month}_${year}.pdf`)
+  }
+
   const handleVoidPayment = async (paymentId: string) => {
     if (!confirm("¿Anular este registro? La partida volverá a PENDIENTE.")) return
     try {
@@ -267,7 +433,13 @@ export const AllDecimo: React.FC = () => {
         </div>
       )}
 
-      <PagesHeader title={`${pageName} - Décimo Tercer Mes`} description="Cálculo y seguimiento de las 3 partidas del décimo" onExport={() => {}} />
+      <PagesHeader
+        title={`${pageName} - Décimo Tercer Mes`}
+        description="Cálculo y seguimiento de las 3 partidas del décimo"
+        onExport={activeTab === "actual" ? handleExportPartidaExcel : undefined}
+        onExportLabel={`Excel Partida ${currentPartida}`}
+        onExportPDF={activeTab === "actual" ? handleExportPartidaPDF : undefined}
+      />
 
       {/* TABS */}
       <div className={`flex gap-1 mb-4 p-1 rounded-xl w-fit ${isDarkMode ? "bg-slate-800" : "bg-gray-100"}`}>
@@ -510,9 +682,6 @@ export const AllDecimo: React.FC = () => {
           <h4 className={`font-bold text-sm uppercase tracking-wide ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
             Detalle de Colaboradores <span className={`font-normal text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>({employeeData.length})</span>
           </h4>
-          <button className="flex items-center gap-2 text-xs bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold text-white transition-colors">
-            <Download size={14} /> Exportar
-          </button>
         </div>
         <div className="overflow-x-auto">
           <table className={`w-full text-sm text-left ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -626,30 +795,133 @@ export const AllDecimo: React.FC = () => {
         const enteredLate = emp.baseResult.effectiveStart > emp.baseResult.periodStart
         const partidaInfo = PARTIDA_INFO[currentPartida - 1]
 
-        const handleDownload = () => {
-          const rows = [
-            ["Mes", "Días trabajados", "Días del mes", "Salario mensual", "Fórmula", "Aporte"],
-            ...emp.baseResult.lines.map(l => [
-              l.monthLabel,
-              l.daysWorked,
-              l.daysInMonth,
-              l.monthlySalary.toFixed(2),
-              `${l.monthlySalary.toFixed(2)} ÷ ${l.daysInMonth} × ${l.daysWorked}`,
-              l.aporte.toFixed(2),
-            ]),
-            ["", "", "", "", "Total bruto", emp.calc.grossThirteenth.toFixed(2)],
-            ["", "", "", "", "SS Empleado", `-${emp.calc.ssEmp.toFixed(2)}`],
-            ["", "", "", "", "ISR", `-${emp.calc.isr.toFixed(2)}`],
-            ["", "", "", "", "Neto", emp.calc.net.toFixed(2)],
+        const fileBase = `decimo_${emp.firstName}_${emp.lastName}_partida${currentPartida}_${year}`
+
+        const handleDownloadExcel = async () => {
+          const XLSX = await import("xlsx")
+          const wb = XLSX.utils.book_new()
+
+          // Hoja 1: Desglose mensual (por columna: cada mes es una columna)
+          const months = emp.baseResult.lines.map(l => l.monthLabel)
+          const salaries = emp.baseResult.lines.map(l => l.monthlySalary)
+          const aportes = emp.baseResult.lines.map(l => l.aporte)
+          const wsData = [
+            ["Concepto", ...months],
+            ["Salario Mensual", ...salaries],
+            ["Aporte Décimo", ...aportes],
           ]
-          const csv = rows.map(r => r.join(",")).join("\n")
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement("a")
-          a.href = url
-          a.download = `decimo_${emp.firstName}_${emp.lastName}_partida${currentPartida}_${year}.csv`
-          a.click()
-          URL.revokeObjectURL(url)
+          const ws1 = XLSX.utils.aoa_to_sheet(wsData)
+          XLSX.utils.book_append_sheet(wb, ws1, "Desglose Mensual")
+
+          // Hoja 2: Resumen de deducciones
+          const ws2 = XLSX.utils.aoa_to_sheet([
+            ["Concepto", "Monto (USD)"],
+            ["Bruto Décimo", emp.calc.grossThirteenth],
+            ["SS Empleado", -emp.calc.ssEmp],
+            ["ISR", -emp.calc.isr],
+            ["Neto Empleado", emp.calc.net],
+            ["SS Patrono", emp.calc.ssPat],
+            ["Costo Total Patrono", emp.calc.totalCostPatrono],
+          ])
+          XLSX.utils.book_append_sheet(wb, ws2, "Resumen")
+
+          XLSX.writeFile(wb, `${fileBase}.xlsx`)
+        }
+
+        const handleDownloadPDF = async () => {
+          const { default: jsPDF } = await import("jspdf")
+          const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" })
+          const pageW = 215
+          const marginL = 20
+          const marginR = 20
+          const contentW = pageW - marginL - marginR
+          let y = 20
+
+          // ── Encabezado ──
+          doc.setFontSize(13)
+          doc.setFont("helvetica", "bold")
+          doc.text("Desglose de Décimo Tercer Mes", marginL, y); y += 7
+
+          doc.setFontSize(9)
+          doc.setFont("helvetica", "normal")
+          doc.setTextColor(80, 80, 80)
+          doc.text(`${emp.firstName} ${emp.lastName}  ·  ${emp.cedula}`, marginL, y); y += 4.5
+          doc.text(`Partida ${currentPartida} — ${partidaInfo.month} ${year}  ·  ${partidaInfo.periodLabel(year)}`, marginL, y); y += 4.5
+          if (emp.baseResult.effectiveStart > emp.baseResult.periodStart) {
+            doc.setTextColor(160, 100, 0)
+            doc.text(`Ingresó: ${emp.baseResult.effectiveStart.toLocaleDateString("es-PA")}`, marginL, y); y += 4.5
+          }
+          doc.setTextColor(0, 0, 0)
+          y += 3
+
+          doc.setDrawColor(200, 200, 200)
+          doc.line(marginL, y, pageW - marginR, y); y += 6
+
+          // ── Tabla desglose (filas: Mes | Salario | Aporte) ──
+          const colMes = 40
+          const colSal = (contentW - colMes) / 2
+
+          doc.setFontSize(8)
+          doc.setFont("helvetica", "bold")
+          doc.setFillColor(245, 245, 245)
+          doc.rect(marginL, y - 3.5, contentW, 6, "F")
+          doc.text("Mes",             marginL + 2,                y)
+          doc.text("Salario Mensual", marginL + colMes + colSal,  y, { align: "right" })
+          doc.text("Aporte Décimo",   marginL + contentW,         y, { align: "right" })
+          y += 4
+          doc.setDrawColor(210, 210, 210)
+          doc.line(marginL, y, pageW - marginR, y); y += 3
+
+          doc.setFont("helvetica", "normal")
+          doc.setFontSize(8)
+          for (const line of emp.baseResult.lines) {
+            doc.text(line.monthLabel,         marginL + 2,                y)
+            doc.text(fmt(line.monthlySalary), marginL + colMes + colSal,  y, { align: "right" })
+            doc.text(fmt(line.aporte),        marginL + contentW,         y, { align: "right" })
+            y += 5
+          }
+
+          // Fila total bruto
+          y += 1
+          doc.setDrawColor(180, 180, 180)
+          doc.line(marginL, y, pageW - marginR, y); y += 3
+          doc.setFont("helvetica", "bold")
+          doc.text("Total Bruto", marginL + 2, y)
+          doc.text(fmt(emp.calc.grossThirteenth), marginL + contentW, y, { align: "right" })
+          y += 8
+
+          // ── Resumen deducciones ──
+          doc.setDrawColor(200, 200, 200)
+          doc.line(marginL, y, pageW - marginR, y); y += 6
+
+          doc.setFontSize(9)
+          doc.setFont("helvetica", "bold")
+          doc.text("Resumen de Deducciones", marginL, y); y += 6
+
+          const resumen = [
+            { label: "Bruto Décimo",        value: fmt(emp.calc.grossThirteenth), bold: false },
+            { label: "(-) SS Empleado",     value: `-${fmt(emp.calc.ssEmp)}`,     bold: false },
+            { label: "(-) ISR",             value: `-${fmt(emp.calc.isr)}`,       bold: false },
+            { label: "Neto Empleado",       value: fmt(emp.calc.net),             bold: true  },
+            { label: "SS Patrono",          value: fmt(emp.calc.ssPat),           bold: false },
+            { label: "Costo Total Patrono", value: fmt(emp.calc.totalCostPatrono),bold: false },
+          ]
+          doc.setFontSize(8.5)
+          for (const row of resumen) {
+            doc.setFont("helvetica", row.bold ? "bold" : "normal")
+            doc.text(row.label, marginL + 4, y)
+            doc.text(row.value, pageW - marginR, y, { align: "right" })
+            y += 5
+          }
+
+          // ── Pie ──
+          y += 8
+          doc.setFontSize(6.5)
+          doc.setFont("helvetica", "normal")
+          doc.setTextColor(160, 160, 160)
+          doc.text(`Generado el ${new Date().toLocaleDateString("es-PA", { day: "2-digit", month: "long", year: "numeric" })} · FlowPlanilla`, marginL, y)
+
+          doc.save(`${fileBase}.pdf`)
         }
 
         return (
@@ -689,9 +961,7 @@ export const AllDecimo: React.FC = () => {
                   <thead className={`sticky top-0 ${isDarkMode ? "bg-slate-800 text-gray-500" : "bg-gray-50 text-gray-400"}`}>
                     <tr>
                       <th className="px-5 py-3 text-left font-semibold uppercase tracking-wider">Mes</th>
-                      <th className="px-5 py-3 text-left font-semibold uppercase tracking-wider">Días</th>
                       <th className="px-5 py-3 text-left font-semibold uppercase tracking-wider">Salario mensual</th>
-                      <th className="px-5 py-3 text-left font-semibold uppercase tracking-wider">Fórmula</th>
                       <th className="px-5 py-3 text-right font-semibold uppercase tracking-wider text-blue-400">Aporte</th>
                     </tr>
                   </thead>
@@ -699,16 +969,7 @@ export const AllDecimo: React.FC = () => {
                     {emp.baseResult.lines.map((line, idx) => (
                       <tr key={idx} className={isDarkMode ? "hover:bg-slate-800/40" : "hover:bg-gray-50"}>
                         <td className={`px-5 py-2.5 font-medium ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>{line.monthLabel}</td>
-                        <td className="px-5 py-2.5 font-mono">
-                          {line.daysWorked === line.daysInMonth
-                            ? <span className="text-emerald-400">{line.daysWorked} / {line.daysInMonth}</span>
-                            : <span className="text-amber-400">{line.daysWorked} / {line.daysInMonth}</span>
-                          }
-                        </td>
                         <td className="px-5 py-2.5 font-mono text-slate-400">{fmt(line.monthlySalary)}</td>
-                        <td className="px-5 py-2.5 font-mono text-slate-500 text-[10px]">
-                          {fmt(line.monthlySalary)} ÷ {line.daysInMonth} × {line.daysWorked}
-                        </td>
                         <td className="px-5 py-2.5 font-mono font-semibold text-right text-blue-400">{fmt(line.aporte)}</td>
                       </tr>
                     ))}
@@ -731,12 +992,20 @@ export const AllDecimo: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <button
-                    onClick={handleDownload}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0"
-                  >
-                    <Download size={14} /> Descargar CSV
-                  </button>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={handleDownloadExcel}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
+                    >
+                      <FileSpreadsheet size={13} /> Excel
+                    </button>
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors"
+                    >
+                      <Download size={13} /> PDF
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

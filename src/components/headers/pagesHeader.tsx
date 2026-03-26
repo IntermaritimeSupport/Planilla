@@ -17,6 +17,8 @@ interface PagesHeaderProps {
 
   /** Botones estándar (si existe la función → se renderiza) */
   onExport?: () => void;
+  onExportLabel?: string;
+  onExportPDF?: () => void;
   onImport?: () => void;
   onReport?: () => void;
 
@@ -37,6 +39,8 @@ const PagesHeader: React.FC<PagesHeaderProps> = ({
   showCreate = false,
 
   onExport,
+  onExportLabel = "Exportar Excel",
+  onExportPDF,
   onImport,
   onReport,
 
@@ -69,14 +73,25 @@ const PagesHeader: React.FC<PagesHeaderProps> = ({
             lg:flex lg:flex-wrap lg:justify-end
           "
         >
-          {/* EXPORT */}
+          {/* EXPORT EXCEL */}
           {onExport && (
             <button
               onClick={onExport}
-              className={`${BUTTON_BASE} bg-gray-700 hover:bg-gray-600 text-white`}
+              className={`${BUTTON_BASE} bg-emerald-700 hover:bg-emerald-600 text-white`}
             >
               <Download className="w-4 h-4" />
-              <span>Exportar</span>
+              <span>{onExportLabel}</span>
+            </button>
+          )}
+
+          {/* EXPORT PDF */}
+          {onExportPDF && (
+            <button
+              onClick={onExportPDF}
+              className={`${BUTTON_BASE} bg-red-700 hover:bg-red-600 text-white`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Exportar PDF</span>
             </button>
           )}
 
