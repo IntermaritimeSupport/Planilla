@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import useSWR, { mutate as globalMutate } from "swr"
 import {
-  ShieldCheck, Building2, Users, UserCheck, Calendar, ArrowLeft,
+  ShieldCheck, Building2, Users, UserCheck, ArrowLeft,
   Plus, X, Loader2, CheckCircle2, XCircle, AlertTriangle, Clock,
   ChevronRight, Lock, Zap,
 } from "lucide-react"
@@ -68,7 +68,7 @@ function getInitials(name: string) {
 
 const AVATAR_COLORS = ["bg-violet-600","bg-blue-600","bg-emerald-600","bg-orange-500","bg-pink-600","bg-teal-600"]
 function getAvatarColor(name: string) {
-  let h = 0; for (const c of name) h = name.charCodeAt(0) + ((h << 5) - h)
+  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
 }
 
