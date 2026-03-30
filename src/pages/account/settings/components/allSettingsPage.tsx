@@ -95,7 +95,7 @@ export default function AllSettingsPage() {
 
   const { data: users, isLoading: loadingUsers, mutate: mutateUsers } =
     useSWR<UserFull[]>(
-      selectedCompany ? `${VITE_API_URL}/api/users/full/${selectedCompany.code}` : null,
+      selectedCompany ? `${VITE_API_URL}/api/users/full/${selectedCompany.id}` : null,
       authFetcher
     )
 
@@ -255,6 +255,7 @@ export default function AllSettingsPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           TAB: GENERAL
       ══════════════════════════════════════════════════════════════════════ */}
+      
       {activeTab === "general" && (
         <div className="space-y-4 max-w-md">
 

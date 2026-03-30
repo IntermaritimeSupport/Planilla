@@ -961,7 +961,7 @@ export const AllDecimo: React.FC = () => {
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
             onClick={() => { setModalEmp(null); setModalEmpContext(null) }}
           >
