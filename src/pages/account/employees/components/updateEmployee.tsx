@@ -27,17 +27,17 @@ const ManageEmployeePage: React.FC = () => {
     // Traemos datos del empleado si estamos editando
     const { data: employeeData, isLoading: loadingEmp } = useSWR(
         employeeId ? `${VITE_API_URL}/api/payroll/employees/${employeeId}` : null,
-        fetcher,
-        { revalidateOnFocus: false, revalidateOnReconnect: false }
+        fetcher
     );
-    // Traemos departamentos para el select
-    const { data: departments, isLoading: loadingDepts } = useSWR(
+    // Traemos departamentos para el select (errores no bloquean el form)
+    const { data: departments } = useSWR(
         selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null,
         fetcher,
-        { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
+        { dedupingInterval: 300_000 }
     );
 
-    if (loadingEmp || loadingDepts) return <div className="p-10 text-center text-blue-500">Cargando...</div>;
+    // Solo bloqueamos si falta el dato crítico (empleado en modo edición)
+    if (employeeId && loadingEmp) return <div className="p-10 text-center text-blue-500">Cargando...</div>;
 
     return (
         <div className="min-h-screen">

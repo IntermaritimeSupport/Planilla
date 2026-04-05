@@ -60,11 +60,7 @@ const CreateUserPage: React.FC = () => {
     const { data: departments, error, isLoading } = useSWR<Department[]>(
         departmentUrl,
         fetcher,
-        {
-            revalidateOnFocus: false,
-            revalidateOnReconnect: false,
-            dedupingInterval: 300_000, // 5 minutos
-        }
+        { dedupingInterval: 300_000 }
     );
     // console.log("Departamentos cargados:", departments);
 
