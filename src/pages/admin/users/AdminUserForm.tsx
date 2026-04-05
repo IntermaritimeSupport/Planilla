@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import useSWR from "swr"
+import useSWR, { mutate } from "swr"
 import { ArrowLeft, Loader2, UserCircle, Save, Eye, EyeOff } from "lucide-react"
+import { toast } from "sonner"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher, apiPost, apiPut } from "../../../services/api"
 
@@ -48,7 +49,6 @@ export const AdminUserForm = () => {
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [showPass, setShowPass] = useState(false)
   const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState("")
 
   useEffect(() => {
     if (user) {
@@ -64,9 +64,8 @@ export const AdminUserForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    if (!form.username.trim() || !form.email.trim()) { setError("Usuario y email son obligatorios."); return }
-    if (!isEdit && !form.password) { setError("La contraseña es obligatoria al crear."); return }
+    if (!form.username.trim() || !form.email.trim()) { toast.error("Usuario y email son obligatorios."); return }
+    if (!isEdit && !form.password) { toast.error("La contraseña es obligatoria al crear."); return }
     setSaving(true)
     try {
       const payload: any = { ...form, ...(isSuperAdmin && { companyIds: selectedCompanies }) }
@@ -76,9 +75,11 @@ export const AdminUserForm = () => {
       } else {
         await apiPost("/api/admin/users", payload)
       }
+      mutate(`${API}/api/admin/users`)
+      toast.success(isEdit ? "Usuario actualizado con éxito" : "Usuario creado con éxito")
       navigate("/admin/users")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar.")
+      toast.error(err instanceof Error ? err.message : "Error al guardar.")
     } finally {
       setSaving(false)
     }
@@ -197,12 +198,6 @@ export const AdminUserForm = () => {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            <span>⚠</span> {error}
           </div>
         )}
 

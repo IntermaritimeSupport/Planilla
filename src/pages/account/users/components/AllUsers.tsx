@@ -1,9 +1,11 @@
 "use client"
 
 import { authFetcher } from "../../../../services/api"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import useSWR, { mutate } from "swr"
+import { toast } from "sonner"
 import Loader from "../../../../components/loaders/loader"
+import { useNavigate } from "react-router-dom"
 import { Company, useCompany } from "../../../../context/routerContext"
 import { usePageName } from "../../../../hook/usePageName"
 import PagesHeader from "../../../../components/headers/pagesHeader"
@@ -47,14 +49,6 @@ export interface UsuarioFull {
     }
 }
 
-type NotificationType = "success" | "error"
-
-interface Notification {
-    type: NotificationType
-    message: string
-    show: boolean
-}
-
 interface DeleteConfirmation {
     show: boolean
     user: UsuarioFull | null
@@ -75,24 +69,13 @@ const getStatusBadge = (user: UsuarioFull) => {
 
 export const AllUsers: React.FC = () => {
     const { isDarkMode, } = useTheme();
+    const navigate = useNavigate()
     const { selectedCompany }: { selectedCompany: Company | null } = useCompany()
     const { data, error, isLoading } = useSWR<UsuarioFull[]>(`${import.meta.env.VITE_API_URL}/api/users/full/${selectedCompany?.id}`, authFetcher)
     const { pageName } = usePageName()
     const { search } = useSearch()
     const [statusFilter, setStatusFilter] = useState("Todos")
-    const [notification, setNotification] = useState<Notification>({ type: "success", message: "", show: false })
     const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({ show: false, user: null, isDeleting: false })
-
-    const showNotification = (type: NotificationType, message: string) => {
-        setNotification({ type, message, show: true })
-    }
-
-    useEffect(() => {
-        if (notification.show) {
-            const timer = setTimeout(() => setNotification((prev) => ({ ...prev, show: false })), 5000)
-            return () => clearTimeout(timer)
-        }
-    }, [notification.show])
 
     const openDeleteConfirmation = (user: UsuarioFull) => {
         setDeleteConfirmation({ show: true, user, isDeleting: false })
@@ -120,11 +103,11 @@ export const AllUsers: React.FC = () => {
             }
 
             mutate(`${import.meta.env.VITE_API_URL}/api/users/full/${selectedCompany?.id}`)
-            showNotification("success", `Usuario ${deleteConfirmation.user.person.fullName} eliminado exitosamente`)
+            toast.success(`Usuario ${deleteConfirmation.user.person.fullName} eliminado exitosamente`)
             closeDeleteConfirmation()
         } catch (error: any) {
             console.error("Error al eliminar usuario:", error)
-            showNotification("error", error.message || "Error inesperado al eliminar el usuario")
+            toast.error(error.message || "Error inesperado al eliminar el usuario")
             setDeleteConfirmation((prev) => ({ ...prev, isDeleting: false }))
         }
     }
@@ -272,7 +255,7 @@ export const AllUsers: React.FC = () => {
                     datos={filteredUsers}
                     titulo={`${pageName} in ${selectedCompany?.name}`}
                     columnasPersonalizadas={columnConfig}
-                    onEditar={(item) => window.location.href = `edit/${item.id}`}
+                    onEditar={(item) => navigate(`/${selectedCompany?.code}/users/edit/${item.id}`)}
                     onEliminar={openDeleteConfirmation}
                     mostrarAcciones={true}
                 />
@@ -316,12 +299,6 @@ export const AllUsers: React.FC = () => {
                 </div>
             )}
 
-            {/* Notification */}
-            {notification.show && (
-                <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 rounded-lg p-4 shadow-lg border ${notification.type === "success" ? "bg-green-800 border-green-600 text-green-100" : "bg-red-800 border-red-600 text-red-100"}`}>
-                    <p className="text-sm font-medium">{notification.message}</p>
-                </div>
-            )}
         </div>
     )
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import Select from "react-select";
+import { toast } from "sonner";
 import { useTheme } from "../../context/themeContext";
 import { Company } from "../../context/routerContext";
 
@@ -112,7 +113,6 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
   const [selectedCompanies, setSelectedCompanies] = useState<CompanyOption[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string>("");
 
   useEffect(() => {
     if (userData && isEditMode && allCompanies) {
@@ -189,7 +189,6 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    setSubmitError("");
 
     try {
       const token = localStorage.getItem("jwt") || localStorage.getItem("jwt");
@@ -248,10 +247,12 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
         }
       }
 
+      mutate(`${VITE_API_URL}/api/users/full/${selectedCompany?.id}`);
+      toast.success(isEditMode ? "Usuario actualizado con éxito" : "Usuario creado con éxito");
       navigate(`/${selectedCompany?.code}/users/all`);
     } catch (error: any) {
       console.error("Error submitting form:", error);
-      setSubmitError(error.message || "Error al guardar el usuario");
+      toast.error(error.message || "Error al guardar el usuario");
     } finally {
       setIsSubmitting(false);
     }
@@ -339,16 +340,6 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {submitError && (
-        <div className={`border rounded-lg p-4 ${
-          isDarkMode
-            ? 'bg-red-900/30 border-red-600 text-red-300'
-            : 'bg-red-100 border-red-300 text-red-800'
-        }`}>
-          {submitError}
-        </div>
-      )}
-
       {/* Información de Cuenta */}
       <div className={`rounded-lg p-6 border transition-colors ${
         isDarkMode

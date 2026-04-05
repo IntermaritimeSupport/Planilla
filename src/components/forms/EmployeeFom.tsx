@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { mutate } from "swr";
+import { toast } from "sonner";
 import { useTheme } from "../../context/themeContext";
 import { History, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -58,7 +60,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
   const isEdit     = Boolean(initialData?.id);
 
   const [loading, setLoading]   = useState(false);
-  const [message, setMessage]   = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [salaryHistory, setSalaryHistory] = useState<SalaryHistoryEntry[]>(
     initialData?.salaryHistory || []
@@ -133,7 +134,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
 
     const method = isEdit ? "PUT" : "POST";
     const url = isEdit
@@ -171,15 +171,17 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
       // Refrescar historial si el API lo devuelve
       if (result?.salaryHistory) setSalaryHistory(result.salaryHistory);
 
-      setMessage({
-        type: "success",
-        text: isEdit
-          ? `Colaborador actualizado${salaryChanged ? " — cambio de salario registrado en historial ✓" : ""}`
-          : "Colaborador creado con éxito",
-      });
-      setTimeout(() => navigate(-1), 1800);
+      // Refrescar tabla de empleados
+      mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${companyId}`);
+
+      toast.success(
+        isEdit
+          ? `Colaborador actualizado${salaryChanged ? " — cambio de salario registrado" : ""}`
+          : "Colaborador creado con éxito"
+      );
+      navigate(-1);
     } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Ocurrió un error al guardar." });
+      toast.error(error.message || "Ocurrió un error al guardar.");
     } finally {
       setLoading(false);
     }
@@ -209,17 +211,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, departments, c
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-
-      {/* Mensaje de éxito / error */}
-      {message && (
-        <div className={`p-4 rounded-lg text-sm font-medium ${
-          message.type === "success"
-            ? isDarkMode ? "bg-green-900/30 text-green-300 border border-green-700" : "bg-green-100 text-green-800 border border-green-300"
-            : isDarkMode ? "bg-red-900/30 text-red-300 border border-red-700"       : "bg-red-100 text-red-800 border border-red-300"
-        }`}>
-          {message.type === "success" ? "✅ " : "❌ "}{message.text}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 

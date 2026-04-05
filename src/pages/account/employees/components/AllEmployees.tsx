@@ -12,6 +12,7 @@ import Tabla from "../../../../components/tables/Table"
 import EmployeeImportModal from "./EmployeeImportModal"
 import { useTheme } from "../../../../context/themeContext"
 import { authFetcher } from "../../../../services/api"
+import { toast } from "sonner"
 
 export type UserRole = 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPER_ADMIN';
 export type SalaryType = 'MONTHLY' | 'BIWEEKLY';
@@ -93,7 +94,6 @@ export const AllEmployees: React.FC = () => {
     const { pageName } = usePageName()
     const { search } = useSearch()
     const [statusFilter,] = useState("Todos")
-    const [notification, setNotification] = useState<{ type: "success" | "error", message: string, show: boolean }>({ type: "success", message: "", show: false })
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, employee: Employee | null, isDeleting: boolean }>({ show: false, employee: null, isDeleting: false })
     const [salaryHistoryEmployee, setSalaryHistoryEmployee] = useState<Employee | null>(null);
     const [page, setPage] = useState(1);
@@ -101,17 +101,6 @@ export const AllEmployees: React.FC = () => {
     const [importModalOpen, setImportModalOpen] = useState(false)
     const [maternityModal, setMaternityModal] = useState<{ show: boolean; employee: Employee | null; saving: boolean }>({ show: false, employee: null, saving: false })
     const [maternityForm, setMaternityForm] = useState({ maternityStartDate: "", maternityEndDate: "", inactivityReason: "Licencia de Maternidad — CSS cubre subsidio" })
-
-    const showNotification = (type: "success" | "error", message: string) => {
-        setNotification({ type, message, show: true })
-    }
-
-    useEffect(() => {
-        if (notification.show) {
-            const timer = setTimeout(() => setNotification((prev) => ({ ...prev, show: false })), 5000)
-            return () => clearTimeout(timer)
-        }
-    }, [notification.show])
 
     const deleteEmployee = async () => {
         if (!deleteConfirmation.employee) return
@@ -127,10 +116,10 @@ export const AllEmployees: React.FC = () => {
             if (!response.ok) throw new Error("Error al eliminar el empleado")
 
             mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
-            showNotification("success", `Empleado ${deleteConfirmation.employee.firstName} eliminado exitosamente`)
+            toast.success(`Empleado ${deleteConfirmation.employee.firstName} eliminado exitosamente`)
             setDeleteConfirmation({ show: false, employee: null, isDeleting: false })
         } catch (error: any) {
-            showNotification("error", error.message || "Error al eliminar")
+            toast.error(error.message || "Error al eliminar")
             setDeleteConfirmation((prev) => ({ ...prev, isDeleting: false }))
         }
     }
@@ -156,10 +145,10 @@ export const AllEmployees: React.FC = () => {
             })
             if (!res.ok) throw new Error("Error al actualizar estado")
             mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
-            showNotification("success", `Licencia de maternidad registrada para ${maternityModal.employee.firstName}`)
+            toast.success(`Licencia de maternidad registrada para ${maternityModal.employee.firstName}`)
             setMaternityModal({ show: false, employee: null, saving: false })
         } catch (error: any) {
-            showNotification("error", error.message || "Error al guardar")
+            toast.error(error.message || "Error al guardar")
             setMaternityModal(p => ({ ...p, saving: false }))
         }
     }
@@ -175,9 +164,9 @@ export const AllEmployees: React.FC = () => {
             })
             if (!res.ok) throw new Error("Error al reactivar empleado")
             mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
-            showNotification("success", `${employee.firstName} reactivado exitosamente`)
+            toast.success(`${employee.firstName} reactivado exitosamente`)
         } catch (error: any) {
-            showNotification("error", error.message || "Error al reactivar")
+            toast.error(error.message || "Error al reactivar")
         }
     }
 
@@ -262,7 +251,7 @@ export const AllEmployees: React.FC = () => {
 
     const handleImportSuccess = () => {
         mutate(`${import.meta.env.VITE_API_URL}/api/payroll/employees?companyId=${selectedCompany?.id}`)
-        showNotification("success", "Empleados importados exitosamente")
+        toast.success("Empleados importados exitosamente")
     }
 
     if (isLoading) return <Loader />
@@ -371,12 +360,6 @@ export const AllEmployees: React.FC = () => {
                 onImportSuccess={handleImportSuccess}
             />
 
-            {/* Notificación Flotante */}
-            {notification.show && (
-                <div className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl border z-50 ${notification.type === 'success' ? 'bg-green-900 border-green-500' : 'bg-red-900 border-red-500'}`}>
-                    {notification.message}
-                </div>
-            )}
             {/* Historial de Salarios */}
             {salaryHistoryEmployee && (
                 <SalaryHistoryModal

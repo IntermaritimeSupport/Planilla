@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import useSWR from "swr"
+import useSWR, { mutate } from "swr"
 import { ArrowLeft, Loader2, Building2, Save, ShieldCheck, Key, ExternalLink } from "lucide-react"
+import { toast } from "sonner"
 import { useTheme } from "../../../context/themeContext"
 import { authFetcher, apiPost, apiPut } from "../../../services/api"
 
@@ -67,7 +68,6 @@ export const AdminCompanyForm = () => {
   const [form, setForm]         = useState(EMPTY)
   const [superAdmin, setSA]     = useState(EMPTY_SA)
   const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState("")
 
   useEffect(() => {
     if (company) {
@@ -85,8 +85,7 @@ export const AdminCompanyForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    if (!form.name.trim()) { setError("El nombre es obligatorio."); return }
+    if (!form.name.trim()) { toast.error("El nombre es obligatorio."); return }
     setSaving(true)
     try {
       if (isEdit) {
@@ -98,9 +97,11 @@ export const AdminCompanyForm = () => {
         }
         await apiPost("/api/admin/companies", payload)
       }
+      mutate(`${API}/api/admin/companies`)
+      toast.success(isEdit ? "Empresa actualizada con éxito" : "Empresa creada con éxito")
       navigate("/admin/companies")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar.")
+      toast.error(err instanceof Error ? err.message : "Error al guardar.")
     } finally {
       setSaving(false)
     }
@@ -268,12 +269,6 @@ export const AdminCompanyForm = () => {
                 <input className={input} value={superAdmin.lastName} onChange={e => setSA(s => ({ ...s, lastName: e.target.value }))} placeholder="Apellido" />
               </div>
             </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            <span>⚠</span> {error}
           </div>
         )}
 
