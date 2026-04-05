@@ -85,12 +85,14 @@ export default function UpdateUser({ userID, departments, selectedCompany }: Upd
 
   const { data: userData, error: userError } = useSWR<UserData>(
     userID ? `${VITE_API_URL}/api/users/profile/${userID}` : null,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   );
 
   const { data: allCompanies } = useSWR<Array<{ id: string; name: string; code: string }>>(
     `${VITE_API_URL}/api/companies/all`,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
   );
 
   const [formData, setFormData] = useState({

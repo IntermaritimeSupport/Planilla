@@ -56,12 +56,14 @@ export const AdminCompanyForm = () => {
 
   const { data: company, isLoading } = useSWR<CompanyDetail>(
     isEdit ? `${API}/api/admin/companies/${id}` : null,
-    authFetcher
+    authFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   const { data: allLicenses } = useSWR<LicenseInfo[]>(
     isEdit ? `${API}/api/admin/licenses` : null,
-    authFetcher
+    authFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
   )
   const licenseInfo = allLicenses?.find(l => l.companyId === id)
 

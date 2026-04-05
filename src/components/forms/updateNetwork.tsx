@@ -150,7 +150,8 @@ const UpdateNetworkForm: React.FC<Props> = ({ selectedCompany, networkID }) => {
     }, [networkID, isEditMode]);
 
     const { data: users, error: errorUsers, isLoading: isLoadingUsers } = useSWR<UsuarioFull[]>(
-        `${VITE_API_URL}/api/users/full`, authFetcher);
+        `${VITE_API_URL}/api/users/full`, authFetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target

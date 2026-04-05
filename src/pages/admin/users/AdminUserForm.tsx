@@ -39,9 +39,12 @@ export const AdminUserForm = () => {
 
   const { data: user, isLoading: loadingUser } = useSWR<AdminUser>(
     isEdit ? `${API}/api/admin/users/${id}` : null,
-    authFetcher
+    authFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
-  const { data: companies } = useSWR<Company[]>(`${API}/api/admin/companies`, authFetcher)
+  const { data: companies } = useSWR<Company[]>(`${API}/api/admin/companies`, authFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
+  )
 
   const [form, setForm] = useState({
     username: "", email: "", password: "", role: "SUPER_ADMIN", isActive: true,

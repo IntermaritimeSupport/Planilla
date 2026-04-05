@@ -61,10 +61,9 @@ const CreateUserPage: React.FC = () => {
         departmentUrl,
         fetcher,
         {
-            revalidateOnFocus: true,
-            shouldRetryOnError: true,
-            errorRetryInterval: 5000,
-            errorRetryCount: 10,
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false,
+            dedupingInterval: 300_000, // 5 minutos
         }
     );
     // console.log("Departamentos cargados:", departments);
@@ -88,15 +87,6 @@ const CreateUserPage: React.FC = () => {
         );
     }
 
-    if (!departments) {
-        return (
-            <div className="min-h-screen bg-gray-900 text-white p-6">
-                <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-6 text-yellow-300">
-                    <p>No hay departamentos disponibles</p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen ">
@@ -131,7 +121,7 @@ const CreateUserPage: React.FC = () => {
 
                 <UpdateUser
                     userID={userID}
-                    departments={departments}
+                    departments={departments ?? []}
                     selectedCompany={selectedCompany}
                 />
             </div>

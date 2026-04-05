@@ -33,19 +33,16 @@ const UpdateNetworkProviderPage: React.FC<Props> = ({ }) => {
     document.title = renderPage;
 
     // 🔹 Consulta 1: Departamentos
-    const { data: departments, error: errorDepartments, isLoading: isLoadingDepartments } = useSWR( // Añadido isLoading
+    const { data: departments, error: errorDepartments, isLoading: isLoadingDepartments } = useSWR(
         selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null, authFetcher,
-        {
-            revalidateOnFocus: true,
-            shouldRetryOnError: true,
-            errorRetryInterval: 5000,
-            errorRetryCount: 10,
-        }
+        { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
     );
 
     // 🔹 Consulta 2: Usuarios
-    const { data: users, error: errorUsers, isLoading: isLoadingUsers } = useSWR<UsuarioFull[]>( // Añadido isLoading
-        `${VITE_API_URL}/api/users/getAll`, authFetcher);
+    const { data: users, error: errorUsers, isLoading: isLoadingUsers } = useSWR<UsuarioFull[]>(
+        `${VITE_API_URL}/api/users/getAll`, authFetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
+    );
 
     // ✅ Lógica corregida para manejo de carga y errores
     if (errorUsers) return <div>Error al cargar usuarios: {errorUsers.message}</div>; // Muestra el error específico

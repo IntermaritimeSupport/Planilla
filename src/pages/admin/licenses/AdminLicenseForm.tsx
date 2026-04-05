@@ -53,7 +53,9 @@ export const AdminLicenseForm = () => {
   const navigate = useNavigate()
   const { userId } = useParams<{ userId: string }>()
 
-  const { data, isLoading } = useSWR<LicenseInfo[]>(`${API}/api/admin/licenses`, authFetcher)
+  const { data, isLoading } = useSWR<LicenseInfo[]>(`${API}/api/admin/licenses`, authFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  )
 
   const account = data?.find(l => l.userId === userId)
   const lic     = account?.license

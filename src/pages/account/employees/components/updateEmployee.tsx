@@ -27,12 +27,14 @@ const ManageEmployeePage: React.FC = () => {
     // Traemos datos del empleado si estamos editando
     const { data: employeeData, isLoading: loadingEmp } = useSWR(
         employeeId ? `${VITE_API_URL}/api/payroll/employees/${employeeId}` : null,
-        fetcher
+        fetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false }
     );
     // Traemos departamentos para el select
     const { data: departments, isLoading: loadingDepts } = useSWR(
         selectedCompany ? `${VITE_API_URL}/api/companies/departments/by-code/${selectedCompany.code}` : null,
-        fetcher
+        fetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 300_000 }
     );
 
     if (loadingEmp || loadingDepts) return <div className="p-10 text-center text-blue-500">Cargando...</div>;
